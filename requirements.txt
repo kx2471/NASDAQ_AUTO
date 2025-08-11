@@ -1,0 +1,12 @@
+# requirements.txt
+openai
+python-dotenv
+requests
+pandas
+numpy
+reportlab
+pytest
+python-json-logger
+pytz
+markdown
+beautifulsoup4
