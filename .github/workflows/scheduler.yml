@@ -1,0 +1,75 @@
+name: Daily Stock Report Scheduler
+
+# KST 16:00 = UTC 07:00 (평일에만 실행)
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'  # 월-금 UTC 07:00
+  workflow_dispatch:  # 수동 실행 허용
+
+jobs:
+  run-daily-report:
+    runs-on: ubuntu-latest
+    
+    env:
+      TZ: Asia/Seoul
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_KEY: ${{ secrets.API_KEY }}
+    
+    steps:
+      - name: Check environment variables
+        run: |
+          if [ -z "$BASE_URL" ]; then
+            echo "❌ BASE_URL secret이 설정되지 않았습니다"
+            exit 1
+          fi
+          if [ -z "$API_KEY" ]; then
+            echo "❌ API_KEY secret이 설정되지 않았습니다"
+            exit 1
+          fi
+          echo "✅ 환경 변수 확인 완료"
+      
+      - name: Display current time (KST)
+        run: |
+          echo "현재 시각 (KST): $(date)"
+          echo "현재 시각 (UTC): $(date -u)"
+      
+      - name: Health check
+        run: |
+          echo "📋 서버 상태 확인 중..."
+          response=$(curl -s -w "%{http_code}" "$BASE_URL/v1/health" -o /tmp/health_response.json)
+          
+          if [ "$response" = "200" ]; then
+            echo "✅ 서버 정상 작동 중"
+            cat /tmp/health_response.json
+          else
+            echo "❌ 서버 상태 확인 실패 (HTTP $response)"
+            cat /tmp/health_response.json 2>/dev/null || echo "응답 없음"
+            exit 1
+          fi
+      
+      - name: Call daily pipeline
+        run: |
+          echo "🚀 데일리 파이프라인 실행 중..."
+          response=$(curl -s -w "%{http_code}" \
+            -X POST "$BASE_URL/v1/run/daily" \
+            -H "x-api-key: $API_KEY" \
+            -H "Content-Type: application/json" \
+            -o /tmp/daily_response.json)
+          
+          if [ "$response" = "200" ]; then
+            echo "✅ 데일리 파이프라인 실행 성공"
+            cat /tmp/daily_response.json
+          else
+            echo "❌ 데일리 파이프라인 실행 실패 (HTTP $response)"
+            cat /tmp/daily_response.json 2>/dev/null || echo "응답 없음"
+            exit 1
+          fi
+      
+      - name: Completion notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 일일 보고서 작업 성공적으로 완료"
+          else
+            echo "❌ 일일 보고서 작업 실패"
+          fi

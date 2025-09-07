@@ -1,363 +1,506 @@
-AutoTrader 프로젝트 가이드 (초안 v0.1)
-이 문서는 더미 데이터 기반 최소 실행 버전에서 실 서비스 구조로 확장하기 위한 상세 실행 가이드입니다.
-목표: 매일 아침 리포트 자동 생성, 장중 의사결정 루프(주문은 현재 Stub), 추후 실 API로 단계적 교체.
+# 📈 Stock-Report System – Full Build Spec (KST 16:00 + OpenAI GPT‑5)
 
-1. 요구사항
-Python 3.10+
+> **Goal**: 매일 \*\*최신 뉴스 + 기술지표(EMA, RSI)\*\*를 수집·저장하고, **최근 N일(기본 30)** 데이터를 바탕으로 AI가 **매수/매도/보류 + 구체적 주문안**을 포함한 보고서를 생성. 사용자는 실제 거래를 하되, 거래/보유 현황을 DB에 기록하면 시스템이 보유수량/평단/현금 자동 갱신. 보고서는 **서버 업로드 + `/data/report` 저장 + 이메일 발송(한국시간 16:00, 나스닥 개장일에만)**.
 
-가상환경 권장 (venv or conda)
+---
 
-인터넷 연결(추후 실데이터/LLM 연동 시)
+## 0. 운영 개요
 
-OS: Windows/Mac/Linux
+* **범위**: 나스닥 종목만 추적, 보고 **분야(sector)**(예: `ai`, `computing`, `nuclear`)는 사용자가 지정.
+* **일일 루틴(영업일)**:
 
-2. 설치 & 초기 실행
-bash
-복사
-편집
-# (1) 가상환경 생성/활성화
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
+  1. 가격/지표(EMA, RSI) 갱신 → 2) 분야별 뉴스/감성 저장 → 3) 보유/현금 기반 주문 제안 → 4) **리포트 생성**(MD/HTML) → 5) 서버 업로드 + 로컬 `/data/report/` 저장 → 6) **이메일 발송(한국시간 16:00, 미개장일은 스킵)**
+* **타임존**: 발송 기준 `Asia/Seoul`. 미국 시장 휴장/주말 여부는 서버에서 체크.
 
-# (2) 의존성 설치
-pip install -r requirements.txt
+---
 
-# (3) 환경파일 생성
-cp .env.example .env
-# 필요한 값을 채우세요(처음엔 비워둬도 더미 실행 가능)
+## 1. 기술 선택 (무료 우선 / 기본값)
 
-# (4) 더미 데이터로 아침 리포트 생성
-python app.py
-# data/reports/report_YYYYMMDD_HHMM.md/.html 생성 확인
-3. 프로젝트 구조
-csharp
-복사
-편집
-autotrader/
-  app.py                      # 엔트리포인트(현재 premarket_report 실행)
-  config.py                   # 공통 설정/.env 로더
-  requirements.txt
-  .env.example
-  README.md (본 문서)
+**서버(HTTP API)**: Node.js + Express
 
-  ingest/
-    __init__.py
-    universe.py               # 나스닥 유니버스(심볼 리스트)
-    marketdata_base.py        # 시세 더미/향후 실제 어댑터 교체 지점
-    news_base.py              # 뉴스 더미/향후 실제 어댑터 교체 지점
+* 배포: **Render Free Web Service**(기본) 또는 Vercel / Railway / Fly.io
 
-  features/
-    __init__.py
-    indicators.py             # RSI 등 기술지표
+**데이터베이스**: **PostgreSQL (Neon Free)**
 
-  llm/
-    __init__.py
-    openai_client.py          # LLM 호출 래퍼(현재 Stub)
-    decision_engine.py        # 후보 구성/LLM 호출/결과 통합
+* 대안: Supabase(Postgres + 대시보드), MongoDB Atlas(M0)
 
-  broker/
-    __init__.py
-    base.py                   # BrokerAdapter 인터페이스
-    kiwoom_us_stub.py         # 키움 미국주식 Stub(로깅만)
+**이메일**: Resend(무료 개발 플랜) 또는 Nodemailer(SMTP: Gmail/NAVER)
 
-  report/
-    __init__.py
-    render.py                 # Markdown/HTML 리포트 생성
+**크론/스케줄러**: GitHub Actions(무료)로 서버 엔드포인트 호출(UTC 07:00 = KST 16:00)
 
-  scheduler/
-    __init__.py
-    jobs.py (추가 예정)
+**가격/지표/뉴스 공급자**: Alpha Vantage(지표/뉴스 감성), Yahoo Finance(비공식), Twelve Data, Finnhub(프리티어)
 
-  storage/
-    __init__.py
-    paths.py (추가 예정)
-    db.py (옵션)
+**LLM 보고서 생성**: **OpenAI GPT‑5(API)**
 
-  utils/
-    __init__.py
-    timezones.py
-    logging.py
-    validation.py (추가 예정: JSON 스키마 검증)
+* `.env`: `LLM_PROVIDER=OPENAI`, `LLM_MODEL=gpt-5`, `OPENAI_API_KEY=`
+* \*\*프롬프트는 리포지토리 최상위 `prompt.md`\*\*로 관리(시스템 프롬프트)
 
-  tests/
-    test_indicators.py        # 예시 유닛테스트
-4. 환경 변수(.env)
-민감 정보는 Git에 커밋 금지! .env.example만 커밋하고 실제 .env는 로컬/서버에만 보관.
+---
 
-env
-복사
-편집
-# OpenAI
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
+## 2. 리포지토리 구조
 
-# Market Data / News (실연동 시 하나 이상 선택)
+```
+stock-report/
+├─ /src
+│  ├─ server/            # Express 서버
+│  ├─ jobs/              # 크론 잡(수집/지표/뉴스/리포트/메일)
+│  ├─ services/          # 데이터 공급자, LLM, 메일 등 추상화
+│  ├─ db/                # SQL/ORM 스키마, 마이그레이션
+│  ├─ logic/             # 점수화/추천/리포트 템플릿
+│  ├─ utils/             # 시간대/휴장일/로거/에러
+│  └─ index.ts
+├─ /config
+│  ├─ sectors.yml        # 분야→티커 매핑
+│  └─ providers.yml      # 데이터 공급자 설정
+├─ /data
+│  ├─ report/            # 생성 리포트(.md/.html)
+│  └─ cache/             # 캐시(옵션)
+├─ /scripts              # 수동 실행 스크립트
+├─ .github/workflows
+│  └─ scheduler.yml      # KST 16:00 트리거(UTC 07:00)
+├─ prompt.md             # ▶︎ 시스템 프롬프트
+├─ .env.example
+├─ package.json
+└─ README.md
+```
+
+---
+
+## 3. 환경 변수 (.env)
+
+```
+# Server
+PORT=8080
+API_KEY=change_me
+NODE_ENV=production
+BASE_URL=https://<your-render-app>.onrender.com
+
+# DB (Neon or Supabase)
+DATABASE_URL=postgres://user:pass@host/dbname
+
+# Data Providers
 ALPHAVANTAGE_API_KEY=
-POLYGON_API_KEY=
-IEXCLOUD_API_KEY=
 FINNHUB_API_KEY=
+NEWSAPI_API_KEY=
+
+# LLM (OpenAI GPT-5)
+LLM_PROVIDER=OPENAI
+OPENAI_API_KEY=
+LLM_MODEL=gpt-5
+
+# Mail
+MAIL_PROVIDER=RESEND     # or SMTP
+RESEND_API_KEY=
+SMTP_HOST=
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=
+SMTP_PASS=
+MAIL_FROM="Stock Report <noreply@yourdomain>"
+MAIL_TO=han29181@naver.com
+
+# Scheduling
+REPORT_LOOKBACK_DAYS=30
+MARKET_TZ=America/New_York
+SEND_TZ=Asia/Seoul
+SEND_HOUR_LOCAL=16
+```
+
+---
+
+## 4. DB 스키마 (PostgreSQL)
+
+> **보유/현금은 이벤트(거래/입출금)에서 재계산 → 재현성/감사 용이**
+
+```sql
+CREATE TABLE symbols (
+  symbol TEXT PRIMARY KEY,
+  name TEXT,
+  exchange TEXT DEFAULT 'NASDAQ',
+  sector TEXT,
+  industry TEXT,
+  active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE sectors (
+  code TEXT PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE sector_symbols (
+  sector_code TEXT REFERENCES sectors(code) ON DELETE CASCADE,
+  symbol TEXT REFERENCES symbols(symbol) ON DELETE CASCADE,
+  PRIMARY KEY (sector_code, symbol)
+);
+
+CREATE TABLE prices_daily (
+  symbol TEXT REFERENCES symbols(symbol),
+  date DATE,
+  open NUMERIC, high NUMERIC, low NUMERIC, close NUMERIC,
+  volume BIGINT,
+  PRIMARY KEY (symbol, date)
+);
+CREATE INDEX idx_prices_daily_date ON prices_daily(date);
+
+CREATE TABLE indicators_daily (
+  symbol TEXT REFERENCES symbols(symbol),
+  date DATE,
+  ema_20 NUMERIC, ema_50 NUMERIC, rsi_14 NUMERIC,
+  PRIMARY KEY (symbol, date)
+);
+
+CREATE TABLE news (
+  id TEXT PRIMARY KEY,
+  symbol TEXT REFERENCES symbols(symbol),
+  sector_code TEXT REFERENCES sectors(code),
+  published_at TIMESTAMP,
+  source TEXT, title TEXT, url TEXT,
+  summary TEXT,
+  sentiment NUMERIC, relevance NUMERIC
+);
+CREATE INDEX idx_news_time ON news(published_at);
+
+CREATE TABLE trades (
+  id SERIAL PRIMARY KEY,
+  traded_at TIMESTAMP NOT NULL,
+  symbol TEXT REFERENCES symbols(symbol),
+  side TEXT CHECK (side IN ('BUY','SELL')),
+  qty NUMERIC NOT NULL,
+  price NUMERIC NOT NULL,
+  fee NUMERIC DEFAULT 0,
+  note TEXT
+);
+
+CREATE TABLE cash_events (
+  id SERIAL PRIMARY KEY,
+  occurred_at TIMESTAMP NOT NULL,
+  type TEXT CHECK (type IN ('DEPOSIT','WITHDRAW')),
+  amount NUMERIC NOT NULL,
+  note TEXT
+);
+
+CREATE MATERIALIZED VIEW holdings AS
+SELECT
+  t.symbol,
+  SUM(CASE WHEN side='BUY' THEN qty ELSE -qty END) AS shares,
+  CASE WHEN SUM(CASE WHEN side='BUY' THEN qty ELSE -qty END)=0
+       THEN 0
+       ELSE (SUM(CASE WHEN side='BUY' THEN qty*price+fee ELSE 0 END)
+            / NULLIF(SUM(CASE WHEN side='BUY' THEN qty ELSE 0 END),0))
+  END AS avg_cost
+FROM trades t
+GROUP BY t.symbol;
+
+CREATE MATERIALIZED VIEW cash_balance AS
+SELECT COALESCE(
+  (SELECT SUM(CASE WHEN type='DEPOSIT' THEN amount ELSE -amount END) FROM cash_events),0
+) - COALESCE(
+  (SELECT SUM(CASE WHEN side='BUY' THEN qty*price+fee ELSE 0 END) FROM trades),0
+) + COALESCE(
+  (SELECT SUM(CASE WHEN side='SELL' THEN qty*price-fee ELSE 0 END) FROM trades),0
+) AS balance;
+```
+
+> 리포트 생성 전: `REFRESH MATERIALIZED VIEW holdings; REFRESH MATERIALIZED VIEW cash_balance;`
+
+---
+
+## 5. 핵심 로직
+
+### 5.1 EMA/RSI 계산 요약
+
+* EMA(L): `α=2/(L+1)`, `EMA_t=α*P_t+(1-α)*EMA_{t-1}`
+* RSI(14): 평균상승/하락으로 RS→RSI 산출
+
+### 5.2 점수/신호(초기안)
+
+* 모멘텀: `ema20>ema50`=+1, 반대 -1
+* RSI: `<35` 과매도(+), `>70` 과매수(−)
+* 뉴스 감성: 평균 감성 `>+0.2` 호재, `<-0.2` 악재(최신 가중)
+* 종합점수: `score = w1*momentum + w2*rsi_signal + w3*news`
+
+### 5.3 주문 제안(요지)
+
+* 보유/현금 스냅샷 후 섹터 내 후보 스코어링
+* 매수: `score>=τ_buy` & `RSI<60`, 매도: `score<=τ_sell` 또는 `RSI>70`
+* 비중 상한 20%, 부분매도 30% 기본, 수량은 정수화
+
+---
+
+## 6. API (Express)
+
+* 인증: `x-api-key: ${API_KEY}`
+
+```
+POST /v1/trades             # 거래 입력(BUY/SELL)
+POST /v1/cash               # 입출금 입력
+POST /v1/ingest/prices      # 가격 수집
+POST /v1/ingest/indicators  # 지표 계산
+POST /v1/ingest/news        # 뉴스 수집
+POST /v1/report/generate    # 리포트 생성(파일 저장 + 서버 업로드)
+POST /v1/report/send        # 최신 리포트 이메일 발송
+POST /v1/run/daily          # 전체 파이프라인 실행
+GET  /v1/health             # 헬스체크
+```
+
+---
+
+## 7. 크론 & 자동화
+
+### 7.1 GitHub Actions 스케줄(KST 16:00)
+
+* **UTC 07:00 = KST 16:00** 평일 실행 → 서버가 휴장일 판단
+
+```yaml
+name: daily-report
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_KEY: ${{ secrets.API_KEY }}
+    steps:
+      - name: Call daily pipeline (KST 16:00)
+        run: |
+          curl -s -f -X POST "$BASE_URL/v1/run/daily" -H "x-api-key: $API_KEY"
+```
 
-# Broker (추후 실제 연동 시)
-KIWOOM_APPKEY=
-KIWOOM_APPSECRET=
+### 7.2 서버 내부 파이프라인
 
-# Report & Paths
-DATA_DIR=./data
-REPORT_OUT=./data/reports
-ENV=dev
-5. 실행 모드
-5.1 프리마켓 리포트(현재 구현)
-더미 시세/뉴스 → RSI 계산 → LLM Stub 의사결정 → Markdown/HTML 리포트 저장
+0. `isNasdaqOpen(today)` 검사(주말/미국 휴일 스킵)
+1. 가격 수집 → 2) 지표 계산 → 3) 뉴스 수집/요약/감성
+2. 보유/현금 리프레시 → 5) 추천 산출
+3. `prompt.md` 로드 + OpenAI GPT‑5 호출 → 텍스트 보고
+4. 리포트 저장(`/data/report/YYMMDD.md|html`) → 8) 서버 업로드 → 9) 이메일 발송
 
-bash
-복사
-편집
-python app.py
-5.2 장중 루프(추가 예정)
-미국장(KST 22:30~05:00, 서머타임 기준) 동안 N분 주기:
+---
 
-최신 가격/뉴스 갱신(경량)
+## 8. 리포트 템플릿(출력 MD)
 
-LLM 의사결정 재평가
+```md
+# 📊 데일리 리포트 – {{DATE}} (섹터: {{SECTOR_TITLE}})
 
-(현 단계) 주문 스텁: 로깅만
+## 요약
+- 포트폴리오 가치: ${{portfolio_value}}
+- 현금 보유: ${{cash}}
+- 보유 상위: {{top_holdings}}
+- 섹터 모멘텀: {{sector_momentum}} | 뉴스 감성: {{sector_sentiment}}
 
-6. 모듈 상세 & 교체 지점
-6.1 ingest (데이터 수집)
-universe.py: 나스닥 상장 유니버스 관리(초기엔 하드코딩 → 추후 공식 리스트 동기).
+## 주문 제안
+{{#each suggestions}}
+- **{{symbol}}**: {{action}} {{qty}}주 — _{{reason}}_
+{{/each}}
 
-marketdata_base.py:
+## 보유 종목 상태
+| 종목 | 수량 | 평단 | 현재가 | 평가손익 | RSI14 | EMA20>EMA50 |
+|---|---:|---:|---:|---:|---:|:---:|
+{{holdings_table}}
 
-지금: get_dummy_prices(symbol) 가짜 종가 시계열 리턴
+## 섹터 뉴스 Top N
+{{#each news}}
+- ({{published_at}}) **{{title}}** — {{source}} [링크]({{url}})
+  - 요약: {{summary}}
+  - 감성: {{sentiment}}
+{{/each}}
 
-교체: marketdata_alpha.py(Alpha Vantage), marketdata_polygon.py(Polygon) 등 구현
+## 메서드
+- 지표: EMA(20/50), RSI(14)
+- 신호 가중치: w1={{w1}}, w2={{w2}}, w3={{w3}}
+- 기간: 최근 {{lookback}}일
+
+> *본 리포트는 투자자문이 아니며, 모든 결정과 책임은 사용자에게 있습니다.*
+```
+
+---
 
-news_base.py:
+## 9. 서버 스켈레톤
 
-지금: get_dummy_news(symbols) 더미 헤드라인
+```ts
+// src/server/index.ts
+import express from 'express';
+import { runDaily } from '../jobs/daily';
+import { auth } from './middleware/auth';
 
-교체: news_finnhub.py 등 구현
+const app = express();
+app.use(express.json());
+app.use(auth);
 
-교체 가이드(예):
+app.post('/v1/run/daily', async (req,res)=>{
+  await runDaily();
+  res.json({ok:true});
+});
 
-python
-복사
-편집
-# ingest/marketdata_alpha.py (예시 스켈레톤)
-import requests, os
-API_KEY = os.getenv("ALPHAVANTAGE_API_KEY")
-
-def get_prices(symbol: str):
-    # Alpha Vantage TIME_SERIES_DAILY_ADJUSTED 등 호출 후
-    # closes 리스트로 변환하여 {"symbol":sym, "closes":[...]} 형태로 반환
-    ...
-그리고 app.py에서:
-
-python
-복사
-편집
-# from ingest.marketdata_alpha import get_prices as get_dummy_prices
-로 import 교체.
-
-6.2 features (지표/특징)
-indicators.py: RSI 구현(간단형).
-
-확장: SMA/EMA/ATR/볼린저밴드 추가 → featurizer.py에서 종합 스코어 산출.
-
-6.3 llm (의사결정)
-decision_engine.py:
-
-가격/지표/뉴스 → 후보 배열(candidates) 구성
-
-OpenAIClient.decide(payload) 호출
-
-openai_client.py:
-
-지금: RSI만 보고 BUY/SELL/조건 생성(Stub)
-
-교체: 실제 OpenAI API 호출(JSON 모드) + 프롬프트 템플릿 적용
-
-실연동 체크리스트
-
-.env에 OPENAI_API_KEY 입력
-
-openai 라이브러리 추가 → requirements.txt 갱신
-
-프롬프트(의사결정 JSON 스키마) 적용
-
-실패 시 재시도/스키마 재교정 로직(utils/validation.py) 추가
-
-실연동 예(개략)
-
-python
-복사
-편집
-# llm/openai_client.py
-from openai import OpenAI
-import os, json
-
-class OpenAIClient:
-    def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = os.getenv("OPENAI_MODEL","gpt-4.1-mini")
-
-    def decide(self, payload: dict) -> dict:
-        prompt = build_prompt(payload)  # 프롬프트 템플릿 적용 함수(별도 구현)
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role":"system","content":SYSTEM_PROMPT},
-                      {"role":"user","content":prompt}],
-            response_format={ "type": "json_object" }
-        )
-        data = json.loads(resp.choices[0].message.content)
-        validate_schema(data)          # 실패 시 예외 → 재시도 프롬프트 사용
-        return data
-6.4 broker (주문)
-base.py: 인터페이스 정의(buy/sell)
-
-kiwoom_us_stub.py: 로깅만 수행(실주문 없음)
-
-실연동 시:
-
-kiwoom_us.py 구현(로그인/토큰/주문/조회),
-
-app.py 혹은 루프 내에서 KiwoomUS 인스턴스 사용
-
-보안: KIWOOM 키/시크릿은 반드시 .env에서 로딩, 로그에 민감 정보 출력 금지.
-
-6.5 report (리포트)
-render.py: 의사결정 JSON → Markdown/HTML 변환
-
-확장:
-
-표/섹션 추가(Top Picks, 포지션 점검, 이벤트 캘린더)
-
-PDF 변환(예: weasyprint, reportlab) 추가
-
-Slack/Webhook/Email 발송(publisher.py) 추가
-
-7. 스케줄링
-7.1 KST 기준 추천 스케줄
-아침 리포트: 매일 07:30 KST
-
-장중 루프: 22:3005:00 KST(서머타임 기준) 동안 1015분 간격
-
-7.2 Linux/macOS (cron)
-bash
-복사
-편집
-crontab -e
-# 매일 07:30 리포트
-30 7 * * * /path/to/venv/bin/python /path/to/autotrader/app.py >> /path/to/logs/report.log 2>&1
-7.3 Windows (작업 스케줄러)
-작업 만들기 → 트리거(매일 07:30) → 동작:
-Program/script: C:\Path\to\python.exe
-Arguments: C:\Path\to\autotrader\app.py
-Start in: C:\Path\to\autotrader
-
-8. 로깅 & 감사 추적
-utils/logging.py의 포맷으로 콘솔 출력
-
-권장: logs/ 폴더 생성 후 파일 핸들러 추가
-
-향후:
-
-LLM 요청/응답 저장(요약/해시 포함)
-
-데이터 타임스탬프/공급자/버전 기록 → 재현성 확보
-
-9. 테스트
-bash
-복사
-편집
-pip install pytest
-pytest -q
-tests/test_indicators.py 예시 제공
-
-추가 권장 테스트
-
-LLM JSON 스키마 검증 (utils/validation.py 도입 후)
-
-인제스트 어댑터(실데이터 모킹)
-
-리스크 룰(엣지 케이스)
-
-10. 보안 수칙
-.env는 절대 커밋 금지
-
-키/토큰은 환경변수 로딩 단일 경로(config.py)로만 접근
-
-로그에 민감 정보 출력 금지
-
-퍼블릭 저장소 공개 시 .gitignore 재확인
-
-11. 단계별 마이그레이션 체크리스트
- 데이터 공급자 교체: ingest/marketdata_*.py, news_*.py 구현 → app.py import 교체
-
- 지표 확장: SMA/EMA/ATR/변동성 스코어 → features/featurizer.py
-
- LLM 실연동: openai_client.py 실제 호출 + 프롬프트/JSON 모드 + 스키마 검증
-
- 리스크 룰: risk/ 모듈 신설(포지션 한도, 섹터 집중, 손절/익절 레일)
-
- 리포트 강화: Top Picks/포지션/워치리스트/이벤트/출처 표기
-
- 스케줄러: scheduler/jobs.py + cron/작업스케줄러 등록
-
- 주문 연동(선택): broker/kiwoom_us.py 구현 → 페이퍼→제한적 실거래
-
- 로깅/감사: LLM 요청/응답/결과/데이터 버전 로깅
-
- 대시보드(후순위): Streamlit/Gradio로 P/L·리스크 실시간 뷰
-
-12. 자주 묻는 질문(FAQ)
-Q1. 지금은 왜 리포트만?
-A. 안전을 위해 의사결정/보고부터 고도화 → 주문은 충분한 검증 후 붙입니다.
-
-Q2. 나스닥 필터는 어디서?
-A. 초기엔 하드코딩 리스트(universe.py). 이후 공식 심볼 소스 동기 모듈 추가 권장.
-
-Q3. LLM이 JSON을 깨뜨릴 때는?
-A. utils/validation.py의 스키마 검증 + 재시도 프롬프트(스키마/오류/원본 전달)로 교정하세요.
-
-13. 다음 작업 제안(우선순위)
-llm/openai_client.py → 실제 OpenAI 연동(JSON 모드 + 재시도)
-
-ingest → 실데이터 어댑터 1종 추가(EOD 기준 먼저)
-
-report → Top Picks/포지션/워치리스트 섹션 강화
-
-risk → 기본 룰(종목 10%, 섹터 25%, 총 60~90%) 적용 및 검증
-
-scheduler → 07:30 리포트 자동화
-
-부록 A. OpenAI 의사결정 프롬프트(요지)
-text
-복사
-편집
-[system] 당신은 나스닥 하이브리드 트레이딩 전략가입니다. 데이터+뉴스 근거, JSON 스키마 준수, 나스닥 외 배제...
-[user] market_overview, positions, candidates(가격/RSI/뉴스 핵심) 를 바탕으로 아래 스키마로만 JSON 출력...
-부록 B. 의사결정 JSON 스키마(요지)
-json
-복사
-편집
-{
-  "as_of":"ISO-8601 KST",
-  "market_view":"string",
-  "actions":[
-    {
-      "symbol":"string","decision":"BUY|SELL|HOLD|SKIP","target_shares":0,
-      "entry_plan":{"buy_zone":[0,0],"max_allocation_pct":10},
-      "exit_plan":{"take_profit_pct":5,"stop_loss_pct":5,"notes":"..."},
-      "reasoning":["..."],"risks":["..."],"confidence":0.0
-    }
-  ],
-  "watchlist":["SYM", "..."],
-  "constraints_check":{"total_exposure_pct":0,"sector_concentration_flags":[],"violations":[]},
-  "data_sources":["..."]
+app.get('/v1/health', (_,res)=> res.json({ok:true}));
+
+app.listen(process.env.PORT||8080, ()=> console.log('server ready'))
+```
+
+---
+
+## 10. 데이터/뉴스 서비스 추상화
+
+```ts
+// src/services/market.ts
+export async function fetchDailyPrices(symbols:string[]): Promise<Record<string, {date:string, close:number}[]>> { /* provider 스위치 */ }
+export function computeIndicators(closes:number[]): {ema20:number, ema50:number, rsi14:number} { /* 5.1 */ }
+
+// src/services/news.ts
+export async function fetchNews(opts:{symbols:string[], sector?:string}): Promise<NewsItem[]> { /* provider 스위치 */ }
+export function summarizeAndScore(text:string): {summary:string, sentiment:number} { /* 간단 요약+감성 */ }
+```
+
+---
+
+## 11. 이메일 발송
+
+* 발송 시각: **한국시간 16:00**, **나스닥 개장일에만**
+* Resend 또는 Nodemailer(SMTP: NAVER 호환)
+
+```ts
+// src/services/mail.ts
+export async function sendReportEmail({html, mdPath}:{html:string, mdPath:string}) { /* provider별 구현 */ }
+```
+
+---
+
+## 12. 보안/운영
+
+* API Key 헤더, HTTPS(플랫폼 기본)
+* DB는 서버 측만 접근
+* 뉴스/가격/이메일 호출 실패 리트라이 + 백오프
+* upsert 키 고정(가격: symbol+date, 뉴스: provider+id 해시)
+
+---
+
+## 13. QA 체크리스트
+
+* [ ] 가격 시계열 단조성
+* [ ] EMA/RSI 샘플 스팟 검증
+* [ ] 뉴스 중복·시점·출처 표기
+* [ ] 보유/현금 재계산 일치
+* [ ] 리포트 섹션 누락 없음
+* [ ] NAVER 수신 테스트(스팸 미분류)
+
+---
+
+## 14. 초기 작업 순서(TODO)
+
+* [ ] Render Free로 서버 배포 + `/v1/health` 확인
+* [ ] Neon Postgres 생성 → `DATABASE_URL` 연결 → 마이그레이션
+* [ ] `sectors.yml` 작성(예: ai: NVDA, MSFT, AMD…)
+* [ ] 데이터 공급자 API 키 발급/적용
+* [ ] `/v1/run/daily` 수동 실행 → `/data/report` 생성 확인
+* [ ] 이메일 발송 테스트
+* [ ] GitHub Actions 스케줄(UTC 07:00) 활성화
+
+---
+
+## 15. `sectors.yml` 예시
+
+```yml
+a i:
+  title: AI
+  symbols: [NVDA, MSFT, AMD, GOOGL, META]
+computing:
+  title: Computing
+  symbols: [AAPL, AVGO, CRM, ORCL, INTC]
+nuclear:
+  title: Nuclear
+  symbols: [SMR, UEC, CCJ, NRG, BWXT]
+```
+
+---
+
+## 16. `prompt.md` (시스템 프롬프트 예시 전문)
+
+```md
+# System Prompt: Stock Daily Report Generator
+
+You are an equity strategy reporter. Produce a detailed, actionable **Korean** report for NASDAQ focus sectors.
+
+## Inputs (JSON payload)
+- lookback_days: integer (default 30)
+- portfolio: { cash_usd, holdings:[{symbol, shares, avg_cost}] }
+- market: { date, sector_code, sector_title }
+- indicators: per-symbol { close, ema20, ema50, rsi14 }
+- news: top items { published_at, source, title, url, summary, sentiment, relevance }
+- scores: per-symbol composite score in [0,1]
+
+## Output Sections (Markdown)
+1. 요약: 포트폴리오 가치, 현금, 상위 보유, 섹터 모멘텀/감성
+2. 주문 제안:
+   - 규칙: 매도/매수/보류 별로 리스트.
+   - 구체적 수량/금액 제시: 현금/가격/수수료 고려, 단일 종목 20% 상한, 부분매도 30% 기본.
+   - 서술 이유: 지표(EMA 교차, RSI), 뉴스 감성, 점수 근거.
+3. 보유 종목 상태 표: 수량/평단/현재가/평가손익/RSI/EMA 교차 여부
+4. 섹터 뉴스 Top N: 핵심 요약과 감성
+5. 방법론: 지표, 가중치, 룩백
+6. 면책문구
+
+## Style
+- 간결하지만 구체적 수치 포함. 불필요한 수식어 금지.
+- 표는 파이프(|) 마크다운 테이블.
+- 금액/수량은 반올림 규칙 명시(수량=정수, 금액=소수 2자리).
+
+## Constraints
+- **투자자문 아님** 명시.
+- 데이터 부재 시 해당 섹션 생략 대신 "데이터 부족" 표기.
+```
+
+---
+
+## 17. OpenAI GPT‑5 호출 예시
+
+```ts
+// src/services/llm.ts
+import OpenAI from 'openai';
+import fs from 'node:fs/promises';
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+
+export async function generateReportWithOpenAI(payload:any){
+  const prompt = await fs.readFile('prompt.md','utf8');
+  const messages = [
+    { role: 'system', content: prompt },
+    { role: 'user', content: JSON.stringify(payload) }
+  ];
+  const res = await client.chat.completions.create({
+    model: process.env.LLM_MODEL || 'gpt-5',
+    messages,
+    temperature: 0.2,
+  });
+  return res.choices[0].message?.content || '';
 }
-변경 이력
-v0.1 (초안): 더미 데이터 기반 리포트 생성 경로 정리, 실연동 체크리스트 포함.
+```
+
+---
+
+## 18. 휴장일 체크 유틸
+
+```ts
+// src/utils/marketday.ts
+import { utcToZonedTime } from 'date-fns-tz';
+import Holidays from 'date-holidays';
+
+const hd = new Holidays('US');
+
+export function isNasdaqOpen(d: Date){
+  const ny = utcToZonedTime(d, 'America/New_York');
+  const dow = ny.getDay();
+  if (dow===0 || dow===6) return false; // Sun/Sat
+  const h = hd.isHoliday(ny);
+  return !h; // 필요 시 조기종료/특수 일정 확장 가능
+}
+```
+
+---
+
+## 19. 주의/한계
+
+* 무료 API는 쿼터 제한 큼 → 캐시/집계/리트라이 필요
+* 프리 호스팅은 콜드스타트 발생 가능 → 스케줄 직전 헬스콜 고려
+* NAVER 수신은 도메인 인증(DKIM/SPF)하면 스팸 확률 감소

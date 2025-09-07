@@ -1,0 +1,11 @@
+ai:
+  title: AI
+  symbols: [NVDA, MSFT, AMD, GOOGL, META]
+
+computing:
+  title: Computing
+  symbols: [AAPL, AVGO, CRM, ORCL, INTC]
+
+nuclear:
+  title: Nuclear
+  symbols: [SMR, UEC, CCJ, NRG, BWXT]

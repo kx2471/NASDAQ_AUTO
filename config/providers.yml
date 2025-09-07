@@ -1,0 +1,26 @@
+alphavantage:
+  enabled: true
+  priority: 1
+  rate_limit:
+    calls_per_minute: 5
+    calls_per_day: 500
+  options:
+    timeout: 10000
+
+finnhub:
+  enabled: false
+  priority: 2
+  rate_limit:
+    calls_per_minute: 60
+    calls_per_day: 1000
+  options:
+    timeout: 8000
+
+newsapi:
+  enabled: true
+  priority: 1
+  rate_limit:
+    calls_per_minute: 20
+    calls_per_day: 1000
+  options:
+    timeout: 5000
