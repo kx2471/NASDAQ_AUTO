@@ -20,9 +20,9 @@
 
 * 배포: **Render Free Web Service**(기본) 또는 Vercel / Railway / Fly.io
 
-**데이터베이스**: **PostgreSQL (Neon Free)**
+**데이터베이스**: **JSON 파일 기반 저장소**
 
-* 대안: Supabase(Postgres + 대시보드), MongoDB Atlas(M0)
+* 장점: 서버 의존성 없음, 단순한 구조, 백업/복원 용이
 
 **이메일**: Resend(무료 개발 플랜) 또는 Nodemailer(SMTP: Gmail/NAVER)
 
@@ -45,12 +45,12 @@ stock-report/
 │  ├─ server/            # Express 서버
 │  ├─ jobs/              # 크론 잡(수집/지표/뉴스/리포트/메일)
 │  ├─ services/          # 데이터 공급자, LLM, 메일 등 추상화
-│  ├─ db/                # SQL/ORM 스키마, 마이그레이션
+│  ├─ storage/           # JSON 파일 저장소 관리
 │  ├─ logic/             # 점수화/추천/리포트 템플릿
 │  ├─ utils/             # 시간대/휴장일/로거/에러
 │  └─ index.ts
 ├─ /config
-│  ├─ sectors.yml        # 분야→티커 매핑
+│  ├─ sectors.yml        # 섹터별 키워드 및 설정
 │  └─ providers.yml      # 데이터 공급자 설정
 ├─ /data
 │  ├─ report/            # 생성 리포트(.md/.html)
@@ -75,8 +75,8 @@ API_KEY=change_me
 NODE_ENV=production
 BASE_URL=https://<your-render-app>.onrender.com
 
-# DB (Neon or Supabase)
-DATABASE_URL=postgres://user:pass@host/dbname
+# Storage (JSON 파일 기반)
+# DATABASE_URL 불필요
 
 # Data Providers
 ALPHAVANTAGE_API_KEY=
@@ -108,100 +108,72 @@ SEND_HOUR_LOCAL=16
 
 ---
 
-## 4. DB 스키마 (PostgreSQL)
+## 4. 데이터 구조 (JSON 파일 기반)
 
-> **보유/현금은 이벤트(거래/입출금)에서 재계산 → 재현성/감사 용이**
+> **보유/현금은 거래 이벤트에서 실시간 계산 → 단순하면서 재현성 보장**
 
-```sql
-CREATE TABLE symbols (
-  symbol TEXT PRIMARY KEY,
-  name TEXT,
-  exchange TEXT DEFAULT 'NASDAQ',
-  sector TEXT,
-  industry TEXT,
-  active BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE sectors (
-  code TEXT PRIMARY KEY,
-  title TEXT NOT NULL
-);
-
-CREATE TABLE sector_symbols (
-  sector_code TEXT REFERENCES sectors(code) ON DELETE CASCADE,
-  symbol TEXT REFERENCES symbols(symbol) ON DELETE CASCADE,
-  PRIMARY KEY (sector_code, symbol)
-);
-
-CREATE TABLE prices_daily (
-  symbol TEXT REFERENCES symbols(symbol),
-  date DATE,
-  open NUMERIC, high NUMERIC, low NUMERIC, close NUMERIC,
-  volume BIGINT,
-  PRIMARY KEY (symbol, date)
-);
-CREATE INDEX idx_prices_daily_date ON prices_daily(date);
-
-CREATE TABLE indicators_daily (
-  symbol TEXT REFERENCES symbols(symbol),
-  date DATE,
-  ema_20 NUMERIC, ema_50 NUMERIC, rsi_14 NUMERIC,
-  PRIMARY KEY (symbol, date)
-);
-
-CREATE TABLE news (
-  id TEXT PRIMARY KEY,
-  symbol TEXT REFERENCES symbols(symbol),
-  sector_code TEXT REFERENCES sectors(code),
-  published_at TIMESTAMP,
-  source TEXT, title TEXT, url TEXT,
-  summary TEXT,
-  sentiment NUMERIC, relevance NUMERIC
-);
-CREATE INDEX idx_news_time ON news(published_at);
-
-CREATE TABLE trades (
-  id SERIAL PRIMARY KEY,
-  traded_at TIMESTAMP NOT NULL,
-  symbol TEXT REFERENCES symbols(symbol),
-  side TEXT CHECK (side IN ('BUY','SELL')),
-  qty NUMERIC NOT NULL,
-  price NUMERIC NOT NULL,
-  fee NUMERIC DEFAULT 0,
-  note TEXT
-);
-
-CREATE TABLE cash_events (
-  id SERIAL PRIMARY KEY,
-  occurred_at TIMESTAMP NOT NULL,
-  type TEXT CHECK (type IN ('DEPOSIT','WITHDRAW')),
-  amount NUMERIC NOT NULL,
-  note TEXT
-);
-
-CREATE MATERIALIZED VIEW holdings AS
-SELECT
-  t.symbol,
-  SUM(CASE WHEN side='BUY' THEN qty ELSE -qty END) AS shares,
-  CASE WHEN SUM(CASE WHEN side='BUY' THEN qty ELSE -qty END)=0
-       THEN 0
-       ELSE (SUM(CASE WHEN side='BUY' THEN qty*price+fee ELSE 0 END)
-            / NULLIF(SUM(CASE WHEN side='BUY' THEN qty ELSE 0 END),0))
-  END AS avg_cost
-FROM trades t
-GROUP BY t.symbol;
-
-CREATE MATERIALIZED VIEW cash_balance AS
-SELECT COALESCE(
-  (SELECT SUM(CASE WHEN type='DEPOSIT' THEN amount ELSE -amount END) FROM cash_events),0
-) - COALESCE(
-  (SELECT SUM(CASE WHEN side='BUY' THEN qty*price+fee ELSE 0 END) FROM trades),0
-) + COALESCE(
-  (SELECT SUM(CASE WHEN side='SELL' THEN qty*price-fee ELSE 0 END) FROM trades),0
-) AS balance;
+### 4.1 디렉토리 구조
+```
+/data
+├─ symbols.json          # 종목 마스터
+├─ prices_daily/         # 일별 가격 데이터
+│  └─ {symbol}_{date}.json
+├─ indicators_daily/     # 기술지표 데이터  
+│  └─ {symbol}_{date}.json
+├─ news/                # 뉴스 데이터
+│  └─ {date}.json
+├─ trades.json          # 거래 내역
+├─ cash_events.json     # 입출금 내역
+└─ report/              # 생성된 리포트
+   └─ {date}_{sector}.md
 ```
 
-> 리포트 생성 전: `REFRESH MATERIALIZED VIEW holdings; REFRESH MATERIALIZED VIEW cash_balance;`
+### 4.2 JSON 스키마
+
+**symbols.json**
+```json
+[
+  {
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation", 
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Semiconductors",
+    "active": true
+  }
+]
+```
+
+**prices_daily/{symbol}_{date}.json**
+```json
+{
+  "symbol": "NVDA",
+  "date": "2024-01-15",
+  "open": 100.0,
+  "high": 105.0,
+  "low": 98.0,
+  "close": 103.0,
+  "volume": 50000000
+}
+```
+
+**trades.json**
+```json
+[
+  {
+    "id": 1,
+    "traded_at": "2024-01-15T09:30:00Z",
+    "symbol": "NVDA",
+    "side": "BUY",
+    "qty": 10,
+    "price": 100.0,
+    "fee": 1.0,
+    "note": "매수 주문"
+  }
+]
+```
+
+> 보유량/현금 잔고는 trades.json과 cash_events.json을 기반으로 실시간 계산
 
 ---
 
@@ -272,10 +244,11 @@ jobs:
 ### 7.2 서버 내부 파이프라인
 
 0. `isNasdaqOpen(today)` 검사(주말/미국 휴일 스킵)
-1. 가격 수집 → 2) 지표 계산 → 3) 뉴스 수집/요약/감성
-2. 보유/현금 리프레시 → 5) 추천 산출
-3. `prompt.md` 로드 + OpenAI GPT‑5 호출 → 텍스트 보고
-4. 리포트 저장(`/data/report/YYMMDD.md|html`) → 8) 서버 업로드 → 9) 이메일 발송
+1. **동적 종목 스크리닝**: 섹터별 키워드 기반 종목 발견 및 분석
+2. **섹터별 처리**: 발견된 종목들에 대해 가격/지표/뉴스 수집
+3. **종합 분석**: 모멘텀/뉴스감성/기술적 점수 계산 및 매수/매도/보유 추천
+4. **AI 보고서 생성**: `prompt.md` + OpenAI GPT‑5로 섹터별 리포트 생성
+5. **파일 저장 및 발송**: `/data/report/{date}_{sector}.md` 저장 → 이메일 발송
 
 ---
 
@@ -390,8 +363,8 @@ export async function sendReportEmail({html, mdPath}:{html:string, mdPath:string
 ## 14. 초기 작업 순서(TODO)
 
 * [ ] Render Free로 서버 배포 + `/v1/health` 확인
-* [ ] Neon Postgres 생성 → `DATABASE_URL` 연결 → 마이그레이션
-* [ ] `sectors.yml` 작성(예: ai: NVDA, MSFT, AMD…)
+* [ ] `/data` 디렉토리 구조 생성 → JSON 파일 저장소 초기화
+* [ ] `sectors.yml` 키워드 설정 (예: ai 섹터 키워드: artificial intelligence, GPU...)
 * [ ] 데이터 공급자 API 키 발급/적용
 * [ ] `/v1/run/daily` 수동 실행 → `/data/report` 생성 확인
 * [ ] 이메일 발송 테스트
@@ -399,19 +372,49 @@ export async function sendReportEmail({html, mdPath}:{html:string, mdPath:string
 
 ---
 
-## 15. `sectors.yml` 예시
+## 15. 동적 종목 발견 시스템
+
+### 15.1 `sectors.yml` 키워드 기반 설정
 
 ```yml
-a i:
-  title: AI
-  symbols: [NVDA, MSFT, AMD, GOOGL, META]
+ai:
+  title: "AI & Machine Learning"
+  description: "인공지능, 머신러닝, 딥러닝 관련 기업"
+  keywords:
+    - "artificial intelligence"
+    - "machine learning"
+    - "AI chip"
+    - "GPU"
+    - "neural network"
+  industries:
+    - "Semiconductors"
+    - "Software"
+    - "Technology Hardware"
+  market_cap_min: 1000000000  # 최소 시가총액
+  max_symbols: 20             # 최대 종목 수
+
 computing:
-  title: Computing
-  symbols: [AAPL, AVGO, CRM, ORCL, INTC]
-nuclear:
-  title: Nuclear
-  symbols: [SMR, UEC, CCJ, NRG, BWXT]
+  title: "Cloud & Computing"
+  description: "클라우드 컴퓨팅, 엔터프라이즈 소프트웨어"
+  keywords:
+    - "cloud computing"
+    - "SaaS"
+    - "enterprise software"
+    - "cybersecurity"
+  industries:
+    - "Software"
+    - "Technology Hardware"
+  market_cap_min: 2000000000
+  max_symbols: 15
 ```
+
+### 15.2 동적 종목 발견 프로세스
+
+1. **업종별 검색**: Alpha Vantage LISTING_STATUS API로 NASDAQ 전체 종목 조회
+2. **키워드 매칭**: NewsAPI로 키워드 관련 뉴스에서 종목 심볼 추출
+3. **관련성 점수 계산**: 종목명/설명에서 키워드 매칭도 기반 점수 산출
+4. **필터링 및 저장**: 시가총액 기준 필터링 후 symbols.json에 저장
+5. **스크리닝 분석**: 발견된 종목들에 대해 모멘텀/뉴스감성/기술적 분석 수행
 
 ---
 

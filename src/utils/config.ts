@@ -7,12 +7,16 @@ import yaml from 'yaml';
  */
 export interface SectorConfig {
   title: string;
-  symbols: string[];
+  description: string;
+  keywords: string[];
+  industries: string[];
+  market_cap_min: number;
+  max_symbols: number;
 }
 
 /**
  * 섹터 설정 로드
- * config/sectors.yml 파일에서 섹터별 심볼 매핑을 읽어옴
+ * config/sectors.yml 파일에서 섹터별 키워드 및 설정을 읽어옴
  */
 export async function loadSectors(): Promise<Record<string, SectorConfig>> {
   try {
@@ -25,11 +29,14 @@ export async function loadSectors(): Promise<Record<string, SectorConfig>> {
     // 유효성 검증
     for (const [code, config] of Object.entries(sectors)) {
       const sectorConfig = config as SectorConfig;
-      if (!sectorConfig.title || !Array.isArray(sectorConfig.symbols)) {
+      if (!sectorConfig.title || !Array.isArray(sectorConfig.keywords)) {
         throw new Error(`잘못된 섹터 설정: ${code}`);
       }
-      if (sectorConfig.symbols.length === 0) {
-        console.warn(`⚠️ 섹터 ${code}에 심볼이 없습니다`);
+      if (sectorConfig.keywords.length === 0) {
+        console.warn(`⚠️ 섹터 ${code}에 키워드가 없습니다`);
+      }
+      if (!sectorConfig.industries || sectorConfig.industries.length === 0) {
+        console.warn(`⚠️ 섹터 ${code}에 업종 설정이 없습니다`);
       }
     }
     
@@ -53,15 +60,27 @@ function getDefaultSectors(): Record<string, SectorConfig> {
   return {
     ai: {
       title: 'AI & Technology',
-      symbols: ['NVDA', 'MSFT', 'AMD', 'GOOGL', 'META']
+      description: '인공지능, 머신러닝 관련 기업',
+      keywords: ['artificial intelligence', 'machine learning', 'AI chip', 'GPU'],
+      industries: ['Semiconductors', 'Software', 'Technology Hardware'],
+      market_cap_min: 1000000000,
+      max_symbols: 20
     },
     computing: {
       title: 'Computing & Cloud',
-      symbols: ['AAPL', 'AVGO', 'CRM', 'ORCL', 'INTC']
+      description: '클라우드 컴퓨팅, 엔터프라이즈 소프트웨어',
+      keywords: ['cloud computing', 'enterprise software', 'SaaS'],
+      industries: ['Software', 'Technology Hardware'],
+      market_cap_min: 2000000000,
+      max_symbols: 15
     },
     nuclear: {
       title: 'Nuclear Energy',
-      symbols: ['SMR', 'UEC', 'CCJ', 'NRG', 'BWXT']
+      description: '원자력, 청정에너지',
+      keywords: ['nuclear power', 'clean energy', 'uranium'],
+      industries: ['Utilities', 'Oil, Gas & Consumable Fuels'],
+      market_cap_min: 500000000,
+      max_symbols: 25
     }
   };
 }

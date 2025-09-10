@@ -1,11 +1,66 @@
 ai:
-  title: AI
-  symbols: [NVDA, MSFT, AMD, GOOGL, META]
+  title: "AI & Machine Learning"
+  description: "인공지능, 머신러닝, 딥러닝 관련 기업"
+  keywords:
+    - "artificial intelligence"
+    - "machine learning"
+    - "deep learning"
+    - "neural network"
+    - "AI chip"
+    - "GPU"
+    - "data center"
+    - "generative AI"
+    - "LLM"
+    - "computer vision"
+  industries:
+    - "Semiconductors"
+    - "Software"
+    - "Technology Hardware"
+    - "Internet Content & Information"
+  market_cap_min: 1000000000  # 최소 시가총액 $1B
+  max_symbols: 20             # 최대 종목 수
 
 computing:
-  title: Computing
-  symbols: [AAPL, AVGO, CRM, ORCL, INTC]
+  title: "Cloud & Computing"
+  description: "클라우드 컴퓨팅, 데이터센터, 엔터프라이즈 소프트웨어"
+  keywords:
+    - "cloud computing"
+    - "data center"
+    - "enterprise software"
+    - "SaaS"
+    - "infrastructure"
+    - "cybersecurity"
+    - "database"
+    - "analytics"
+    - "productivity software"
+    - "collaboration"
+  industries:
+    - "Software"
+    - "Technology Hardware"
+    - "Internet Content & Information"
+    - "Computer Hardware"
+  market_cap_min: 2000000000  # 최소 시가총액 $2B
+  max_symbols: 15
 
 nuclear:
-  title: Nuclear
-  symbols: [SMR, UEC, CCJ, NRG, BWXT]
+  title: "Nuclear & Clean Energy"
+  description: "원자력, 청정에너지, 에너지 저장"
+  keywords:
+    - "nuclear power"
+    - "nuclear reactor"
+    - "uranium"
+    - "clean energy"
+    - "renewable energy"
+    - "energy storage"
+    - "nuclear fuel"
+    - "small modular reactor"
+    - "SMR"
+    - "nuclear technology"
+  industries:
+    - "Utilities"
+    - "Oil, Gas & Consumable Fuels"
+    - "Electrical Equipment"
+    - "Independent Power and Renewable Electricity"
+    - "Metals & Mining"
+  market_cap_min: 500000000   # 최소 시가총액 $500M
+  max_symbols: 25

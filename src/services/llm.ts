@@ -41,9 +41,18 @@ export interface ReportPayload {
 /**
  * OpenAI 클라이언트 초기화
  */
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!openai) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다');
+    }
+    openai = new OpenAI({ apiKey });
+  }
+  return openai;
+}
 
 /**
  * OpenAI GPT를 사용한 보고서 생성
@@ -70,7 +79,8 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
       }
     ];
 
-    const response = await openai.chat.completions.create({
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
       model: model,
       messages: messages,
       temperature: 0.2,

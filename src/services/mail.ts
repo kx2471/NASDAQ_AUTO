@@ -78,7 +78,7 @@ async function sendWithResend(options: {
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.MAIL_FROM || 'Stock Report <noreply@example.com>';
+  const from = process.env.MAIL_FROM || 'Stock Report <onboarding@resend.dev>';
 
   // 첨부파일을 Base64로 인코딩
   const attachmentData = [];
@@ -123,7 +123,7 @@ async function sendWithSMTP(options: {
   }
 
   // SMTP 전송자 생성
-  const transporter = nodemailer.createTransporter({
+  const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '465'),
     secure: process.env.SMTP_SECURE === 'true',

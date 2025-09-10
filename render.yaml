@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: nasdaq-autotrader
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: ALPHAVANTAGE_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: NEWSAPI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: OPENAI
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gpt-4
+      - key: MAIL_PROVIDER
+        value: RESEND
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        value: "Stock Report <onboarding@resend.dev>"
+      - key: MAIL_TO
+        sync: false
+      - key: REPORT_LOOKBACK_DAYS
+        value: 30
+      - key: MARKET_TZ
+        value: America/New_York
+      - key: SEND_TZ
+        value: Asia/Seoul
+      - key: SEND_HOUR_LOCAL
+        value: 16

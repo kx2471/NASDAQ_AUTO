@@ -25,8 +25,8 @@ export function isNasdaqOpen(date: Date): boolean {
     const holidayCheck = usHolidays.isHoliday(nyTime);
     if (holidayCheck) {
       const holidayName = Array.isArray(holidayCheck) 
-        ? holidayCheck[0].name 
-        : holidayCheck.name;
+        ? holidayCheck[0]?.name || 'Unknown Holiday'
+        : (holidayCheck as any)?.name || 'Unknown Holiday';
       console.log(`📅 미국 공휴일입니다: ${holidayName}`);
       return false;
     }

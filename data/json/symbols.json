@@ -1,0 +1,234 @@
+[
+  {
+    "symbol": "AGIX",
+    "name": "KRANESHARES ARTIFICIAL INTELLIGENCE AND TECHNOLOGY ETF ",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AIQ",
+    "name": "Global X Artificial Intelligence & Technology ETF",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACBR",
+    "name": "Artius II Acquisition Inc Rights",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACBU",
+    "name": "Artius II Acquisition Inc - Units (1 Ord Shs & 1 Rts)",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACG",
+    "name": "ATA Creativity Global",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACI",
+    "name": "Armada Acquisition Corp II - Class A",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACIU",
+    "name": "Armada Acquisition Corp II - Units (1 Ord Cls A & 1/2 War)",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACIW",
+    "name": "Armada Acquisition Corp II - Warrants(21/05/2030)",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AADR",
+    "name": "ADVISORSHARES DORSEY WRIGHT ADR ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAL",
+    "name": "American Airlines Group Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AALG",
+    "name": "Leverage Shares 2X Long AAL Daily ETF",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAME",
+    "name": "Atlantic American Corp",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAOI",
+    "name": "Applied Optoelectronics Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAON",
+    "name": "AAON Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPB",
+    "name": "GRANITESHARES 2X LONG AAPL DAILY ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPD",
+    "name": "DIREXION DAILY AAPL BEAR 1X SHARES ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPG",
+    "name": "Ascentage Pharma Group International",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPGV",
+    "name": "Ascentage Pharma Group International American Depository Shares",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPU",
+    "name": "DIREXION DAILY AAPL BULL 2X SHARES ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AIPO",
+    "name": "Defiance AI & Power Infrastructure ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "APMIU",
+    "name": "AxonPrime Infrastructure Acquisition Corp - Units (1 Ord Share Class A & 1/3 War)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AARD",
+    "name": "Aardvark Therapeutics Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAVM",
+    "name": "Alpha Architect Value Momentum Trend ETF",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAXJ",
+    "name": "ISHARES MSCI ALL COUNTRY ASIA EX JAPAN ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ABAT",
+    "name": "Advanced Battery Technologies Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ABCB",
+    "name": "Ameris Bancorp",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ABCL",
+    "name": "AbCellera Biologics Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ABCS",
+    "name": "ALPHA BLUE CAPITAL US SMALL-MID CAP DYNAMIC ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true
+  }
+]

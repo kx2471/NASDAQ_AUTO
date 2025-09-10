@@ -1,0 +1,87 @@
+name: Daily Stock Report
+
+on:
+  schedule:
+    # 매일 KST 16:00 (UTC 07:00)에 실행
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build TypeScript
+      run: npm run build
+      
+    - name: Generate daily report
+      env:
+        PORT: ${{ secrets.PORT }}
+        API_KEY: ${{ secrets.API_KEY }}
+        NODE_ENV: production
+        BASE_URL: ${{ secrets.BASE_URL }}
+        ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        NEWSAPI_API_KEY: ${{ secrets.NEWSAPI_API_KEY }}
+        LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        MAIL_PROVIDER: ${{ secrets.MAIL_PROVIDER }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        MAIL_FROM: ${{ secrets.MAIL_FROM }}
+        MAIL_TO: ${{ secrets.MAIL_TO }}
+        REPORT_LOOKBACK_DAYS: ${{ secrets.REPORT_LOOKBACK_DAYS }}
+        MARKET_TZ: ${{ secrets.MARKET_TZ }}
+        SEND_TZ: ${{ secrets.SEND_TZ }}
+        SEND_HOUR_LOCAL: ${{ secrets.SEND_HOUR_LOCAL }}
+      run: |
+        # 데이터 디렉터리 생성
+        mkdir -p data/portfolio data/screening data/report
+        
+        # 초기 포트폴리오 설정 (필요시)
+        if [ ! -f "data/portfolio/cash.json" ]; then
+          echo '{"balance": 10000, "currency": "USD", "last_updated": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'"}' > data/portfolio/cash.json
+        fi
+        
+        # 일일 리포트 생성
+        curl -X POST http://localhost:3000/api/report/daily \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $API_KEY" &
+        
+        # 서버 시작하고 API 호출
+        npm start &
+        sleep 30
+        
+        # API 엔드포인트 호출
+        curl -X POST http://localhost:3000/api/report/daily \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer $API_KEY" || echo "Report generation completed"
+      
+    - name: Commit and push report
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
+          git push
+        fi

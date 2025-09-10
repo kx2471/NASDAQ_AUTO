@@ -6,6 +6,7 @@ import { generateReport } from '../services/llm';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
+import { runFullScreening } from '../services/screening';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -29,12 +30,17 @@ export async function runDaily(): Promise<void> {
     const sectors = await loadSectors();
     console.log(`📋 ${Object.keys(sectors).length}개 섹터 로드됨`);
 
-    // 각 섹터별로 처리
+    // 전체 섹터 스크리닝 실행 (동적 종목 발견 + 분석)
+    console.log('\n🔍 동적 종목 스크리닝 시작...');
+    const screeningResults = await runFullScreening(sectors);
+
+    // 각 섹터별로 리포트 생성
     for (const [sectorCode, sectorConfig] of Object.entries(sectors)) {
       console.log(`\n🔄 섹터 처리 시작: ${sectorConfig.title} (${sectorCode})`);
       
       try {
-        await processSector(sectorCode, sectorConfig);
+        const sectorScreeningResults = screeningResults[sectorCode] || [];
+        await processSector(sectorCode, sectorConfig, sectorScreeningResults);
         console.log(`✅ 섹터 처리 완료: ${sectorConfig.title}`);
       } catch (error) {
         console.error(`❌ 섹터 처리 실패 (${sectorCode}):`, error);
@@ -42,7 +48,7 @@ export async function runDaily(): Promise<void> {
       }
 
       // API 호출 제한을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     console.log('🎉 데일리 파이프라인 완료');
@@ -58,9 +64,13 @@ export async function runDaily(): Promise<void> {
  */
 async function processSector(
   sectorCode: string, 
-  sectorConfig: { title: string; symbols: string[] }
+  sectorConfig: any,
+  screeningResults: any[] = []
 ): Promise<void> {
-  const { title: sectorTitle, symbols } = sectorConfig;
+  const { title: sectorTitle } = sectorConfig;
+  
+  // 스크리닝 결과에서 종목 심볼 추출
+  const symbols = screeningResults.map(result => result.symbol);
   
   try {
     // 3. 가격 데이터 수집
@@ -90,7 +100,8 @@ async function processSector(
       symbols,
       pricesData,
       indicatorsData,
-      newsData
+      newsData,
+      screeningResults
     });
 
     // 8. AI 보고서 생성
@@ -157,8 +168,9 @@ async function prepareReportPayload(params: {
   pricesData: Record<string, any[]>;
   indicatorsData: Record<string, any>;
   newsData: any[];
+  screeningResults?: any[];
 }): Promise<any> {
-  const { sectorCode, sectorTitle, symbols, indicatorsData, newsData } = params;
+  const { sectorCode, sectorTitle, symbols, indicatorsData, newsData, screeningResults = [] } = params;
 
   // 실제 포트폴리오 데이터 조회
   const [holdings, cashBalance] = await Promise.all([
@@ -171,29 +183,36 @@ async function prepareReportPayload(params: {
     holdings: holdings
   };
 
-  // 심볼별 점수 계산 (간단한 버전)
+  // 스크리닝 결과에서 점수 추출 (동적 분석 결과 사용)
   const scores: Record<string, number> = {};
+  for (const result of screeningResults) {
+    scores[result.symbol] = result.overall_score;
+  }
+
+  // 스크리닝 결과가 없는 경우 기존 로직 사용
   for (const symbol of symbols) {
-    const indicator = indicatorsData[symbol];
-    if (indicator) {
-      let score = 0;
-      
-      // EMA 기반 모멘텀
-      if (indicator.ema20 > indicator.ema50) score += 0.3;
-      else score -= 0.3;
-      
-      // RSI 기반 점수
-      if (indicator.rsi14 < 35) score += 0.2; // 과매도
-      else if (indicator.rsi14 > 70) score -= 0.2; // 과매수
-      
-      // 뉴스 감성 점수
-      const symbolNews = newsData.filter(n => n.symbol === symbol);
-      if (symbolNews.length > 0) {
-        const avgSentiment = symbolNews.reduce((sum, n) => sum + n.sentiment, 0) / symbolNews.length;
-        score += avgSentiment * 0.3;
+    if (!scores[symbol]) {
+      const indicator = indicatorsData[symbol];
+      if (indicator) {
+        let score = 0;
+        
+        // EMA 기반 모멘텀
+        if (indicator.ema20 > indicator.ema50) score += 0.3;
+        else score -= 0.3;
+        
+        // RSI 기반 점수
+        if (indicator.rsi14 < 35) score += 0.2; // 과매도
+        else if (indicator.rsi14 > 70) score -= 0.2; // 과매수
+        
+        // 뉴스 감성 점수
+        const symbolNews = newsData.filter(n => n.symbol === symbol);
+        if (symbolNews.length > 0) {
+          const avgSentiment = symbolNews.reduce((sum, n) => sum + n.sentiment, 0) / symbolNews.length;
+          score += avgSentiment * 0.3;
+        }
+        
+        scores[symbol] = Math.max(0, Math.min(1, (score + 1) / 2)); // 0-1 범위로 정규화
       }
-      
-      scores[symbol] = Math.max(0, Math.min(1, (score + 1) / 2)); // 0-1 범위로 정규화
     }
   }
 

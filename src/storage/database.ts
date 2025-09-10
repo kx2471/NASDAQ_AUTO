@@ -59,7 +59,7 @@ export class JsonDatabase {
   /**
    * 데이터 추가 (INSERT)
    */
-  async insert<T extends { id?: string | number }>(filename: string, item: T): Promise<T> {
+  async insert<T extends { id?: string | number; [key: string]: any }>(filename: string, item: T): Promise<T> {
     const data = await this.read<T>(filename);
     
     // ID 자동 생성 (숫자형)
