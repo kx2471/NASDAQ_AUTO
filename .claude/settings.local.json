@@ -8,7 +8,11 @@
       "Bash(npm install)",
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:apidog.com)",
+      "Bash(taskkill:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

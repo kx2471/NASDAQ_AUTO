@@ -80,12 +80,27 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     ];
 
     const client = getOpenAIClient();
-    const response = await client.chat.completions.create({
+    
+    // GPT-5 모델용 추가 파라미터 설정
+    const isGpt5 = model.startsWith('gpt-5');
+    const requestParams: any = {
       model: model,
       messages: messages,
-      temperature: 0.2,
-      max_tokens: 4000,
-    });
+    };
+    
+    // GPT-5 vs 기존 모델 파라미터 구분
+    if (isGpt5) {
+      // GPT-5 전용 파라미터 (temperature는 기본값 1만 지원)
+      requestParams.max_completion_tokens = 4000;
+      requestParams.reasoning_effort = "medium";
+      requestParams.verbosity = "medium";
+    } else {
+      // 기존 GPT 모델 파라미터
+      requestParams.temperature = 0.2;
+      requestParams.max_tokens = 4000;
+    }
+    
+    const response = await client.chat.completions.create(requestParams);
 
     const report = response.choices[0].message?.content;
     
