@@ -7,6 +7,7 @@ import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
 import { runFullScreening } from '../services/screening';
+import { getCachedExchangeRate } from '../services/exchange';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -172,10 +173,11 @@ async function prepareReportPayload(params: {
 }): Promise<any> {
   const { sectorCode, sectorTitle, symbols, indicatorsData, newsData, screeningResults = [] } = params;
 
-  // 실제 포트폴리오 데이터 조회
-  const [holdings, cashBalance] = await Promise.all([
+  // 실제 포트폴리오 데이터 및 실시간 환율 조회
+  const [holdings, cashBalance, exchangeRate] = await Promise.all([
     getHoldings(),
-    getCashBalance()
+    getCashBalance(),
+    getCachedExchangeRate()
   ]);
 
   const portfolio = {
@@ -222,7 +224,8 @@ async function prepareReportPayload(params: {
     market: {
       date: new Date().toISOString().split('T')[0],
       sector_code: sectorCode,
-      sector_title: sectorTitle
+      sector_title: sectorTitle,
+      exchange_rate: exchangeRate
     },
     indicators: indicatorsData,
     news: newsData.slice(0, 10), // 상위 10개 뉴스
