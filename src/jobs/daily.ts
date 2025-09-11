@@ -2,7 +2,7 @@ import { isNasdaqOpen } from '../utils/marketday';
 import { db, getHoldings, getCashBalance } from '../storage/database';
 import { fetchDailyPrices, computeIndicators } from '../services/market';
 import { fetchNews } from '../services/news';
-import { generateReport } from '../services/llm';
+import { generateReport, generateReportSummary } from '../services/llm';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
@@ -36,21 +36,15 @@ export async function runDaily(): Promise<void> {
     console.log('\n🔍 동적 종목 스크리닝 시작...');
     const screeningResults = await runFullScreening(sectors);
 
-    // 각 섹터별로 리포트 생성
-    for (const [sectorCode, sectorConfig] of Object.entries(sectors)) {
-      console.log(`\n🔄 섹터 처리 시작: ${sectorConfig.title} (${sectorCode})`);
-      
-      try {
-        const sectorScreeningResults = screeningResults[sectorCode] || [];
-        await processSector(sectorCode, sectorConfig, sectorScreeningResults);
-        console.log(`✅ 섹터 처리 완료: ${sectorConfig.title}`);
-      } catch (error) {
-        console.error(`❌ 섹터 처리 실패 (${sectorCode}):`, error);
-        // 한 섹터가 실패해도 다른 섹터 계속 처리
-      }
-
-      // API 호출 제한을 위한 지연
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    // 통합 리포트 생성 (모든 섹터 데이터 종합)
+    console.log('\n📊 통합 리포트 생성 시작...');
+    
+    try {
+      await processUnifiedReport(sectors, screeningResults);
+      console.log('✅ 통합 리포트 생성 완료');
+    } catch (error) {
+      console.error('❌ 통합 리포트 생성 실패:', error);
+      throw error;
     }
 
     console.log('🎉 데일리 파이프라인 완료');
@@ -274,7 +268,55 @@ async function prepareReportPayload(params: {
 }
 
 /**
- * 보고서 파일 저장
+ * 보고서 파일 저장 (요약 포함)
+ */
+async function saveReportFilesWithSummary(sectorCode: string, report: string, summary: string): Promise<{mdPath: string, htmlPath: string}> {
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const reportDir = path.join(process.cwd(), 'data', 'report');
+  
+  // 디렉토리 생성
+  await fs.mkdir(reportDir, { recursive: true });
+  
+  const mdPath = path.join(reportDir, `${today}_${sectorCode}.md`);
+  const htmlPath = path.join(reportDir, `${today}_${sectorCode}.html`);
+  const summaryPath = path.join(reportDir, `${today}_${sectorCode}_summary.txt`);
+  
+  // 마크다운 파일 저장
+  await fs.writeFile(mdPath, report, 'utf8');
+  
+  // 요약 파일 저장
+  await fs.writeFile(summaryPath, summary, 'utf8');
+  
+  // HTML 파일 저장 (간단한 변환)
+  const html = wrapInEmailTemplate(
+    report.replace(/\n/g, '<br>'),
+    `통합 데일리 리포트 (${today})`
+  );
+  await fs.writeFile(htmlPath, html, 'utf8');
+  
+  // 메타데이터 파일 저장 (대시보드용)
+  const metadata = {
+    date: today,
+    type: sectorCode,
+    title: `통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+    summary: summary,
+    mdPath: mdPath,
+    htmlPath: htmlPath,
+    createdAt: new Date().toISOString()
+  };
+  
+  const metadataPath = path.join(reportDir, `${today}_${sectorCode}_meta.json`);
+  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf8');
+  
+  console.log(`✅ 리포트 저장 완료: ${mdPath}`);
+  console.log(`✅ 요약 저장 완료: ${summaryPath}`);
+  console.log(`✅ 메타데이터 저장 완료: ${metadataPath}`);
+  
+  return { mdPath, htmlPath };
+}
+
+/**
+ * 보고서 파일 저장 (기존 함수 - 호환성 유지)
  */
 async function saveReportFiles(sectorCode: string, report: string): Promise<{mdPath: string, htmlPath: string}> {
   const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
@@ -297,6 +339,213 @@ async function saveReportFiles(sectorCode: string, report: string): Promise<{mdP
   await fs.writeFile(htmlPath, html, 'utf8');
   
   return { mdPath, htmlPath };
+}
+
+/**
+ * 통합 리포트 처리 (모든 섹터 데이터를 하나의 리포트로 통합)
+ */
+async function processUnifiedReport(sectors: any, screeningResults: any): Promise<void> {
+  try {
+    console.log('📊 전체 섹터 데이터 통합 중...');
+    
+    // 모든 섹터의 종목을 하나로 통합
+    const allSymbols = new Set<string>();
+    const allScreeningResults: any[] = [];
+    
+    for (const [sectorCode, results] of Object.entries(screeningResults)) {
+      if (Array.isArray(results)) {
+        for (const result of results) {
+          allSymbols.add(result.symbol);
+          allScreeningResults.push({
+            ...result,
+            sector: sectorCode
+          });
+        }
+      }
+    }
+    
+    const symbolsArray = Array.from(allSymbols);
+    console.log(`📋 통합 종목 수: ${symbolsArray.length}개`);
+    
+    // 통합된 종목들의 가격 데이터 수집
+    console.log('📈 통합 가격 데이터 수집 중...');
+    const pricesData = await fetchDailyPrices(symbolsArray);
+    
+    // 통합 기술지표 계산
+    console.log('📊 통합 기술지표 계산 중...');
+    const indicatorsData = await calculateIndicators(pricesData);
+    
+    // 통합 뉴스 수집
+    console.log('📰 통합 뉴스 수집 중...');
+    const newsData = await fetchNews({
+      symbols: symbolsArray,
+      sector: 'unified',
+      limit: 30, // 통합 리포트이므로 더 많은 뉴스
+      fromDate: getDateDaysAgo(7)
+    });
+    
+    // 통합 리포트 페이로드 준비
+    const reportPayload = await prepareUnifiedReportPayload({
+      allSectors: sectors,
+      symbols: symbolsArray,
+      pricesData,
+      indicatorsData,
+      newsData,
+      screeningResults: allScreeningResults
+    });
+    
+    // AI 통합 리포트 생성
+    console.log('🤖 AI 통합 리포트 생성 중...');
+    const report = await generateReport(reportPayload);
+    
+    // GPT-5-nano로 리포트 요약 생성
+    console.log('📝 GPT-5-nano로 리포트 요약 생성 중...');
+    const summary = await generateReportSummary(report);
+    
+    // 통합 리포트 파일 저장 (요약 포함)
+    console.log('💾 통합 리포트 파일 저장 중...');
+    const { mdPath, htmlPath } = await saveReportFilesWithSummary('unified', report, summary);
+    
+    // 이메일 발송
+    console.log('📧 통합 리포트 이메일 발송 중...');
+    const emailHtml = wrapInEmailTemplate(
+      report.replace(/\n/g, '<br>'), 
+      `통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
+    );
+    
+    await sendReportEmail({
+      subject: `📊 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+      html: emailHtml,
+      mdPath: mdPath
+    });
+    
+    console.log('✅ 통합 리포트 처리 완료');
+    
+  } catch (error) {
+    console.error('❌ 통합 리포트 처리 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * 통합 리포트용 페이로드 준비
+ */
+async function prepareUnifiedReportPayload(params: {
+  allSectors: any;
+  symbols: string[];
+  pricesData: Record<string, any[]>;
+  indicatorsData: Record<string, any>;
+  newsData: any[];
+  screeningResults: any[];
+}): Promise<any> {
+  const { allSectors, symbols, indicatorsData, newsData, screeningResults = [] } = params;
+  
+  // 실제 포트폴리오 데이터 및 실시간 환율 조회
+  const [holdings, cashBalance, exchangeRate] = await Promise.all([
+    getHoldings(),
+    getCashBalance(),
+    getCachedExchangeRate()
+  ]);
+
+  const portfolio = {
+    cash_usd: cashBalance,
+    holdings: holdings
+  };
+
+  // 스크리닝 결과에서 점수 추출 및 섹터별 분류
+  const scores: Record<string, number> = {};
+  const symbolsBySector: Record<string, string[]> = {};
+  
+  for (const result of screeningResults) {
+    scores[result.symbol] = result.overall_score;
+    
+    if (!symbolsBySector[result.sector]) {
+      symbolsBySector[result.sector] = [];
+    }
+    symbolsBySector[result.sector].push(result.symbol);
+  }
+
+  // 스크리닝 결과가 없는 경우 기존 로직 사용
+  for (const symbol of symbols) {
+    if (!scores[symbol]) {
+      const indicator = indicatorsData[symbol];
+      if (indicator) {
+        let score = 0;
+        
+        // EMA 기반 모멘텀
+        if (indicator.ema20 > indicator.ema50) score += 0.3;
+        else score -= 0.3;
+        
+        // RSI 기반 점수
+        if (indicator.rsi14 < 35) score += 0.2; // 과매도
+        else if (indicator.rsi14 > 70) score -= 0.2; // 과매수
+        
+        // 뉴스 감성 점수
+        const symbolNews = newsData.filter(n => n.symbol === symbol);
+        if (symbolNews.length > 0) {
+          const avgSentiment = symbolNews.reduce((sum, n) => sum + n.sentiment, 0) / symbolNews.length;
+          score += avgSentiment * 0.3;
+        }
+        
+        scores[symbol] = Math.max(0, Math.min(1, (score + 1) / 2)); // 0-1 범위로 정규화
+      }
+    }
+  }
+
+  // 성과 추적 및 분석
+  let performanceReport = '';
+  try {
+    console.log('📊 포트폴리오 성과 분석 중...');
+    
+    // 현재가 데이터 추출
+    const currentPrices: Record<string, number> = {};
+    for (const [symbol, indicator] of Object.entries(indicatorsData)) {
+      if (indicator && indicator.close) {
+        currentPrices[symbol] = indicator.close;
+      }
+    }
+    
+    // 성과 계산
+    const performance = calculateCurrentPerformance(
+      holdings,
+      currentPrices,
+      exchangeRate.usd_to_krw
+    );
+    
+    // 목표 분석
+    const targetAnalysis = analyzeTargetProgress(performance);
+    
+    // 성과 데이터 저장
+    await savePerformanceHistory(performance);
+    
+    // 성과 리포트 생성
+    performanceReport = generatePerformanceReport(performance, targetAnalysis);
+    
+    console.log(`📈 성과 추적 완료: 현재 ₩${performance.current_value_krw.toLocaleString()} (${performance.total_return_percent > 0 ? '+' : ''}${performance.total_return_percent}%)`);
+    
+  } catch (error) {
+    console.error('❌ 성과 분석 실패:', error);
+    performanceReport = '\n## ⚠️ 성과 분석 오류\n데이터를 불러오는 중 문제가 발생했습니다.\n';
+  }
+
+  return {
+    lookback_days: parseInt(process.env.REPORT_LOOKBACK_DAYS || '30'),
+    portfolio,
+    market: {
+      date: new Date().toISOString().split('T')[0],
+      sector_code: 'unified',
+      sector_title: '통합 시장 분석',
+      exchange_rate: exchangeRate,
+      sectors: allSectors,
+      symbols_by_sector: symbolsBySector
+    },
+    indicators: indicatorsData,
+    news: newsData.slice(0, 15), // 상위 15개 뉴스
+    scores,
+    performanceReport,
+    total_symbols_count: symbols.length,
+    screening_results: screeningResults
+  };
 }
 
 /**

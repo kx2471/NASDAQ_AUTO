@@ -63,8 +63,8 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     const promptPath = path.join(process.cwd(), 'prompt.md');
     const systemPrompt = await fs.readFile(promptPath, 'utf8');
 
-    // LLM 모델 설정
-    const model = process.env.LLM_MODEL || 'gpt-4';
+    // LLM 모델 설정 (기본값을 gpt-5로 변경)
+    const model = process.env.LLM_MODEL || 'gpt-5';
 
     console.log(`🤖 ${model}을 사용하여 보고서 생성 시작`);
 
@@ -153,6 +153,54 @@ ${news.slice(0, 5).map(item =>
 - 상태: LLM 서비스 일시 중단
 
 > *본 리포트는 투자자문이 아니며, 모든 결정과 책임은 사용자에게 있습니다.*`;
+}
+
+/**
+ * GPT-5-nano를 사용한 리포트 요약 생성
+ */
+export async function generateReportSummary(reportContent: string): Promise<string> {
+  try {
+    const summaryPrompt = `다음 투자 리포트를 2-3문장으로 간단히 요약해주세요. 핵심 투자 포인트와 추천 종목을 중심으로 요약하세요:
+
+${reportContent.substring(0, 2000)}...`; // 리포트 내용을 일부만 사용
+
+    console.log('🤖 GPT-5-nano를 사용하여 리포트 요약 생성 시작');
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: '투자 리포트를 간결하고 명확하게 요약하는 전문가입니다.'
+      },
+      {
+        role: 'user' as const,
+        content: summaryPrompt
+      }
+    ];
+
+    const client = getOpenAIClient();
+    
+    const response = await client.chat.completions.create({
+      model: 'gpt-5-nano', // GPT-5-nano 사용
+      messages: messages,
+      max_completion_tokens: 200, // 짧은 요약을 위해 토큰 제한
+      reasoning_effort: "low" // 빠른 처리를 위해 낮은 추론 레벨
+    });
+
+    const summary = response.choices[0].message?.content;
+    
+    if (!summary) {
+      throw new Error('요약 생성 실패');
+    }
+
+    console.log('✅ GPT-5-nano 요약 생성 완료');
+    return summary;
+
+  } catch (error) {
+    console.error('❌ GPT-5-nano 요약 생성 실패:', error);
+    
+    // 실패 시 기본 요약 반환
+    return '리포트 요약을 생성할 수 없습니다. 전체 리포트를 확인해주세요.';
+  }
 }
 
 /**

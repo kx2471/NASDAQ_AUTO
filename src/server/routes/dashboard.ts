@@ -116,35 +116,82 @@ router.get('/api/reports', async (req, res) => {
     const reportDir = path.join(process.cwd(), 'data/report');
     const files = await fs.readdir(reportDir);
     
-    // .md 파일만 필터링하고 날짜순 정렬
-    const reportFiles = files
-      .filter(file => file.endsWith('.md'))
+    // 메타데이터 파일 필터링하고 날짜순 정렬
+    const metaFiles = files
+      .filter(file => file.endsWith('_meta.json'))
       .sort((a, b) => b.localeCompare(a)) // 최신순
       .slice(0, 20); // 최근 20개만
 
     const reports = await Promise.all(
-      reportFiles.map(async (file) => {
-        const filePath = path.join(reportDir, file);
-        const content = await fs.readFile(filePath, 'utf-8');
-        
-        // 파일명에서 날짜와 섹터 추출
-        const match = file.match(/^(\d{8})_(.+)\.md$/);
-        const date = match ? match[1] : '';
-        const sector = match ? match[2] : '';
-        
-        return {
-          filename: file,
-          date: date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
-          sector,
-          title: content.split('\\n')[0].replace(/^#\\s*/, ''),
-          content: content.substring(0, 300) + '...' // 미리보기용
-        };
+      metaFiles.map(async (file) => {
+        try {
+          const filePath = path.join(reportDir, file);
+          const metaContent = await fs.readFile(filePath, 'utf-8');
+          const metadata = JSON.parse(metaContent);
+          
+          return {
+            filename: path.basename(metadata.mdPath),
+            date: metadata.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
+            sector: metadata.type,
+            title: metadata.title,
+            summary: metadata.summary,
+            htmlPath: metadata.htmlPath,
+            createdAt: metadata.createdAt
+          };
+        } catch (error) {
+          console.error(`❌ 메타데이터 파일 읽기 실패: ${file}`, error);
+          return null;
+        }
       })
     );
 
+    // null 값 필터링
+    const validReports = reports.filter(report => report !== null);
+
+    // 기존 .md 파일도 포함하여 호환성 유지 (메타데이터가 없는 경우)
+    const mdFiles = files
+      .filter(file => file.endsWith('.md') && !file.includes('_meta'))
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 5); // 최근 5개만 추가 확인
+
+    for (const file of mdFiles) {
+      const match = file.match(/^(\d{8})_(.+)\.md$/);
+      if (match) {
+        const date = match[1];
+        const sector = match[2];
+        
+        // 이미 메타데이터가 있는 리포트는 제외
+        const alreadyExists = validReports.some(r => 
+          r.filename === file && r.date === date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')
+        );
+        
+        if (!alreadyExists) {
+          try {
+            const filePath = path.join(reportDir, file);
+            const content = await fs.readFile(filePath, 'utf-8');
+            
+            validReports.push({
+              filename: file,
+              date: date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
+              sector,
+              title: content.split('\n')[0].replace(/^#\s*/, ''),
+              summary: content.substring(0, 200) + '...', // 기본 요약
+              htmlPath: null,
+              createdAt: null
+            });
+          } catch (error) {
+            console.error(`❌ 레거시 리포트 파일 읽기 실패: ${file}`, error);
+          }
+        }
+      }
+    }
+
+    // 날짜순 재정렬
+    validReports.sort((a, b) => b.date.localeCompare(a.date));
+
     res.json({
       success: true,
-      data: reports
+      data: validReports.slice(0, 20) // 최종적으로 20개만
     });
 
   } catch (error) {
@@ -404,12 +451,17 @@ async function generateDashboardHtml(): Promise<string> {
 
         async function loadRecentReports() {
             try {
+                console.log('리포트 로딩 시작...');
                 const response = await fetch('/dashboard/api/reports');
                 const result = await response.json();
                 
+                console.log('리포트 API 응답:', result);
+                
                 if (result.success) {
+                    console.log('리포트 ' + result.data.length + '개 로드됨');
                     updateRecentReports(result.data);
                 } else {
+                    console.error('리포트 API 실패:', result.error);
                     document.getElementById('recentReports').innerHTML = '<div class="error">리포트를 불러올 수 없습니다.</div>';
                 }
             } catch (error) {
@@ -420,6 +472,8 @@ async function generateDashboardHtml(): Promise<string> {
 
         function updateRecentReports(reports) {
             const container = document.getElementById('recentReports');
+            
+            console.log('리포트 UI 업데이트 중...', reports);
             
             if (reports.length === 0) {
                 container.innerHTML = '<p>저장된 리포트가 없습니다.</p>';
@@ -432,9 +486,9 @@ async function generateDashboardHtml(): Promise<string> {
                 reportsHtml += \`
                     <div class="report-card" onclick="openReport('\${report.filename}')">
                         <div class="date">\${report.date}</div>
-                        <div class="sector">\${report.sector}</div>
+                        <div class="sector">\${report.sector === 'unified' ? '통합분석' : report.sector}</div>
                         <h4>\${report.title}</h4>
-                        <p>\${report.content}</p>
+                        <p style="color: #7f8c8d; font-size: 0.9rem; margin-top: 8px;">\${report.summary}</p>
                     </div>
                 \`;
             });

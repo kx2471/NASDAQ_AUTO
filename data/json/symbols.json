@@ -230,5 +230,13 @@
     "sector": "nuclear",
     "industry": "Unknown",
     "active": true
+  },
+  {
+    "symbol": "CNBC",
+    "name": "CNBC Corp",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
   }
 ]

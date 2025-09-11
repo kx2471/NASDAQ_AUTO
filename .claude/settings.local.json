@@ -12,7 +12,10 @@
       "Bash(node:*)",
       "WebFetch(domain:apidog.com)",
       "Bash(taskkill:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gh run list:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []
