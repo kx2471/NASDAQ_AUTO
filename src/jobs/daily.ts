@@ -8,6 +8,7 @@ import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
 import { runFullScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
+import { calculateCurrentPerformance, analyzeTargetProgress, savePerformanceHistory, generatePerformanceReport } from '../services/performance';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -218,6 +219,44 @@ async function prepareReportPayload(params: {
     }
   }
 
+  // 성과 추적 및 분석 (첫 번째 섹터에서만 실행)
+  let performanceReport = '';
+  if (sectorCode === 'ai') { // AI 섹터 처리시에만 성과 분석
+    try {
+      console.log('📊 포트폴리오 성과 분석 중...');
+      
+      // 현재가 데이터 추출
+      const currentPrices: Record<string, number> = {};
+      for (const [symbol, indicator] of Object.entries(indicatorsData)) {
+        if (indicator && indicator.close) {
+          currentPrices[symbol] = indicator.close;
+        }
+      }
+      
+      // 성과 계산
+      const performance = calculateCurrentPerformance(
+        holdings,
+        currentPrices,
+        exchangeRate.usd_to_krw
+      );
+      
+      // 목표 분석
+      const targetAnalysis = analyzeTargetProgress(performance);
+      
+      // 성과 데이터 저장
+      await savePerformanceHistory(performance);
+      
+      // 성과 리포트 생성
+      performanceReport = generatePerformanceReport(performance, targetAnalysis);
+      
+      console.log(`📈 성과 추적 완료: 현재 ₩${performance.current_value_krw.toLocaleString()} (${performance.total_return_percent > 0 ? '+' : ''}${performance.total_return_percent}%)`);
+      
+    } catch (error) {
+      console.error('❌ 성과 분석 실패:', error);
+      performanceReport = '\n## ⚠️ 성과 분석 오류\n데이터를 불러오는 중 문제가 발생했습니다.\n';
+    }
+  }
+
   return {
     lookback_days: parseInt(process.env.REPORT_LOOKBACK_DAYS || '30'),
     portfolio,
@@ -229,7 +268,8 @@ async function prepareReportPayload(params: {
     },
     indicators: indicatorsData,
     news: newsData.slice(0, 10), // 상위 10개 뉴스
-    scores
+    scores,
+    performanceReport // 성과 리포트 추가
   };
 }
 
