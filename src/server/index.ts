@@ -5,6 +5,7 @@ import { auth } from './middleware/auth';
 import { runDaily } from '../jobs/daily';
 import tradesRoutes from './routes/trades';
 import cashRoutes from './routes/cash';
+import dashboardRoutes from './routes/dashboard';
 
 // 환경 변수 로드
 dotenv.config();
@@ -17,8 +18,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 인증 미들웨어 적용
-app.use(auth);
+// 대시보드는 인증 없이 접근 가능
+app.use('/dashboard', dashboardRoutes);
+
+// 인증 미들웨어 적용 (API 전용)
+app.use('/v1', auth);
 
 // 라우트 설정
 app.use('/v1/trades', tradesRoutes);
