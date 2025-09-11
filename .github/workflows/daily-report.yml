@@ -53,26 +53,21 @@ jobs:
         SEND_HOUR_LOCAL: ${{ secrets.SEND_HOUR_LOCAL }}
       run: |
         # 데이터 디렉터리 생성
-        mkdir -p data/portfolio data/screening data/report
+        mkdir -p data/json data/screening data/report
         
-        # 초기 포트폴리오 설정 (필요시)
-        if [ ! -f "data/portfolio/cash.json" ]; then
-          echo '{"balance": 10000, "currency": "USD", "last_updated": "'$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)'"}' > data/portfolio/cash.json
-        fi
-        
-        # 일일 리포트 생성
-        curl -X POST http://localhost:3000/api/report/daily \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $API_KEY" &
-        
-        # 서버 시작하고 API 호출
-        npm start &
-        sleep 30
-        
-        # API 엔드포인트 호출
-        curl -X POST http://localhost:3000/api/report/daily \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer $API_KEY" || echo "Report generation completed"
+        # 직접 daily job 실행
+        node -e "
+        const { runDaily } = require('./dist/jobs/daily.js');
+        runDaily()
+          .then(() => {
+            console.log('✅ Daily report generation completed successfully');
+            process.exit(0);
+          })
+          .catch((error) => {
+            console.error('❌ Daily report generation failed:', error);
+            process.exit(1);
+          });
+        "
       
     - name: Commit and push report
       run: |

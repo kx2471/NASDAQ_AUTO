@@ -55,15 +55,16 @@ export async function fetchDailyPrices(symbols: string[]): Promise<Record<string
  * Yahoo Finance에서 가격 데이터 수집 (무료, 제한 없음)
  */
 async function fetchFromYahooFinance(symbol: string): Promise<PriceData[]> {
-  // Yahoo Finance v8 API 사용 (공식 API가 아니지만 널리 사용됨)
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-  const params = {
-    range: '100d',
-    interval: '1d'
-  };
+  try {
+    // Yahoo Finance v8 API 사용 (공식 API가 아니지만 널리 사용됨)
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+    const params = {
+      range: '100d',
+      interval: '1d'
+    };
 
-  const response = await axios.get(url, { params });
-  const data = response.data;
+    const response = await axios.get(url, { params });
+    const data = response.data;
 
   if (data.chart?.error) {
     throw new Error(`Yahoo Finance 오류: ${data.chart.error.description}`);
@@ -100,6 +101,17 @@ async function fetchFromYahooFinance(symbol: string): Promise<PriceData[]> {
   priceData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return priceData;
+    
+  } catch (error: any) {
+    // 404 오류는 심볼이 존재하지 않음을 의미
+    if (error.response?.status === 404) {
+      console.warn(`⚠️ ${symbol}: Yahoo Finance에서 찾을 수 없는 심볼입니다`);
+      return [];
+    }
+    
+    // 기타 네트워크 오류는 재시도 가능하므로 에러 던지기
+    throw new Error(`Yahoo Finance API 오류 (${symbol}): ${error.message}`);
+  }
 }
 
 /**
