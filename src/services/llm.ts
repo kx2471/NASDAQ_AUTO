@@ -81,7 +81,7 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
 
     const client = getOpenAIClient();
     
-    // GPT-5 모델용 추가 파라미터 설정
+    // GPT-5 모델용 파라미터 설정
     const isGpt5 = model.startsWith('gpt-5');
     const requestParams: any = {
       model: model,
@@ -90,10 +90,10 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     
     // GPT-5 vs 기존 모델 파라미터 구분
     if (isGpt5) {
-      // GPT-5 전용 파라미터 (temperature는 기본값 1만 지원)
-      requestParams.max_completion_tokens = 4000;
-      requestParams.reasoning_effort = "medium";
-      requestParams.verbosity = "medium";
+      // GPT-5 전용 파라미터 (reasoning_tokens + output_tokens을 고려)
+      requestParams.max_completion_tokens = 8000; // reasoning + 실제 출력을 위한 충분한 토큰
+      requestParams.reasoning_effort = "medium"; // high 대신 medium으로 조정
+      // temperature는 설정하지 않음 (기본값 1 사용)
     } else {
       // 기존 GPT 모델 파라미터
       requestParams.temperature = 0.2;
@@ -102,7 +102,7 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     
     const response = await client.chat.completions.create(requestParams);
 
-    const report = response.choices[0].message?.content;
+    const report = response.choices[0]?.message?.content;
     
     if (!report) {
       throw new Error('LLM 응답이 비어있습니다');
@@ -180,10 +180,11 @@ ${reportContent.substring(0, 2000)}...`; // 리포트 내용을 일부만 사용
     const client = getOpenAIClient();
     
     const response = await client.chat.completions.create({
-      model: 'gpt-5-nano', // GPT-5-nano 사용
+      model: 'gpt-5-nano', // GPT-5-nano 사용 (요약용)
       messages: messages,
-      max_completion_tokens: 200, // 짧은 요약을 위해 토큰 제한
-      reasoning_effort: "low" // 빠른 처리를 위해 낮은 추론 레벨
+      max_completion_tokens: 500, // reasoning + 출력을 위한 충분한 토큰
+      reasoning_effort: "low" // 낮은 추론 레벨로 빠른 처리
+      // temperature는 설정하지 않음 (기본값 1 사용)
     });
 
     const summary = response.choices[0].message?.content;

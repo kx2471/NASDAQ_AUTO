@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { db, getHoldings, getCashBalance } from '../storage/database';
 import { fetchDailyPrices, computeIndicators } from '../services/market';
@@ -8,6 +9,9 @@ import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
 import { runFullScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
+
+// 환경변수 로드
+dotenv.config();
 import { calculateCurrentPerformance, analyzeTargetProgress, savePerformanceHistory, generatePerformanceReport } from '../services/performance';
 import fs from 'fs/promises';
 import path from 'path';
@@ -89,6 +93,22 @@ async function processSector(
     // 6. 보유 현황 새로고침 (JSON에서는 실시간 계산)
     console.log('💰 포트폴리오 데이터 계산 중...');
 
+    // 6.5. 보유 종목의 현재가 데이터 수집 (리포트에서 사용하기 위함)
+    const holdings = await getHoldings();
+    const holdingSymbols = holdings.map(h => h.symbol);
+    let holdingCurrentPrices: Record<string, number> = {};
+    
+    if (holdingSymbols.length > 0) {
+      console.log(`📊 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
+      const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+      for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+        if (prices && prices.length > 0) {
+          holdingCurrentPrices[symbol] = prices[prices.length - 1].close;
+          console.log(`💰 ${symbol}: $${holdingCurrentPrices[symbol]}`);
+        }
+      }
+    }
+
     // 7. 보고서 생성을 위한 데이터 준비
     const reportPayload = await prepareReportPayload({
       sectorCode,
@@ -97,7 +117,8 @@ async function processSector(
       pricesData,
       indicatorsData,
       newsData,
-      screeningResults
+      screeningResults,
+      currentPrices: holdingCurrentPrices // 보유 종목 현재가 전달
     });
 
     // 8. AI 보고서 생성
@@ -165,6 +186,7 @@ async function prepareReportPayload(params: {
   indicatorsData: Record<string, any>;
   newsData: any[];
   screeningResults?: any[];
+  currentPrices?: Record<string, number>;
 }): Promise<any> {
   const { sectorCode, sectorTitle, symbols, indicatorsData, newsData, screeningResults = [] } = params;
 
@@ -227,6 +249,21 @@ async function prepareReportPayload(params: {
         }
       }
       
+      // 보유 종목의 현재가 데이터 별도 수집 (indicatorsData에 없을 경우 대비)
+      const holdingSymbols = holdings.map(h => h.symbol);
+      const missingHoldings = holdingSymbols.filter(symbol => !currentPrices[symbol]);
+      
+      if (missingHoldings.length > 0) {
+        console.log(`📊 보유 종목 현재가 별도 수집: ${missingHoldings.join(', ')}`);
+        const holdingPrices = await fetchDailyPrices(missingHoldings);
+        for (const [symbol, prices] of Object.entries(holdingPrices)) {
+          if (prices && prices.length > 0) {
+            currentPrices[symbol] = prices[prices.length - 1].close;
+            console.log(`💰 ${symbol}: $${currentPrices[symbol]}`);
+          }
+        }
+      }
+      
       // 성과 계산
       const performance = calculateCurrentPerformance(
         holdings,
@@ -252,7 +289,7 @@ async function prepareReportPayload(params: {
   }
 
   return {
-    lookback_days: parseInt(process.env.REPORT_LOOKBACK_DAYS || '30'),
+    lookback_days: parseInt(process.env.REPORT_LOOKBOOK_DAYS || '30'),
     portfolio,
     market: {
       date: new Date().toISOString().split('T')[0],
@@ -263,7 +300,8 @@ async function prepareReportPayload(params: {
     indicators: indicatorsData,
     news: newsData.slice(0, 10), // 상위 10개 뉴스
     scores,
-    performanceReport // 성과 리포트 추가
+    performanceReport, // 성과 리포트 추가
+    currentPrices: params.currentPrices || {} // 현재가 데이터 명시적 추가
   };
 }
 
@@ -384,6 +422,23 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       fromDate: getDateDaysAgo(7)
     });
     
+    // 보유 종목 현재가 수집 (통합 리포트용)
+    console.log('💰 통합 리포트용 보유 종목 현재가 수집 중...');
+    const holdings = await getHoldings();
+    const holdingSymbols = holdings.map(h => h.symbol);
+    let holdingCurrentPrices: Record<string, number> = {};
+    
+    if (holdingSymbols.length > 0) {
+      console.log(`📊 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
+      const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+      for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+        if (prices && prices.length > 0) {
+          holdingCurrentPrices[symbol] = prices[prices.length - 1].close;
+          console.log(`💰 ${symbol}: $${holdingCurrentPrices[symbol]}`);
+        }
+      }
+    }
+    
     // 통합 리포트 페이로드 준비
     const reportPayload = await prepareUnifiedReportPayload({
       allSectors: sectors,
@@ -391,7 +446,8 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       pricesData,
       indicatorsData,
       newsData,
-      screeningResults: allScreeningResults
+      screeningResults: allScreeningResults,
+      currentPrices: holdingCurrentPrices // 보유 종목 현재가 전달
     });
     
     // AI 통합 리포트 생성
@@ -437,6 +493,7 @@ async function prepareUnifiedReportPayload(params: {
   indicatorsData: Record<string, any>;
   newsData: any[];
   screeningResults: any[];
+  currentPrices?: Record<string, number>;
 }): Promise<any> {
   const { allSectors, symbols, indicatorsData, newsData, screeningResults = [] } = params;
   
@@ -497,11 +554,29 @@ async function prepareUnifiedReportPayload(params: {
   try {
     console.log('📊 포트폴리오 성과 분석 중...');
     
-    // 현재가 데이터 추출
+    // 보유 종목 심볼 추출
+    const holdingSymbols = holdings.map(h => h.symbol);
+    console.log(`💼 보유 종목: ${holdingSymbols.join(', ')}`);
+    
+    // 보유 종목의 현재가 데이터 조회
+    const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+    
+    // 현재가 데이터 추출 (분석 종목 + 보유 종목)
     const currentPrices: Record<string, number> = {};
+    
+    // 1. 분석 종목 현재가
     for (const [symbol, indicator] of Object.entries(indicatorsData)) {
       if (indicator && indicator.close) {
         currentPrices[symbol] = indicator.close;
+      }
+    }
+    
+    // 2. 보유 종목 현재가 (최우선)
+    for (const [symbol, priceHistory] of Object.entries(holdingPricesData)) {
+      if (priceHistory.length > 0) {
+        const latestPrice = priceHistory[priceHistory.length - 1];
+        currentPrices[symbol] = latestPrice.close;
+        console.log(`💰 ${symbol} 현재가: $${latestPrice.close.toFixed(2)}`);
       }
     }
     
@@ -544,7 +619,8 @@ async function prepareUnifiedReportPayload(params: {
     scores,
     performanceReport,
     total_symbols_count: symbols.length,
-    screening_results: screeningResults
+    screening_results: screeningResults,
+    currentPrices: params.currentPrices || {} // 현재가 데이터 명시적 추가
   };
 }
 

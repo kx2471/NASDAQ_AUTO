@@ -15,7 +15,17 @@
       "Bash(git commit:*)",
       "Bash(gh run list:*)",
       "WebFetch(domain:github.com)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npm start)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebFetch(domain:notavoid.tistory.com)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(set PORT=8081)",
+      "Bash(set MAIL_TO=kx2471@gmail.com)",
+      "Bash(copy:*)",
+      "Bash(npm run report:unified:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": []

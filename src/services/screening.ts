@@ -1,6 +1,7 @@
 import { db, Symbol } from '../storage/database';
 import { SectorConfig } from '../utils/config';
 import { StockDiscoveryEngine, DiscoveredStock } from './discovery';
+import { filterHighQualityStocks } from './market';
 
 /**
  * 종목 스크리닝 결과 인터페이스
@@ -57,10 +58,29 @@ export class DynamicStockScreener {
         sectorStocks = await this.getExistingSectorStocks(sectorCode);
       }
 
-      // 3. 각 종목에 대한 상세 분석
+      // 3. 품질 필터링 적용 - 활성 종목만 선별
+      const activeStocks = sectorStocks.filter(stock => stock.active);
+      console.log(`📊 ${sectorCode}: 활성 종목 ${activeStocks.length}개 / 전체 ${sectorStocks.length}개`);
+      
+      // 4. 높은 품질의 종목들만 추가 검증
+      const symbolsToVerify = activeStocks.map(stock => stock.symbol);
+      let verifiedSymbols: string[] = [];
+      
+      if (symbolsToVerify.length > 0) {
+        console.log(`🔍 ${sectorCode}: ${symbolsToVerify.length}개 종목 품질 재검증 중...`);
+        verifiedSymbols = await filterHighQualityStocks(symbolsToVerify);
+        console.log(`✅ ${sectorCode}: ${verifiedSymbols.length}개 고품질 종목 확인`);
+      }
+      
+      // 5. 검증된 종목들만 분석 대상으로 선정
+      const qualifiedStocks = activeStocks.filter(stock => 
+        verifiedSymbols.includes(stock.symbol)
+      );
+      
+      // 6. 각 종목에 대한 상세 분석
       const screeningResults: ScreeningResult[] = [];
       
-      for (const stock of sectorStocks.slice(0, sectorConfig.max_symbols)) {
+      for (const stock of qualifiedStocks.slice(0, sectorConfig.max_symbols)) {
         try {
           const result = await this.analyzeStock(stock, sectorCode, sectorConfig);
           if (result) {
@@ -71,12 +91,12 @@ export class DynamicStockScreener {
         }
       }
 
-      // 4. 결과 정렬 및 필터링
+      // 7. 결과 정렬 및 필터링
       const filteredResults = screeningResults
         .filter(result => result.overall_score >= 0.3) // 최소 점수 필터
         .sort((a, b) => b.overall_score - a.overall_score);
 
-      console.log(`✅ ${sectorConfig.title} 스크리닝 완료: ${filteredResults.length}개 종목`);
+      console.log(`✅ ${sectorConfig.title} 스크리닝 완료: ${filteredResults.length}개 종목 (품질 필터링 적용)`);
       return filteredResults;
 
     } catch (error) {

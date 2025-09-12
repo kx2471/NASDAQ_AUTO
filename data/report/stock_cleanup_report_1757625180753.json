@@ -1,0 +1,476 @@
+{
+  "timestamp": "2025-09-11T21:13:00.753Z",
+  "summary": {
+    "total": 30,
+    "active": 14,
+    "inactive": 16,
+    "errors": 0
+  },
+  "details": {
+    "active": [
+      {
+        "symbol": "AIQ",
+        "name": "Global X Artificial Intelligence & Technology ETF",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AIQ",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 1088988.1,
+          "marketCap": 5054429443.776544
+        }
+      },
+      {
+        "symbol": "AACI",
+        "name": "Armada Acquisition Corp II - Class A",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AACI",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 179844.8,
+          "marketCap": 184358904.89163208
+        }
+      },
+      {
+        "symbol": "AAL",
+        "name": "American Airlines Group Inc",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAL",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 71754085.75,
+          "marketCap": 92648874753.98367
+        }
+      },
+      {
+        "symbol": "AAOI",
+        "name": "Applied Optoelectronics Inc",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAOI",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 5160657.75,
+          "marketCap": 12995568133.437452
+        }
+      },
+      {
+        "symbol": "AAON",
+        "name": "AAON Inc",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAON",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 936205.85,
+          "marketCap": 7632886323.620734
+        }
+      },
+      {
+        "symbol": "AAPB",
+        "name": "GRANITESHARES 2X LONG AAPL DAILY ETF ",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAPB",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 322775.9,
+          "marketCap": 824240552.5229913
+        }
+      },
+      {
+        "symbol": "AAPD",
+        "name": "DIREXION DAILY AAPL BEAR 1X SHARES ",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAPD",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 1119072.85,
+          "marketCap": 1724715085.8116333
+        }
+      },
+      {
+        "symbol": "AAPL",
+        "name": "Apple Inc",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAPL",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 47807393.5,
+          "marketCap": 1117488266836.0771
+        }
+      },
+      {
+        "symbol": "AAPU",
+        "name": "DIREXION DAILY AAPL BULL 2X SHARES ",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAPU",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 2871910.95,
+          "marketCap": 7966680909.567175
+        }
+      },
+      {
+        "symbol": "AARD",
+        "name": "Aardvark Therapeutics Inc",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AARD",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 159337.65,
+          "marketCap": 129063496.5
+        }
+      },
+      {
+        "symbol": "AAXJ",
+        "name": "ISHARES MSCI ALL COUNTRY ASIA EX JAPAN ETF ",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "AAXJ",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 411387.35,
+          "marketCap": 3641271692.232727
+        }
+      },
+      {
+        "symbol": "ABAT",
+        "name": "Advanced Battery Technologies Inc",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "ABAT",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 3975691.65,
+          "marketCap": 936672969.4226661
+        }
+      },
+      {
+        "symbol": "ABCB",
+        "name": "Ameris Bancorp",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "ABCB",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 383602.55,
+          "marketCap": 2835283090.296303
+        }
+      },
+      {
+        "symbol": "ABCL",
+        "name": "AbCellera Biologics Inc",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": true,
+        "quality": {
+          "symbol": "ABCL",
+          "isActive": true,
+          "hasMinimumData": true,
+          "avgVolume": 4073600.75,
+          "marketCap": 1753277761.2460444
+        }
+      }
+    ],
+    "inactive": [
+      {
+        "symbol": "AGIX",
+        "name": "KRANESHARES ARTIFICIAL INTELLIGENCE AND TECHNOLOGY ETF ",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AGIX",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 20741.2,
+          "marketCap": 72775478.20193481
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AACBR",
+        "name": "Artius II Acquisition Inc Rights",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AACBR",
+          "isActive": false,
+          "hasMinimumData": false,
+          "avgVolume": 4070,
+          "marketCap": 65079.29785549641
+        },
+        "inactiveReason": "거래량/가격 부족, 데이터 부족"
+      },
+      {
+        "symbol": "AACBU",
+        "name": "Artius II Acquisition Inc - Units (1 Ord Shs & 1 Rts)",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AACBU",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 130,
+          "marketCap": 134420.00198364258
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AACG",
+        "name": "ATA Creativity Global",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AACG",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 79441.6,
+          "marketCap": 16619182.022994997
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AACIU",
+        "name": "Armada Acquisition Corp II - Units (1 Ord Cls A & 1/2 War)",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AACIU",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 23110,
+          "marketCap": 24519710.528945923
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AACIW",
+        "name": "Armada Acquisition Corp II - Warrants(21/05/2030)",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AACIW",
+          "isActive": false,
+          "hasMinimumData": false,
+          "avgVolume": 5366,
+          "marketCap": 391557.03550577164
+        },
+        "inactiveReason": "거래량/가격 부족, 데이터 부족"
+      },
+      {
+        "symbol": "AADR",
+        "name": "ADVISORSHARES DORSEY WRIGHT ADR ETF ",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AADR",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 2127.65,
+          "marketCap": 17886302.243263245
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AALG",
+        "name": "Leverage Shares 2X Long AAL Daily ETF",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AALG",
+          "isActive": false,
+          "hasMinimumData": false,
+          "avgVolume": 10136.9,
+          "marketCap": 14154254.891590118
+        },
+        "inactiveReason": "거래량/가격 부족, 데이터 부족"
+      },
+      {
+        "symbol": "AAME",
+        "name": "Atlantic American Corp",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AAME",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 57511.35,
+          "marketCap": 18702691.00903058
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AAPG",
+        "name": "Ascentage Pharma Group International",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AAPG",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 11776.6,
+          "marketCap": 47242773.588653564
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "AAPGV",
+        "name": "Ascentage Pharma Group International American Depository Shares",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AAPGV",
+          "isActive": true,
+          "hasMinimumData": false
+        },
+        "inactiveReason": "데이터 부족"
+      },
+      {
+        "symbol": "AIPO",
+        "name": "Defiance AI & Power Infrastructure ETF",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AIPO",
+          "isActive": false,
+          "hasMinimumData": false,
+          "avgVolume": 36797.15,
+          "marketCap": 75524089.74358368
+        },
+        "inactiveReason": "거래량/가격 부족, 데이터 부족"
+      },
+      {
+        "symbol": "APMIU",
+        "name": "AxonPrime Infrastructure Acquisition Corp - Units (1 Ord Share Class A & 1/3 War)",
+        "exchange": "NASDAQ",
+        "sector": "computing",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "APMIU",
+          "isActive": true,
+          "hasMinimumData": false
+        },
+        "inactiveReason": "데이터 부족"
+      },
+      {
+        "symbol": "AAVM",
+        "name": "Alpha Architect Value Momentum Trend ETF",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "AAVM",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 6516.35,
+          "marketCap": 18494587.469392776
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "ABCS",
+        "name": "ALPHA BLUE CAPITAL US SMALL-MID CAP DYNAMIC ETF ",
+        "exchange": "NASDAQ",
+        "sector": "nuclear",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "ABCS",
+          "isActive": false,
+          "hasMinimumData": true,
+          "avgVolume": 3336.1,
+          "marketCap": 10159432.034168243
+        },
+        "inactiveReason": "거래량/가격 부족"
+      },
+      {
+        "symbol": "CNBC",
+        "name": "CNBC Corp",
+        "exchange": "NASDAQ",
+        "sector": "ai",
+        "industry": "Unknown",
+        "active": false,
+        "quality": {
+          "symbol": "CNBC",
+          "isActive": true,
+          "hasMinimumData": false
+        },
+        "inactiveReason": "데이터 부족"
+      }
+    ],
+    "errors": []
+  }
+}

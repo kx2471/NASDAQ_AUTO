@@ -92,28 +92,36 @@ export class StockDiscoveryEngine {
         if (response.data) {
           const csvData = response.data;
           const lines = csvData.split('\n');
-          const headers = lines[0].split(',');
           
-          for (let i = 1; i < Math.min(lines.length, 1000); i++) { // 처음 1000개만 처리
-            const row = lines[i].split(',');
-            if (row.length >= headers.length) {
-              const symbol = row[0]?.replace(/"/g, '');
-              const name = row[1]?.replace(/"/g, '');
-              const exchange = row[2]?.replace(/"/g, '');
-              
-              // NASDAQ 종목만 필터링
-              if (exchange === 'NASDAQ' && symbol && name) {
-                // 업종 매칭은 나중에 추가 API 호출로 확인
-                stocks.push({
-                  symbol,
-                  name,
-                  exchange,
-                  industry: 'Unknown',
-                  market_cap: 0,
-                  description: name,
-                  relevance_score: 0.5 // 기본 점수
-                });
+          // 다양한 종목을 위해 전체 데이터에서 샘플링
+          const totalLines = lines.length - 1; // 헤더 제외
+          const maxSamples = 5000; // 최대 5000개 샘플
+          const skipInterval = Math.max(1, Math.floor(totalLines / maxSamples));
+          
+          for (let i = 1; i < lines.length; i += skipInterval) { // 균등 샘플링
+            try {
+              const row = this.parseCSVRow(lines[i]);
+              if (row && row.length >= 3) {
+                const symbol = row[0]?.trim();
+                const name = row[1]?.trim();
+                const exchange = row[2]?.trim();
+                
+                // NASDAQ 종목만 필터링
+                if (exchange === 'NASDAQ' && symbol && name) {
+                  // 업종 매칭은 나중에 추가 API 호출로 확인
+                  stocks.push({
+                    symbol,
+                    name,
+                    exchange,
+                    industry: 'Unknown',
+                    market_cap: 0,
+                    description: name,
+                    relevance_score: 0.5 // 기본 점수
+                  });
+                }
               }
+            } catch (parseError) {
+              console.warn(`CSV 라인 파싱 실패 (라인 ${i}):`, parseError);
             }
           }
         }
@@ -304,6 +312,42 @@ export class StockDiscoveryEngine {
     console.log(`💾 ${stocks.length}개 종목을 데이터베이스에 저장 완료`);
   }
   
+  /**
+   * CSV 행 파싱 함수 (쉼표가 포함된 필드 처리)
+   */
+  private parseCSVRow(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // 이스케이프된 따옴표 ("") 처리
+          current += '"';
+          i++; // 다음 따옴표 건너뛰기
+        } else {
+          // 따옴표 시작/끝
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // 따옴표 밖의 쉼표 = 필드 구분자
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // 마지막 필드 추가
+    result.push(current.trim());
+    
+    // 따옴표 제거
+    return result.map(field => field.replace(/^"(.+)"$/, '$1'));
+  }
+
   /**
    * 지연 함수 (API 호출 제한 준수)
    */
