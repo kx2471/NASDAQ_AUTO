@@ -1,0 +1,1287 @@
+[
+  {
+    "symbol": "AIQ",
+    "name": "Global X Artificial Intelligence & Technology ETF",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AIQ",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1088988.1,
+      "marketCap": 5054429443.776544
+    }
+  },
+  {
+    "symbol": "AACI",
+    "name": "Armada Acquisition Corp II - Class A",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AACI",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 179844.8,
+      "marketCap": 184358904.89163208
+    }
+  },
+  {
+    "symbol": "AAL",
+    "name": "American Airlines Group Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 71754085.75,
+      "marketCap": 92648874753.98367
+    }
+  },
+  {
+    "symbol": "AAOI",
+    "name": "Applied Optoelectronics Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAOI",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 5160657.75,
+      "marketCap": 12995568133.437452
+    }
+  },
+  {
+    "symbol": "AAON",
+    "name": "AAON Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAON",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 936205.85,
+      "marketCap": 7632886323.620734
+    }
+  },
+  {
+    "symbol": "AAPB",
+    "name": "GRANITESHARES 2X LONG AAPL DAILY ETF ",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAPB",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 322775.9,
+      "marketCap": 824240552.5229913
+    }
+  },
+  {
+    "symbol": "AAPD",
+    "name": "DIREXION DAILY AAPL BEAR 1X SHARES ",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAPD",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1119072.85,
+      "marketCap": 1724715085.8116333
+    }
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAPL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 47807393.5,
+      "marketCap": 1117488266836.0771
+    }
+  },
+  {
+    "symbol": "AAPU",
+    "name": "DIREXION DAILY AAPL BULL 2X SHARES ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAPU",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 2871910.95,
+      "marketCap": 7966680909.567175
+    }
+  },
+  {
+    "symbol": "AARD",
+    "name": "Aardvark Therapeutics Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AARD",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 159337.65,
+      "marketCap": 129063496.5
+    }
+  },
+  {
+    "symbol": "AAXJ",
+    "name": "ISHARES MSCI ALL COUNTRY ASIA EX JAPAN ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AAXJ",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 411387.35,
+      "marketCap": 3641271692.232727
+    }
+  },
+  {
+    "symbol": "ABAT",
+    "name": "Advanced Battery Technologies Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ABAT",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 3975691.65,
+      "marketCap": 936672969.4226661
+    }
+  },
+  {
+    "symbol": "ABCB",
+    "name": "Ameris Bancorp",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ABCB",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 383602.55,
+      "marketCap": 2835283090.296303
+    }
+  },
+  {
+    "symbol": "ABCL",
+    "name": "AbCellera Biologics Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ABCL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 4073600.75,
+      "marketCap": 1753277761.2460444
+    }
+  },
+  {
+    "symbol": "AGIX",
+    "name": "KRANESHARES ARTIFICIAL INTELLIGENCE AND TECHNOLOGY ETF ",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AACBR",
+    "name": "Artius II Acquisition Inc Rights",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족, 데이터 부족"
+  },
+  {
+    "symbol": "AACBU",
+    "name": "Artius II Acquisition Inc - Units (1 Ord Shs & 1 Rts)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AACG",
+    "name": "ATA Creativity Global",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AACIU",
+    "name": "Armada Acquisition Corp II - Units (1 Ord Cls A & 1/2 War)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AACIW",
+    "name": "Armada Acquisition Corp II - Warrants(21/05/2030)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족, 데이터 부족"
+  },
+  {
+    "symbol": "AADR",
+    "name": "ADVISORSHARES DORSEY WRIGHT ADR ETF ",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AALG",
+    "name": "Leverage Shares 2X Long AAL Daily ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족, 데이터 부족"
+  },
+  {
+    "symbol": "AAME",
+    "name": "Atlantic American Corp",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AAPG",
+    "name": "Ascentage Pharma Group International",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "AAPGV",
+    "name": "Ascentage Pharma Group International American Depository Shares",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "데이터 부족"
+  },
+  {
+    "symbol": "AIPO",
+    "name": "Defiance AI & Power Infrastructure ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족, 데이터 부족"
+  },
+  {
+    "symbol": "APMIU",
+    "name": "AxonPrime Infrastructure Acquisition Corp - Units (1 Ord Share Class A & 1/3 War)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "데이터 부족"
+  },
+  {
+    "symbol": "AAVM",
+    "name": "Alpha Architect Value Momentum Trend ETF",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "ABCS",
+    "name": "ALPHA BLUE CAPITAL US SMALL-MID CAP DYNAMIC ETF ",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": false,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "거래량/가격 부족"
+  },
+  {
+    "symbol": "CNBC",
+    "name": "CNBC Corp",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "lastChecked": "2025-09-11T21:13:00.749Z",
+    "inactiveReason": "데이터 부족"
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc Class A",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "GOOGL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "GOOG",
+    "name": "Alphabet Inc Class C",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "GOOG",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "META",
+    "name": "Meta Platforms Inc",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "META",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "NVDA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "MSFT",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon.com Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "AMZN",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "TSLA",
+    "name": "Tesla Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "TSLA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "NFLX",
+    "name": "Netflix Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "NFLX",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "BIDU",
+    "name": "Baidu Inc ADR",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "BIDU",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "BABA",
+    "name": "Alibaba Group Holding Ltd ADR",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "BABA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "BIIB",
+    "name": "Biogen Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "BIIB",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "BMRN",
+    "name": "BioMarin Pharmaceutical Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "BMRN",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "BBBY",
+    "name": "Bed Bath & Beyond Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "BBBY",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "CSCO",
+    "name": "Cisco Systems Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "CSCO",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "COST",
+    "name": "Costco Wholesale Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "COST",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "CMCSA",
+    "name": "Comcast Corporation Class A",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "CMCSA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "CRWD",
+    "name": "CrowdStrike Holdings Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "CRWD",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "COIN",
+    "name": "Coinbase Global Inc",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "COIN",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "DOCU",
+    "name": "DocuSign Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "DOCU",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "DXCM",
+    "name": "DexCom Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "DXCM",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "DLTR",
+    "name": "Dollar Tree Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "DLTR",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "DISH",
+    "name": "DISH Network Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": false,
+    "quality": {
+      "symbol": "DISH",
+      "isActive": false,
+      "hasMinimumData": false,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "EBAY",
+    "name": "eBay Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "EBAY",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "EXPE",
+    "name": "Expedia Group Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "EXPE",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "FAST",
+    "name": "Fastenal Company",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "FAST",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "FB",
+    "name": "Meta Platforms Inc",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "FB",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "GILD",
+    "name": "Gilead Sciences Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "GILD",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "HON",
+    "name": "Honeywell International Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "HON",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "HSIC",
+    "name": "Henry Schein Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "HSIC",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "INTC",
+    "name": "Intel Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "INTC",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "ILMN",
+    "name": "Illumina Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ILMN",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "JD",
+    "name": "JD.com Inc ADR",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "JD",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "KDP",
+    "name": "Keurig Dr Pepper Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "KDP",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "KHC",
+    "name": "Kraft Heinz Company",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "KHC",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "LRCX",
+    "name": "Lam Research Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "LRCX",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "LCID",
+    "name": "Lucid Group Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "LCID",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "MRNA",
+    "name": "Moderna Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "MRNA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "MELI",
+    "name": "MercadoLibre Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "MELI",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "MDLZ",
+    "name": "Mondelez International Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "MDLZ",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "NTES",
+    "name": "NetEase Inc ADR",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "NTES",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "OKTA",
+    "name": "Okta Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "OKTA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "ORLY",
+    "name": "O'Reilly Automotive Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ORLY",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "PYPL",
+    "name": "PayPal Holdings Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "PYPL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "PAYX",
+    "name": "Paychex Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "PAYX",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "PCAR",
+    "name": "PACCAR Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "PCAR",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "QCOM",
+    "name": "QUALCOMM Incorporated",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "QCOM",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "REGN",
+    "name": "Regeneron Pharmaceuticals Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "REGN",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "ROST",
+    "name": "Ross Stores Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ROST",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "SBUX",
+    "name": "Starbucks Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "SBUX",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "SIRI",
+    "name": "Sirius XM Holdings Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "SIRI",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "SWKS",
+    "name": "Skyworks Solutions Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "SWKS",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "TMUS",
+    "name": "T-Mobile US Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "TMUS",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "TEAM",
+    "name": "Atlassian Corporation",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "TEAM",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "UBER",
+    "name": "Uber Technologies Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "UBER",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "VRTX",
+    "name": "Vertex Pharmaceuticals Incorporated",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "VRTX",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "VRSK",
+    "name": "Verisk Analytics Inc",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "VRSK",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "WBA",
+    "name": "Walgreens Boots Alliance Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "WBA",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "WDAY",
+    "name": "Workday Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "WDAY",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "XEL",
+    "name": "Xcel Energy Inc",
+    "exchange": "NASDAQ",
+    "sector": "nuclear",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "XEL",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "ZM",
+    "name": "Zoom Video Communications Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ZM",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  },
+  {
+    "symbol": "ZS",
+    "name": "Zscaler Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true,
+    "quality": {
+      "symbol": "ZS",
+      "isActive": true,
+      "hasMinimumData": true,
+      "avgVolume": 1000000,
+      "marketCap": 1000000000
+    }
+  }
+]

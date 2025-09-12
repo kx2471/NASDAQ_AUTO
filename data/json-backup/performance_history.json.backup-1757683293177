@@ -1,0 +1,22 @@
+[
+  {
+    "date": "2025-09-11",
+    "total_investment_krw": 2334490,
+    "current_value_krw": 2777113,
+    "total_return_krw": 442623,
+    "total_return_percent": 18.96,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 27.77
+  },
+  {
+    "date": "2025-09-12",
+    "total_investment_krw": 2337651,
+    "current_value_krw": 2780874,
+    "total_return_krw": 443223,
+    "total_return_percent": 18.96,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 27.81
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "generated_at": "2025-09-12T12:48:40.883Z",
+    "type": "MANUAL",
+    "status": "SUCCESS",
+    "ai_model": "gpt-5-test",
+    "symbols_analyzed": 45,
+    "file_path": "/data/report/test_20250912.md",
+    "summary": "테스트 리포트: 45개 종목 분석 완료, 2.5초 소요",
+    "processing_time_ms": 2500,
+    "id": 1
+  },
+  {
+    "generated_at": "2025-09-12T12:47:40.888Z",
+    "type": "UNIFIED",
+    "status": "FAILED",
+    "ai_model": "gpt-5",
+    "symbols_analyzed": 0,
+    "error_message": "API 연결 실패: 네트워크 오류",
+    "summary": "통합 리포트 실패: 5.2초 후 오류 발생",
+    "processing_time_ms": 5200,
+    "id": 2
+  },
+  {
+    "generated_at": "2025-09-12T12:46:40.891Z",
+    "type": "SECTOR",
+    "status": "PARTIAL",
+    "ai_model": "gpt-5",
+    "symbols_analyzed": 25,
+    "file_path": "/data/report/sector_test_20250912.md",
+    "summary": "섹터 리포트 부분 성공: 25개 종목 분석, 일부 데이터 누락",
+    "processing_time_ms": 3800,
+    "error_message": "일부 종목의 가격 데이터 수집 실패",
+    "id": 3
+  }
+]
