@@ -61,3 +61,17 @@ data/cache/
 # Generated reports (optional - remove if you want to track them)
 # data/report/*.md
 # data/report/*.html
+
+# Scripts with sensitive data
+scripts/update-github-secrets.js
+scripts/test-github-secrets.js
+scripts/test-*.js
+*test*.js
+
+# Backup files
+*.backup
+*_backup_*
+
+# Temporary files
+temp/
+tmp/
