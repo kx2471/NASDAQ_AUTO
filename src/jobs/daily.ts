@@ -562,17 +562,17 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       }
     }
     
-    // Claude 이메일 발송 (활성화된 경우)
+    // Claude 이메일 발송 (활성화된 경우) - 개선된 전달성
     if (claudeReport && claudeMdPath) {
       console.log('📧 Claude 통합 리포트 이메일 발송 중...');
       const claudeEmailHtml = wrapInEmailTemplate(
         claudeReport.replace(/\n/g, '<br>'), 
-        `Claude 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
+        `Claude AI 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
       );
       
       try {
         await sendReportEmail({
-          subject: `🤖 Claude 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+          subject: `📈 [IMPORTANT] Claude AI 주식분석 - ${new Date().toLocaleDateString('ko-KR')}`,
           html: claudeEmailHtml,
           mdPath: claudeMdPath
         });

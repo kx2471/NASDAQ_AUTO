@@ -99,7 +99,13 @@ async function sendWithResend(options: {
     to,
     subject,
     html,
-    attachments: attachmentData
+    attachments: attachmentData,
+    headers: {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high',
+      'X-Mailer': 'Nasdaq AutoTrader System'
+    }
   });
 }
 
