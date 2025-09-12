@@ -586,7 +586,7 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     const processingTime = Date.now() - startTime;
     reportRecord.status = 'SUCCESS';
     reportRecord.symbols_analyzed = symbolsArray.length;
-    reportRecord.file_path = mdPath;
+    reportRecord.file_path = gptMdPath;
     reportRecord.processing_time_ms = processingTime;
     reportRecord.summary = `통합 리포트: ${symbolsArray.length}개 종목 분석, ${(processingTime/1000).toFixed(1)}초 소요`;
     
