@@ -78,7 +78,7 @@ async function sendWithResend(options: {
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.MAIL_FROM || 'Stock Report <onboarding@resend.dev>';
+  const from = process.env.MAIL_FROM || 'Nasdaq AutoTrader <no-reply@resend.dev>';
 
   // 첨부파일을 Base64로 인코딩
   const attachmentData = [];
