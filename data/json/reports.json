@@ -43,5 +43,16 @@
     "file_path": "/home/runner/work/NASDAQ_AUTO/NASDAQ_AUTO/data/report/20250912_unified_gpt5.md",
     "summary": "통합 리포트: 45개 종목 분석, 209.3초 소요",
     "id": 4
+  },
+  {
+    "generated_at": "2025-09-12T21:32:04.514Z",
+    "type": "UNIFIED",
+    "status": "SUCCESS",
+    "ai_model": "gpt-5",
+    "symbols_analyzed": 45,
+    "processing_time_ms": 201490,
+    "file_path": "/home/runner/work/NASDAQ_AUTO/NASDAQ_AUTO/data/report/20250912_unified_gpt5.md",
+    "summary": "통합 리포트: 45개 종목 분석, 201.5초 소요",
+    "id": 5
   }
 ]
