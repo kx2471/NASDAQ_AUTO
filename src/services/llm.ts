@@ -90,9 +90,9 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     
     // GPT-5 vs 기존 모델 파라미터 구분
     if (isGpt5) {
-      // GPT-5 전용 파라미터 (reasoning_tokens + output_tokens을 고려)
-      requestParams.max_completion_tokens = 8000; // reasoning + 실제 출력을 위한 충분한 토큰
-      requestParams.reasoning_effort = "medium"; // high 대신 medium으로 조정
+      // GPT-5 전용 파라미터 - reasoning_effort를 low로 낮춰서 실제 출력 토큰 확보
+      requestParams.max_completion_tokens = 12000; // reasoning + 실제 출력을 위한 충분한 토큰
+      requestParams.reasoning_effort = "low"; // low로 설정하여 출력 토큰 확보
       // temperature는 설정하지 않음 (기본값 1 사용)
     } else {
       // 기존 GPT 모델 파라미터
@@ -102,9 +102,19 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     
     const response = await client.chat.completions.create(requestParams);
 
-    const report = response.choices[0]?.message?.content;
+    console.log('📊 OpenAI 응답 구조 디버깅:', {
+      choices_length: response.choices?.length || 0,
+      first_choice: response.choices?.[0] ? {
+        message_exists: !!response.choices[0].message,
+        content_length: response.choices[0].message?.content?.length || 0,
+        finish_reason: response.choices[0].finish_reason
+      } : null
+    });
+
+    const report = response.choices?.[0]?.message?.content;
     
-    if (!report) {
+    if (!report || report.trim().length === 0) {
+      console.error('❌ OpenAI 응답이 비어있음:', JSON.stringify(response, null, 2));
       throw new Error('LLM 응답이 비어있습니다');
     }
 

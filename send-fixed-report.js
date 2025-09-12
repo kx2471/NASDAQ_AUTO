@@ -57,8 +57,8 @@ async function generateAndSendReport() {
       // 5. 매매 의견 생성
       const tradingAdvice = holdings.map(h => {
         const symbol = h.symbol || 'N/A';
-        const quantity = h.quantity || h.shares || 0;
-        const avgPrice = h.average_price || h.avg_price || h.averagePrice || 0;
+        const quantity = h.shares || 0;
+        const avgPrice = h.avg_cost || 0;
         const currentPrice = currentPrices[symbol] || 0;
         const returnPct = avgPrice > 0 ? ((currentPrice - avgPrice) / avgPrice * 100) : 0;
         
