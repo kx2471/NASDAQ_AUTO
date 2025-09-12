@@ -60,10 +60,9 @@ jobs:
         MARKET_TZ: ${{ secrets.MARKET_TZ }}
         SEND_TZ: ${{ secrets.SEND_TZ }}
         SEND_HOUR_LOCAL: ${{ secrets.SEND_HOUR_LOCAL }}
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        ENABLE_SUPABASE_MIGRATION: ${{ secrets.ENABLE_SUPABASE_MIGRATION }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || '' }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}
+        ENABLE_SUPABASE_MIGRATION: false
         BACKUP_JSON_FILES: ${{ secrets.BACKUP_JSON_FILES }}
       run: |
         # 데이터 디렉터리 생성
