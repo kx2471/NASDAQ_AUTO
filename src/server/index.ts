@@ -6,6 +6,8 @@ import { runDaily } from '../jobs/daily';
 import tradesRoutes from './routes/trades';
 import cashRoutes from './routes/cash';
 import dashboardRoutes from './routes/dashboard';
+import databaseRoutes from './routes/database';
+import databaseViewerRoutes from './routes/database-viewer';
 
 // 환경 변수 로드
 dotenv.config();
@@ -20,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // 대시보드는 인증 없이 접근 가능
 app.use('/dashboard', dashboardRoutes);
+app.use('/database-viewer', databaseViewerRoutes);
 
 // 인증 미들웨어 적용 (API 전용)
 app.use('/v1', auth);
@@ -27,6 +30,7 @@ app.use('/v1', auth);
 // 라우트 설정
 app.use('/v1/trades', tradesRoutes);
 app.use('/v1/cash', cashRoutes);
+app.use('/v1/database', databaseRoutes);
 
 /**
  * 헬스체크 엔드포인트

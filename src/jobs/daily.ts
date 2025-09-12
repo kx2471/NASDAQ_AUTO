@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
-import { db, getHoldings, getCashBalance } from '../storage/database';
+import { db, getHoldings, getCashBalance, saveReportRecord } from '../storage/database';
 import { fetchDailyPrices, computeIndicators } from '../services/market';
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
@@ -387,6 +387,19 @@ async function saveReportFiles(sectorCode: string, report: string): Promise<{mdP
  * 통합 리포트 처리 (모든 섹터 데이터를 하나의 리포트로 통합)
  */
 async function processUnifiedReport(sectors: any, screeningResults: any): Promise<void> {
+  const startTime = Date.now();
+  let reportRecord: any = {
+    generated_at: new Date().toISOString(),
+    type: 'UNIFIED',
+    status: 'FAILED',
+    ai_model: process.env.LLM_MODEL || 'gpt-5',
+    symbols_analyzed: 0,
+    processing_time_ms: 0,
+    file_path: undefined,
+    summary: undefined,
+    error_message: undefined
+  };
+
   try {
     console.log('📊 전체 섹터 데이터 통합 중...');
     
@@ -569,10 +582,34 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       }
     }
     
-    console.log('✅ 통합 리포트 처리 완료');
+    // 성공적인 리포트 기록 저장
+    const processingTime = Date.now() - startTime;
+    reportRecord.status = 'SUCCESS';
+    reportRecord.symbols_analyzed = symbolsArray.length;
+    reportRecord.file_path = mdPath;
+    reportRecord.processing_time_ms = processingTime;
+    reportRecord.summary = `통합 리포트: ${symbolsArray.length}개 종목 분석, ${(processingTime/1000).toFixed(1)}초 소요`;
+    
+    await saveReportRecord(reportRecord);
+    console.log('✅ 통합 리포트 처리 완료 (기록 저장됨)');
     
   } catch (error) {
     console.error('❌ 통합 리포트 처리 실패:', error);
+    
+    // 실패한 리포트 기록 저장
+    const processingTime = Date.now() - startTime;
+    reportRecord.status = 'FAILED';
+    reportRecord.processing_time_ms = processingTime;
+    reportRecord.error_message = error instanceof Error ? error.message : String(error);
+    reportRecord.summary = `통합 리포트 실패: ${(processingTime/1000).toFixed(1)}초 후 오류 발생`;
+    
+    try {
+      await saveReportRecord(reportRecord);
+      console.log('❌ 실패한 리포트 기록 저장됨');
+    } catch (saveError) {
+      console.error('❌ 리포트 기록 저장도 실패:', saveError);
+    }
+    
     throw error;
   }
 }

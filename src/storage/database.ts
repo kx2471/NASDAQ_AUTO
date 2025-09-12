@@ -1,6 +1,16 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+// Supabase 서비스 (조건부 import)
+let supabaseService: any = null;
+if (process.env.ENABLE_SUPABASE_MIGRATION === 'true') {
+  try {
+    supabaseService = require('../services/supabase');
+  } catch (error) {
+    console.warn('⚠️ Supabase 서비스 로드 실패, JSON 모드로 대체:', error);
+  }
+}
+
 /**
  * JSON 데이터베이스 관리 클래스
  * PostgreSQL 대신 JSON 파일로 데이터 저장
@@ -244,10 +254,33 @@ export interface Holding {
   avg_cost: number;
 }
 
+export interface Report {
+  id?: number;
+  generated_at: string;
+  type: 'UNIFIED' | 'SECTOR' | 'MANUAL';
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  ai_model?: string;
+  symbols_analyzed: number;
+  file_path?: string;
+  summary?: string;
+  error_message?: string;
+  processing_time_ms?: number;
+}
+
 /**
- * 포트폴리오 계산 함수들
+ * 포트폴리오 계산 함수들 (JSON 또는 Supabase)
  */
 export async function getHoldings(): Promise<Holding[]> {
+  // Supabase 사용 시
+  if (supabaseService) {
+    try {
+      return await supabaseService.getHoldings();
+    } catch (error) {
+      console.warn('⚠️ Supabase에서 보유 종목 조회 실패, JSON으로 대체:', error);
+    }
+  }
+
+  // JSON 파일 사용 (기본값 또는 fallback)
   const trades = await db.find<Trade>('trades');
   const holdingsMap = new Map<string, { totalShares: number; totalCost: number; buyShares: number }>();
 
@@ -281,9 +314,19 @@ export async function getHoldings(): Promise<Holding[]> {
 }
 
 /**
- * 현금 잔액 계산
+ * 현금 잔액 계산 (JSON 또는 Supabase)
  */
 export async function getCashBalance(): Promise<number> {
+  // Supabase 사용 시
+  if (supabaseService) {
+    try {
+      return await supabaseService.getCashBalance();
+    } catch (error) {
+      console.warn('⚠️ Supabase에서 현금 잔액 조회 실패, JSON으로 대체:', error);
+    }
+  }
+
+  // JSON 파일 사용 (기본값 또는 fallback)
   const [cashEvents, trades] = await Promise.all([
     db.find<CashEvent>('cash_events'),
     db.find<Trade>('trades')
@@ -306,4 +349,41 @@ export async function getCashBalance(): Promise<number> {
   }
 
   return cashFlow + tradingCash;
+}
+
+/**
+ * 리포트 기록 저장 (JSON 또는 Supabase)
+ */
+export async function saveReportRecord(report: Omit<Report, 'id'>): Promise<Report> {
+  // Supabase 사용 시
+  if (supabaseService) {
+    try {
+      return await supabaseService.addReportRecord(report);
+    } catch (error) {
+      console.warn('⚠️ Supabase에서 리포트 기록 저장 실패, JSON으로 대체:', error);
+    }
+  }
+
+  // JSON 파일 사용 (기본값 또는 fallback)
+  return await db.insert<Report>('reports', report as Report);
+}
+
+/**
+ * 리포트 기록 조회 (JSON 또는 Supabase)
+ */
+export async function getRecentReports(limit: number = 10): Promise<Report[]> {
+  // Supabase 사용 시
+  if (supabaseService) {
+    try {
+      return await supabaseService.getRecentReports(limit);
+    } catch (error) {
+      console.warn('⚠️ Supabase에서 리포트 기록 조회 실패, JSON으로 대체:', error);
+    }
+  }
+
+  // JSON 파일 사용 (기본값 또는 fallback)
+  const reports = await db.find<Report>('reports');
+  return reports
+    .sort((a, b) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime())
+    .slice(0, limit);
 }
