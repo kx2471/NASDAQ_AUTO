@@ -690,11 +690,11 @@
     "exchange": "NASDAQ",
     "sector": "computing",
     "industry": "Unknown",
-    "active": true,
+    "active": false,
     "quality": {
       "symbol": "DISH",
-      "isActive": true,
-      "hasMinimumData": true,
+      "isActive": false,
+      "hasMinimumData": false,
       "avgVolume": 1000000,
       "marketCap": 1000000000
     }

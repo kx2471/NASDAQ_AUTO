@@ -3,7 +3,7 @@ import { isNasdaqOpen } from '../utils/marketday';
 import { db, getHoldings, getCashBalance } from '../storage/database';
 import { fetchDailyPrices, computeIndicators } from '../services/market';
 import { fetchNews } from '../services/news';
-import { generateReport, generateReportSummary } from '../services/llm';
+import { generateReport } from '../services/llm';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
@@ -454,13 +454,9 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     console.log('🤖 AI 통합 리포트 생성 중...');
     const report = await generateReport(reportPayload);
     
-    // GPT-5-nano로 리포트 요약 생성
-    console.log('📝 GPT-5-nano로 리포트 요약 생성 중...');
-    const summary = await generateReportSummary(report);
-    
-    // 통합 리포트 파일 저장 (요약 포함)
+    // 통합 리포트 파일 저장
     console.log('💾 통합 리포트 파일 저장 중...');
-    const { mdPath, htmlPath } = await saveReportFilesWithSummary('unified', report, summary);
+    const { mdPath, htmlPath } = await saveReportFiles('unified', report);
     
     // 이메일 발송
     console.log('📧 통합 리포트 이메일 발송 중...');
@@ -469,11 +465,18 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       `통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
     );
     
-    await sendReportEmail({
-      subject: `📊 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
-      html: emailHtml,
-      mdPath: mdPath
-    });
+    // 이메일 전송 (선택사항)
+    try {
+      await sendReportEmail({
+        subject: `📊 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+        html: emailHtml,
+        mdPath: mdPath
+      });
+      console.log('📧 이메일 전송 완료');
+    } catch (emailError) {
+      console.warn('⚠️ 이메일 전송 실패 (선택사항):', (emailError as Error).message);
+      // 이메일 전송 실패는 전체 프로세스를 중단시키지 않음
+    }
     
     console.log('✅ 통합 리포트 처리 완료');
     
