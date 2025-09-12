@@ -19,8 +19,10 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
- * 데일리 파이프라인 실행
- * 한국시간 16:00 (미국 시장 개장일에만)
+ * 데일리 투자 리포트 자동 생성 파이프라인
+ * - 매일 한국시간 16:00에 GitHub Actions로 자동 실행
+ * - 3개 AI (GPT-5, Gemini 2.5 Flash, Claude Opus 4.1)가 각각 독립적으로 리포트 생성
+ * - 미국 시장 개장일에만 실행
  */
 export async function runDaily(): Promise<void> {
   const today = new Date();

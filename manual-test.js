@@ -14,8 +14,12 @@ const { sendReportEmail, wrapInEmailTemplate } = require('./dist/services/mail')
 const fs = require('fs/promises');
 const path = require('path');
 
+/**
+ * 3개 AI (GPT-5, Gemini 2.5 Flash, Claude Opus 4.1) 리포트 수동 테스트
+ * 매일 자동 실행되는 시스템의 수동 테스트용 스크립트
+ */
 async function testTripleAIReports() {
-  console.log('🔍 3개 AI 리포트 테스트 시작...');
+  console.log('🔍 3개 AI 리포트 수동 테스트 시작...');
   
   try {
     // 1. 섹터 설정 로드
