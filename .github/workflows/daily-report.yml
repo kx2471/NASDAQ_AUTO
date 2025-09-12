@@ -17,6 +17,9 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -82,15 +85,33 @@ jobs:
           });
         "
       
-    - name: Commit and push report
+    - name: Update repository and commit report
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        # 최신 상태로 업데이트
+        git fetch origin main
+        git reset --hard origin/main
+        
+        # 리포트 파일만 다시 추가
         git add data/
+        
+        # 변경사항이 있는 경우에만 커밋
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
           git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
-          git pull --rebase origin main
-          git push
+          
+          # 안전한 push (충돌 시 3번 재시도)
+          for i in {1..3}; do
+            if git push origin main; then
+              echo "✅ Push successful on attempt $i"
+              break
+            else
+              echo "⚠️ Push failed on attempt $i, retrying..."
+              git fetch origin main
+              git rebase origin/main
+              sleep 2
+            fi
+          done
         fi
