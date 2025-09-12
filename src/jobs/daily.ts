@@ -4,6 +4,8 @@ import { db, getHoldings, getCashBalance } from '../storage/database';
 import { fetchDailyPrices, computeIndicators } from '../services/market';
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
+import { generateReportWithGemini } from '../services/gemini';
+import { generateReportWithClaude } from '../services/claude';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
@@ -424,8 +426,8 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     
     // 보유 종목 현재가 수집 (통합 리포트용)
     console.log('💰 통합 리포트용 보유 종목 현재가 수집 중...');
-    const holdings = await getHoldings();
-    const holdingSymbols = holdings.map(h => h.symbol);
+    const holdingsForReport = await getHoldings();
+    const holdingSymbols = holdingsForReport.map(h => h.symbol);
     let holdingCurrentPrices: Record<string, number> = {};
     
     if (holdingSymbols.length > 0) {
@@ -450,32 +452,119 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       currentPrices: holdingCurrentPrices // 보유 종목 현재가 전달
     });
     
-    // AI 통합 리포트 생성
-    console.log('🤖 AI 통합 리포트 생성 중...');
-    const report = await generateReport(reportPayload);
+    // 공통 데이터 변환 (AI 리포트용)
+    const stocks = allScreeningResults.map((r: any) => ({
+      symbol: r.symbol,
+      name: r.name || r.symbol,
+      sector: r.sector_code || r.sector
+    }));
+    const priceData = indicatorsData;
+    const news = newsData;
+    const holdingsData = reportPayload.portfolio.holdings;
+
+    // GPT-5 통합 리포트 생성
+    console.log('🤖 GPT-5 통합 리포트 생성 중...');
+    const gptReport = await generateReport(reportPayload);
+    
+    // Gemini Pro 통합 리포트 생성 (설정에서 활성화된 경우)
+    let geminiReport = '';
+    if (process.env.ENABLE_GEMINI_REPORT === 'true') {
+      console.log('🤖 Gemini Pro 통합 리포트 생성 중...');
+      try {
+        geminiReport = await generateReportWithGemini(stocks, priceData, indicatorsData, news, holdingsData);
+        console.log('✅ Gemini Pro 리포트 생성 완료');
+      } catch (error) {
+        console.error('❌ Gemini Pro 리포트 생성 실패:', error);
+        geminiReport = '## ⚠️ Gemini Pro 리포트\n\nGemini API 연결 문제로 리포트를 생성할 수 없습니다.';
+      }
+    }
+    
+    // Claude 통합 리포트 생성
+    let claudeReport = '';
+    if (process.env.CLAUDE_API_KEY) {
+      console.log('🤖 Claude 통합 리포트 생성 중...');
+      try {
+        claudeReport = await generateReportWithClaude(stocks, priceData, indicatorsData, news, holdingsData);
+        console.log('✅ Claude 리포트 생성 완료');
+      } catch (error) {
+        console.error('❌ Claude 리포트 생성 실패:', error);
+        claudeReport = '## ⚠️ Claude 리포트\n\nClaude API 연결 문제로 리포트를 생성할 수 없습니다.';
+      }
+    }
     
     // 통합 리포트 파일 저장
     console.log('💾 통합 리포트 파일 저장 중...');
-    const { mdPath, htmlPath } = await saveReportFiles('unified', report);
+    const { mdPath: gptMdPath, htmlPath: gptHtmlPath } = await saveReportFiles('unified_gpt5', gptReport);
     
-    // 이메일 발송
-    console.log('📧 통합 리포트 이메일 발송 중...');
-    const emailHtml = wrapInEmailTemplate(
-      report.replace(/\n/g, '<br>'), 
-      `통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
+    let geminiMdPath = '';
+    if (geminiReport) {
+      const { mdPath: geminiPath } = await saveReportFiles('unified_gemini', geminiReport);
+      geminiMdPath = geminiPath;
+    }
+    
+    let claudeMdPath = '';
+    if (claudeReport) {
+      const { mdPath: claudePath } = await saveReportFiles('unified_claude', claudeReport);
+      claudeMdPath = claudePath;
+    }
+    
+    // 이메일 발송 (GPT-5 리포트)
+    console.log('📧 GPT-5 통합 리포트 이메일 발송 중...');
+    const gptEmailHtml = wrapInEmailTemplate(
+      gptReport.replace(/\n/g, '<br>'), 
+      `GPT-5 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
     );
     
-    // 이메일 전송 (선택사항)
+    // GPT-5 이메일 전송
     try {
       await sendReportEmail({
-        subject: `📊 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
-        html: emailHtml,
-        mdPath: mdPath
+        subject: `🤖 GPT-5 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+        html: gptEmailHtml,
+        mdPath: gptMdPath
       });
-      console.log('📧 이메일 전송 완료');
+      console.log('📧 GPT-5 이메일 전송 완료');
     } catch (emailError) {
-      console.warn('⚠️ 이메일 전송 실패 (선택사항):', (emailError as Error).message);
-      // 이메일 전송 실패는 전체 프로세스를 중단시키지 않음
+      console.warn('⚠️ GPT-5 이메일 전송 실패:', (emailError as Error).message);
+    }
+    
+    // Gemini Pro 이메일 발송 (활성화된 경우)
+    if (geminiReport && geminiMdPath) {
+      console.log('📧 Gemini Pro 통합 리포트 이메일 발송 중...');
+      const geminiEmailHtml = wrapInEmailTemplate(
+        geminiReport.replace(/\n/g, '<br>'), 
+        `Gemini Pro 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
+      );
+      
+      try {
+        await sendReportEmail({
+          subject: `🤖 Gemini Pro 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+          html: geminiEmailHtml,
+          mdPath: geminiMdPath
+        });
+        console.log('📧 Gemini Pro 이메일 전송 완료');
+      } catch (emailError) {
+        console.warn('⚠️ Gemini Pro 이메일 전송 실패:', (emailError as Error).message);
+      }
+    }
+    
+    // Claude 이메일 발송 (활성화된 경우)
+    if (claudeReport && claudeMdPath) {
+      console.log('📧 Claude 통합 리포트 이메일 발송 중...');
+      const claudeEmailHtml = wrapInEmailTemplate(
+        claudeReport.replace(/\n/g, '<br>'), 
+        `Claude 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
+      );
+      
+      try {
+        await sendReportEmail({
+          subject: `🤖 Claude 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
+          html: claudeEmailHtml,
+          mdPath: claudeMdPath
+        });
+        console.log('📧 Claude 이메일 전송 완료');
+      } catch (emailError) {
+        console.warn('⚠️ Claude 이메일 전송 실패:', (emailError as Error).message);
+      }
     }
     
     console.log('✅ 통합 리포트 처리 완료');

@@ -42,6 +42,11 @@ jobs:
         LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+        ENABLE_GEMINI_REPORT: ${{ secrets.ENABLE_GEMINI_REPORT }}
+        CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        CLAUDE_MODEL: ${{ secrets.CLAUDE_MODEL }}
         MAIL_PROVIDER: ${{ secrets.MAIL_PROVIDER }}
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         SMTP_HOST: ${{ secrets.SMTP_HOST }}
