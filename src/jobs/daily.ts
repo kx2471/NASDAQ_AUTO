@@ -481,9 +481,9 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     console.log('🤖 GPT-5 통합 리포트 생성 중...');
     const gptReport = await generateReport(reportPayload);
     
-    // Gemini Pro 통합 리포트 생성 (설정에서 활성화된 경우)
+    // Gemini Pro 통합 리포트 생성 (항상 실행)
     let geminiReport = '';
-    if (process.env.ENABLE_GEMINI_REPORT === 'true') {
+    if (process.env.GEMINI_API_KEY) {
       console.log('🤖 Gemini Pro 통합 리포트 생성 중...');
       try {
         geminiReport = await generateReportWithGemini(stocks, priceData, indicatorsData, news, holdingsData);

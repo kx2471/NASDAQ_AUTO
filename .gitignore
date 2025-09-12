@@ -65,8 +65,16 @@ data/cache/
 # Scripts with sensitive data
 scripts/update-github-secrets.js
 scripts/test-github-secrets.js
+scripts/add-github-secrets.js
+scripts/create-supabase-schema.js
+scripts/direct-db-schema.js
+scripts/fix-supabase-schema.js
 scripts/test-*.js
 *test*.js
+
+# Migration and documentation files with sensitive info
+MIGRATION_GUIDE.md
+DB_Mig.md
 
 # Backup files
 *.backup
