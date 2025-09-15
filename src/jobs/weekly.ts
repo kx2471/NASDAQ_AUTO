@@ -199,10 +199,13 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     const currentDate = new Date().toLocaleDateString('ko-KR');
     
     // 1. Agent_Claude 이메일 발송 (최우선)
-    if (agentClaudeReport && claudeMdPath) {
+    if (claudeMdPath) {
       try {
+        // 저장된 파일에서 실제 리포트 내용 읽기 (fallback 메시지가 아닌 실제 생성된 리포트)
+        const actualClaudeReport = await fs.readFile(claudeMdPath, 'utf8');
+        
         const claudeEmailHtml = wrapInEmailTemplate(
-          agentClaudeReport.replace(/\n/g, '<br>'), 
+          actualClaudeReport.replace(/\n/g, '<br>'), 
           `Agent_Claude 주간 리포트 (${currentDate})`
         );
         
@@ -211,7 +214,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
           html: claudeEmailHtml,
           mdPath: claudeMdPath
         });
-        console.log('📧 Agent_Claude 이메일 전송 완료');
+        console.log('📧 Agent_Claude 이메일 전송 완료 (저장된 파일 기준)');
       } catch (emailError) {
         console.warn('⚠️ Agent_Claude 이메일 전송 실패:', (emailError as Error).message);
       }
