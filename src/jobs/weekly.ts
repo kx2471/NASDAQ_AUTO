@@ -21,7 +21,7 @@ dotenv.config();
 /**
  * 주간 투자 리포트 자동 생성 파이프라인
  * - 매주 월요일 한국시간 15:00에 GitHub Actions로 자동 실행
- * - 3개 AI Agent (Agent_GPT, Agent_Gemini, Agent_Claude)가 각각 독립적으로 리포트 생성
+ * - 3개 AI Agent (Agent_Claude, Agent_GPT, Agent_Gemini)가 각각 독립적으로 리포트 생성
  * - 미국 시장 개장일에만 실행 (월요일이 휴장이면 다음 개장일)
  * - Manager_Agent가 16:00에 통합 리포트 생성
  */
@@ -66,9 +66,9 @@ export async function runWeekly(): Promise<void> {
 }
 
 /**
- * Agent별 주간 리포트 처리 (Agent_GPT, Agent_Gemini, Agent_Claude)
+ * Agent별 주간 리포트 처리 (Agent_Claude, Agent_GPT, Agent_Gemini)
  */
-async function processWeeklyAgentReports(sectors: any, screeningResults: any): Promise<void> {
+export async function processWeeklyAgentReports(sectors: any, screeningResults: any): Promise<void> {
   const startTime = Date.now();
   
   try {
@@ -194,11 +194,30 @@ async function processWeeklyAgentReports(sectors: any, screeningResults: any): P
       claudeMdPath = claudePath;
     }
     
-    // Agent별 이메일 발송 (15:00)
+    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT5 → Gemini
     console.log('📧 Agent별 주간 리포트 이메일 발송 중...');
     const currentDate = new Date().toLocaleDateString('ko-KR');
     
-    // Agent_GPT 이메일 전송
+    // 1. Agent_Claude 이메일 발송 (최우선)
+    if (agentClaudeReport && claudeMdPath) {
+      try {
+        const claudeEmailHtml = wrapInEmailTemplate(
+          agentClaudeReport.replace(/\n/g, '<br>'), 
+          `Agent_Claude 주간 리포트 (${currentDate})`
+        );
+        
+        await sendReportEmail({
+          subject: `📈 [IMPORTANT] Agent_Claude 주간 리포트 - ${currentDate}`,
+          html: claudeEmailHtml,
+          mdPath: claudeMdPath
+        });
+        console.log('📧 Agent_Claude 이메일 전송 완료');
+      } catch (emailError) {
+        console.warn('⚠️ Agent_Claude 이메일 전송 실패:', (emailError as Error).message);
+      }
+    }
+    
+    // 2. Agent_GPT 이메일 전송
     try {
       const gptEmailHtml = wrapInEmailTemplate(
         agentGptReport.replace(/\n/g, '<br>'), 
@@ -215,7 +234,7 @@ async function processWeeklyAgentReports(sectors: any, screeningResults: any): P
       console.warn('⚠️ Agent_GPT 이메일 전송 실패:', (emailError as Error).message);
     }
     
-    // Agent_Gemini 이메일 발송
+    // 3. Agent_Gemini 이메일 발송 (마지막)
     if (agentGeminiReport && geminiMdPath) {
       try {
         const geminiEmailHtml = wrapInEmailTemplate(
@@ -231,25 +250,6 @@ async function processWeeklyAgentReports(sectors: any, screeningResults: any): P
         console.log('📧 Agent_Gemini 이메일 전송 완료');
       } catch (emailError) {
         console.warn('⚠️ Agent_Gemini 이메일 전송 실패:', (emailError as Error).message);
-      }
-    }
-    
-    // Agent_Claude 이메일 발송
-    if (agentClaudeReport && claudeMdPath) {
-      try {
-        const claudeEmailHtml = wrapInEmailTemplate(
-          agentClaudeReport.replace(/\n/g, '<br>'), 
-          `Agent_Claude 주간 리포트 (${currentDate})`
-        );
-        
-        await sendReportEmail({
-          subject: `📈 [IMPORTANT] Agent_Claude 주간 리포트 - ${currentDate}`,
-          html: claudeEmailHtml,
-          mdPath: claudeMdPath
-        });
-        console.log('📧 Agent_Claude 이메일 전송 완료');
-      } catch (emailError) {
-        console.warn('⚠️ Agent_Claude 이메일 전송 실패:', (emailError as Error).message);
       }
     }
     

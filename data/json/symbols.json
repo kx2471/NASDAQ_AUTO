@@ -223,9 +223,9 @@
     "symbol": "AACBR",
     "name": "Artius II Acquisition Inc Rights",
     "exchange": "NASDAQ",
-    "sector": "computing",
+    "sector": "defense",
     "industry": "Unknown",
-    "active": false,
+    "active": true,
     "lastChecked": "2025-09-11T21:13:00.749Z",
     "inactiveReason": "거래량/가격 부족, 데이터 부족"
   },
@@ -243,9 +243,9 @@
     "symbol": "AACG",
     "name": "ATA Creativity Global",
     "exchange": "NASDAQ",
-    "sector": "computing",
+    "sector": "aerospace",
     "industry": "Unknown",
-    "active": false,
+    "active": true,
     "lastChecked": "2025-09-11T21:13:00.749Z",
     "inactiveReason": "거래량/가격 부족"
   },
@@ -253,9 +253,9 @@
     "symbol": "AACIU",
     "name": "Armada Acquisition Corp II - Units (1 Ord Cls A & 1/2 War)",
     "exchange": "NASDAQ",
-    "sector": "computing",
+    "sector": "aerospace",
     "industry": "Unknown",
-    "active": false,
+    "active": true,
     "lastChecked": "2025-09-11T21:13:00.749Z",
     "inactiveReason": "거래량/가격 부족"
   },
@@ -363,7 +363,7 @@
     "symbol": "CNBC",
     "name": "CNBC Corp",
     "exchange": "NASDAQ",
-    "sector": "ai",
+    "sector": "defense",
     "industry": "Unknown",
     "active": true,
     "lastChecked": "2025-09-11T21:13:00.749Z",
@@ -1283,5 +1283,357 @@
       "avgVolume": 1000000,
       "marketCap": 1000000000
     }
+  },
+  {
+    "symbol": "FOFO",
+    "name": "Hang Feng Technology Innovation Co Ltd",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "NTSK",
+    "name": "NTSK Corp",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "IQM",
+    "name": "IQM Corp",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AERTW",
+    "name": "Aeries Technology Inc - Warrants (20/10/2026)",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AFJK",
+    "name": "Aimei Health Technology Co Ltd",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AFJKU",
+    "name": "Aimei Health Technology Co Ltd - Units (1 1 Rights)",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ALGN",
+    "name": "Align Technology Inc",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ALKT",
+    "name": "Alkami Technology Inc",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AMKR",
+    "name": "AMKOR Technology Inc",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ANTE",
+    "name": "AirNet Technology Inc",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AUR",
+    "name": "Aurora Innovation Inc - Class A",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "BHAT",
+    "name": "Blue Hat Interactive Entertainment Technology",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "BOTT",
+    "name": "THEMES ROBOTICS & AUTOMATION ETF",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "CCTG",
+    "name": "CCSC Technology International Holdings Ltd - Class A",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "CHKP",
+    "name": "Check Point Software Technologies Ltd",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "DJT",
+    "name": "Trump Media & Technology Group Corp",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "DJTWW",
+    "name": "Trump Media & Technology Group Corp Wt Exp",
+    "exchange": "NASDAQ",
+    "sector": "technology",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "BAER",
+    "name": "Bridger Aerospace Group Holdings Inc - Class A",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "XTIA",
+    "name": "XTI Aerospace Inc Common Stock",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "FTAI",
+    "name": "FTAI Aviation Ltd - Class A",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "FTAIN",
+    "name": "FTAI Aviation Ltd",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "GEMI",
+    "name": "Gemini Space Station Inc - Class A",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "GILT",
+    "name": "Gilat Satellite Networks",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "HSPOR",
+    "name": "Horizon Space Acquisition I Corp",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "HSPOW",
+    "name": "Horizon Space Acquisition I Corp - Warrants (02/03/2029)",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "HSPTR",
+    "name": "Horizon Space Acquisition II Corp Right",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "LPAA",
+    "name": "Launch One Acquisition Corp - Class A",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "LPAAW",
+    "name": "Launch One Acquisition Corp - Warrants(13/06/2029)",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "LPBBU",
+    "name": "Launch Two Acquisition Corp - Units (1 Ord Class A & 1/2 War)",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "RCKT",
+    "name": "Rocket Pharmaceuticals Inc",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "TALKW",
+    "name": "Talkspace Inc - Warrants (21/06/2025)",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "UFO",
+    "name": "PROCURE SPACE ETF",
+    "exchange": "NASDAQ",
+    "sector": "aerospace",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "BUG",
+    "name": "GLOBAL X CYBERSECURITY ETF",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "SPAM",
+    "name": "THEMES CYBERSECURITY ETF",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "WCBR",
+    "name": "WISDOMTREE CYBERSECURITY FUND",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "UBS",
+    "name": "UBS Corp",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "HUBCW",
+    "name": "Hub Cyber Security Ltd - Warrants (27/02/2028)",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "KCHVR",
+    "name": "Kochav Defense Acquisition Corp",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "NATO",
+    "name": "THEMES TRANSATLANTIC DEFENSE ETF",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "NSI",
+    "name": "NATIONAL SECURITY EMERGING MARKETS INDEX ETF",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "STRT",
+    "name": "Strattec Security Corp",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "UBFO",
+    "name": "United Security Bancshares (CA)",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "WDAF",
+    "name": "WisdomTree Asia Defense Fund",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ZCZZT",
+    "name": "Super Montage IPO X Tst Security SM IPO X 3",
+    "exchange": "NASDAQ",
+    "sector": "defense",
+    "industry": "Unknown",
+    "active": true
   }
 ]

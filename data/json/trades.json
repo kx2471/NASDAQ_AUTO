@@ -1,70 +1,52 @@
 [
   {
-    "traded_at": "2025-09-10T13:10:00.000Z",
-    "symbol": "TSLA",
-    "side": "BUY",
-    "qty": 4.611163,
-    "price": 318.02,
-    "fee": 0,
-    "note": "실제 보유 종목 (평균단가 ₩417,597)",
-    "id": 1
-  },
-  {
-    "traded_at": "2025-09-10T13:11:00.000Z",
-    "symbol": "PL",
-    "side": "BUY",
-    "qty": 31,
-    "price": 6.94,
-    "fee": 0,
-    "note": "실제 보유 종목 (평균단가 ₩9,347)",
-    "id": 2
-  },
-  {
-    "symbol": "TSLA",
-    "side": "SELL",
-    "qty": 13.8336,
-    "price": 400,
-    "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
-  },
-  {
-    "symbol": "PL",
-    "side": "SELL",
-    "qty": 93,
-    "price": 9,
-    "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
-  },
-  {
+    "traded_at": "2025-09-15T15:00:00.000Z",
     "symbol": "BABA",
     "side": "BUY",
     "qty": 1,
     "price": 154.4,
     "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
+    "note": "현재 보유 종목",
+    "id": 1
   },
   {
+    "traded_at": "2025-09-15T15:01:00.000Z",
     "symbol": "GOOGL",
     "side": "BUY",
     "qty": 4.866031,
     "price": 240.46,
     "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
+    "note": "현재 보유 종목",
+    "id": 2
   },
   {
+    "traded_at": "2025-09-15T15:02:00.000Z",
     "symbol": "NVDA",
     "side": "BUY",
     "qty": 2,
     "price": 177.38,
     "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
+    "note": "현재 보유 종목",
+    "id": 3
   },
   {
+    "traded_at": "2025-09-15T15:03:00.000Z",
     "symbol": "COIN",
     "side": "BUY",
     "qty": 1,
-    "price": 35.93,
+    "price": 325.93,
     "fee": 0,
-    "executed_at": "2025-09-12T13:47:15.957Z"
+    "note": "현재 보유 종목",
+    "id": 4
+  },
+  {
+    "traded_at": "2025-09-15T04:39:21.135Z",
+    "symbol": "NVDA",
+    "side": "SELL",
+    "qty": 0.5,
+    "price": 180,
+    "fee": 0,
+    "note": "테스트 매도",
+    "id": 5
   }
 ]

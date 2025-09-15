@@ -102,7 +102,7 @@ async function createInvestmentPrompt(
   
   try {
     // prompt.md 파일 로드
-    const promptPath = path.join(process.cwd(), 'prompt.md');
+    const promptPath = path.join(process.cwd(), 'prompts', 'prompt.md');
     const promptTemplate = await fs.readFile(promptPath, 'utf8');
     
     // 실제 데이터 정리

@@ -1,4 +1,5 @@
 import { generateReport } from './llm';
+import OpenAI from 'openai';
 import { getHoldings, getCashBalance } from '../storage/database';
 import { getCachedExchangeRate } from './exchange';
 import { calculateCurrentPerformance, analyzeTargetProgress } from './performance';
@@ -45,9 +46,9 @@ export async function generateManagerReport(): Promise<string> {
       managerPrompt
     });
     
-    // 6. GPT-5를 사용하여 Manager_Agent 리포트 생성
+    // 6. GPT-5를 사용하여 Manager_Agent 리포트 생성 (Agent 리포트만 종합)
     console.log('🤖 Manager_Agent (GPT-5) 통합 분석 중...');
-    const managerReport = await generateReport(payload);
+    const managerReport = await generateManagerReportDirectly(managerPrompt, payload);
     
     console.log('✅ Manager_Agent 통합 리포트 생성 완료');
     return managerReport;
@@ -171,16 +172,10 @@ async function getCurrentPerformanceData(): Promise<any> {
  */
 async function loadManagerPrompt(): Promise<string> {
   try {
-    const promptPath = path.join(process.cwd(), 'promptManager.md');
+    const promptPath = path.join(process.cwd(), 'prompts', 'promptManagerSimple.md');
     const promptContent = await fs.readFile(promptPath, 'utf8');
     
-    // 프롬프트에서 실제 사용할 부분만 추출
-    const promptStart = promptContent.indexOf('당신은 **Manager_Agent**입니다.');
-    if (promptStart === -1) {
-      throw new Error('Manager_Agent 프롬프트를 찾을 수 없습니다.');
-    }
-    
-    return promptContent.substring(promptStart);
+    return promptContent;
   } catch (error) {
     console.error('❌ Manager_Agent 프롬프트 로드 실패:', error);
     
@@ -236,6 +231,79 @@ async function prepareManagerPayload(params: {
       priority: 'goal_achievement'
     }
   };
+}
+
+/**
+ * Manager_Agent 전용 리포트 생성 (스크리닝 없이 Agent 리포트만 종합)
+ */
+async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다');
+    }
+
+    const client = new OpenAI({ apiKey });
+    const model = process.env.LLM_MODEL || 'gpt-5';
+
+    console.log(`🤖 ${model}을 사용하여 Manager 리포트 생성 시작`);
+
+    // 현재 가용 자금 계산
+    const availableCash = payload.portfolio.cash_usd || 0;
+    
+    // 극도로 간소화된 핵심 정보만
+    const managerData = `
+현재 보유 현금: $${availableCash.toFixed(2)}
+보유 종목: ${JSON.stringify(payload.portfolio?.holdings || [])}
+
+Agent 의견 요약:
+- GPT: ${payload.agent_reports?.agent_gpt?.substring(0, 300) || 'N/A'}
+- Gemini: ${payload.agent_reports?.agent_gemini?.substring(0, 300) || 'N/A'}  
+- Claude: ${payload.agent_reports?.agent_claude?.substring(0, 300) || 'N/A'}
+
+매수 지시는 가용 현금 $${availableCash.toFixed(2)} 내에서만 가능.
+목표: 1년 내 ₩10,000,000 달성
+`;
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: prompt
+      },
+      {
+        role: 'user' as const,
+        content: managerData
+      }
+    ];
+
+    const response = await client.chat.completions.create({
+      model,
+      messages,
+      max_completion_tokens: 15000
+    });
+
+    // 응답 구조 디버깅
+    console.log('📊 OpenAI 응답 구조 디버깅:', {
+      choices_length: response.choices?.length || 0,
+      first_choice: response.choices?.[0] ? {
+        message_exists: !!response.choices[0].message,
+        content_length: response.choices[0].message?.content?.length || 0,
+        finish_reason: response.choices[0].finish_reason
+      } : null
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API로부터 빈 응답을 받았습니다');
+    }
+
+    console.log('✅ Manager LLM 보고서 생성 완료');
+    return content;
+
+  } catch (error) {
+    console.error('❌ Manager 직접 리포트 생성 중 오류:', error);
+    throw error;
+  }
 }
 
 /**

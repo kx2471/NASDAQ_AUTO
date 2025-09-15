@@ -60,7 +60,7 @@ function getOpenAIClient(): OpenAI {
 export async function generateReportWithOpenAI(payload: ReportPayload): Promise<string> {
   try {
     // 시스템 프롬프트 로드
-    const promptPath = path.join(process.cwd(), 'prompt.md');
+    const promptPath = path.join(process.cwd(), 'prompts', 'prompt.md');
     const systemPrompt = await fs.readFile(promptPath, 'utf8');
 
     // LLM 모델 설정 (기본값을 gpt-5로 변경)
@@ -211,6 +211,86 @@ ${reportContent.substring(0, 2000)}...`; // 리포트 내용을 일부만 사용
     
     // 실패 시 기본 요약 반환
     return '리포트 요약을 생성할 수 없습니다. 전체 리포트를 확인해주세요.';
+  }
+}
+
+/**
+ * Manager_Agent 전용 리포트 생성 (promptManager.md 사용)
+ */
+export async function generateManagerReport(payload: any): Promise<string> {
+  try {
+    const client = getOpenAIClient();
+    
+    // Manager 전용 프롬프트 사용
+    const managerPrompt = payload.manager_prompt;
+    
+    // LLM 모델 설정 (기본값을 gpt-5로 변경)
+    const model = process.env.LLM_MODEL || 'gpt-5';
+
+    console.log(`🤖 ${model}을 사용하여 보고서 생성 시작`);
+
+    // Manager_Agent 데이터 구성
+    const managerData = `
+## 입력 데이터
+
+### Agent 보고서
+**Agent_GPT 보고서:**
+${payload.agent_reports.agent_gpt || 'N/A'}
+
+**Agent_Gemini 보고서:**
+${payload.agent_reports.agent_gemini || 'N/A'}
+
+**Agent_Claude 보고서:**
+${payload.agent_reports.agent_claude || 'N/A'}
+
+### 현재 포트폴리오
+${JSON.stringify(payload.portfolio, null, 2)}
+
+### 성과 분석
+${JSON.stringify(payload.performance, null, 2)}
+
+### 환율 정보
+${JSON.stringify(payload.exchange_rate, null, 2)}
+`;
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: managerPrompt
+      },
+      {
+        role: 'user' as const,
+        content: managerData
+      }
+    ];
+
+    const response = await client.chat.completions.create({
+      model,
+      messages,
+      max_completion_tokens: 4000
+    });
+
+    // 응답 구조 디버깅
+    console.log('📊 OpenAI 응답 구조 디버깅:', {
+      choices_length: response.choices?.length || 0,
+      first_choice: response.choices?.[0] ? {
+        message_exists: !!response.choices[0].message,
+        content_length: response.choices[0].message?.content?.length || 0,
+        finish_reason: response.choices[0].finish_reason
+      } : null
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI API로부터 빈 응답을 받았습니다');
+    }
+
+    console.log('✅ LLM 보고서 생성 완료');
+    return content;
+
+  } catch (error) {
+    console.error('❌ Manager 리포트 생성 중 오류:', error);
+    throw error;
   }
 }
 
