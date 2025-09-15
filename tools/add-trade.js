@@ -48,7 +48,7 @@ async function addTrade() {
   
   try {
     // trades.json 읽기
-    const tradesPath = path.join(__dirname, 'data', 'json', 'trades.json');
+    const tradesPath = path.join(__dirname, '..', 'data', 'json', 'trades.json');
     let trades = [];
     
     try {

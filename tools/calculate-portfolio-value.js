@@ -1,5 +1,5 @@
-const trades = require('./data/json/trades.json');
-const cashEvents = require('./data/json/cash_events.json');
+const trades = require('../data/json/trades.json');
+const cashEvents = require('../data/json/cash_events.json');
 
 console.log('=== 포트폴리오 가치 계산 ===');
 
