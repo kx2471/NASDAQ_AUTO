@@ -42,7 +42,10 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" secret list)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run list --limit 1)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17731257835 --log)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git pull:*)",
+      "WebSearch",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17747122361 --log)"
     ],
     "deny": [],
     "ask": []

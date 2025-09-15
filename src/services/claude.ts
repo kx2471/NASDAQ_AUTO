@@ -179,7 +179,7 @@ export async function testClaudeConnection(): Promise<boolean> {
     const anthropic = getClaudeClient();
     
     const response = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+      model: process.env.CLAUDE_MODEL || 'claude-opus-4-1-20250805',
       max_tokens: 100,
       messages: [{
         role: 'user',
