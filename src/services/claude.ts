@@ -27,73 +27,36 @@ export async function generateReportWithClaude(
   const anthropic = getClaudeClient();
   const prompt = await createInvestmentPrompt(stocks, priceData, indicators, news, holdings);
   
-  // 시도할 모델 순서 (Primary -> Fallback models)
-  const modelAttempts = [
-    { name: 'claude-3-5-sonnet-20241022', displayName: 'Claude 3.5 Sonnet' },
-    { name: 'claude-3-opus-20240229', displayName: 'Claude 3 Opus' },
-    { name: 'claude-3-sonnet-20240229', displayName: 'Claude 3 Sonnet' }
-  ];
-  
-  // 환경변수로 설정된 모델이 있으면 우선 사용
-  const envModel = process.env.CLAUDE_MODEL;
-  if (envModel) {
-    modelAttempts.unshift({ name: envModel, displayName: `Claude (${envModel})` });
-  }
-  
-  for (const modelAttempt of modelAttempts) {
-    try {
-      console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 시도 중...`);
-      
-      // Retry Logic: 각 모델당 3번까지 시도
-      for (let retryCount = 1; retryCount <= 3; retryCount++) {
-        try {
-          const response = await anthropic.messages.create({
-            model: modelAttempt.name,
-            max_tokens: 8192,
-            temperature: 0.7,
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
-          });
-          
-          const responseText = response.content[0]?.type === 'text' ? response.content[0].text : '';
-          
-          if (!responseText) {
-            throw new Error('API에서 응답을 받지 못했습니다');
-          }
-          
-          console.log(`✅ ${modelAttempt.displayName} 보고서 생성 성공! (${retryCount}번째 시도)`);
-          return responseText;
-          
-        } catch (retryError: any) {
-          console.warn(`⚠️ ${modelAttempt.displayName} ${retryCount}번째 시도 실패:`, retryError.message);
-          
-          // Rate limit이나 service unavailable 에러가 아니거나 마지막 재시도인 경우 다음 모델로 넘어감
-          if (!retryError.message.includes('rate_limit') && 
-              !retryError.message.includes('overloaded') &&
-              !retryError.message.includes('503')) {
-            break; // 다른 종류의 에러는 재시도 불필요
-          }
-          
-          if (retryCount < 3) {
-            // Exponential backoff: 2초, 4초, 8초 대기
-            const waitTime = Math.pow(2, retryCount) * 1000;
-            console.log(`⏰ ${waitTime/1000}초 대기 후 재시도...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-          }
-        }
-      }
-      
-      console.log(`❌ ${modelAttempt.displayName} 모든 재시도 실패, 다음 모델로 전환...`);
-      
-    } catch (modelError) {
-      console.error(`❌ ${modelAttempt.displayName} 모델 오류:`, modelError);
+  // 환경변수에서 지정된 모델만 사용
+  const envModel = process.env.CLAUDE_MODEL || 'claude-opus-4-1-20250805';
+  const modelAttempt = { name: envModel, displayName: `Claude (${envModel})` };
+
+  try {
+    console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 중...`);
+
+    const response = await anthropic.messages.create({
+      model: modelAttempt.name,
+      max_tokens: 8192,
+      temperature: 0.7,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    });
+
+    const responseText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+
+    if (!responseText) {
+      throw new Error('API에서 응답을 받지 못했습니다');
     }
+
+    console.log(`✅ ${modelAttempt.displayName} 보고서 생성 성공!`);
+    return responseText;
+
+  } catch (error: any) {
+    console.error(`❌ ${modelAttempt.displayName} 보고서 생성 실패:`, error.message);
+    return generateFallbackClaudeReport(stocks, priceData, indicators, news, holdings);
   }
-  
-  console.warn('⚠️ 모든 Claude 모델 시도 실패, 폴백 리포트 생성');
-  return generateFallbackClaudeReport(stocks, priceData, indicators, news, holdings);
 }
 
 /**

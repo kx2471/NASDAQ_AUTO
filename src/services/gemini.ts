@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * Gemini Pro API 클라이언트 초기화
@@ -8,10 +8,8 @@ function getGeminiClient() {
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다');
   }
-  
-  return new GoogleGenAI({
-    apiKey: apiKey
-  });
+
+  return new GoogleGenerativeAI(apiKey);
 }
 
 /**
@@ -27,64 +25,29 @@ export async function generateReportWithGemini(
   const ai = getGeminiClient();
   const prompt = await createInvestmentPrompt(stocks, priceData, indicators, news, holdings);
   
-  // 시도할 모델 순서 (Primary -> Fallback models)
-  const modelAttempts = [
-    { name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash' },
-    { name: 'gemini-1.5-flash-latest', displayName: 'Gemini 1.5 Flash Latest' },
-    { name: 'gemini-2.0-flash', displayName: 'Gemini 2.0 Flash' }
-  ];
-  
-  for (const modelAttempt of modelAttempts) {
-    try {
-      console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 시도 중...`);
-      
-      // Retry Logic: 각 모델당 3번까지 시도
-      for (let retryCount = 1; retryCount <= 3; retryCount++) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelAttempt.name,
-            contents: prompt,
-            config: {
-              temperature: 0.7,
-              topP: 0.9,
-              topK: 40,
-              maxOutputTokens: 8192,
-            }
-          });
-          
-          if (!response.text) {
-            throw new Error('API에서 응답을 받지 못했습니다');
-          }
-          
-          console.log(`✅ ${modelAttempt.displayName} 보고서 생성 성공! (${retryCount}번째 시도)`);
-          return response.text;
-          
-        } catch (retryError: any) {
-          console.warn(`⚠️ ${modelAttempt.displayName} ${retryCount}번째 시도 실패:`, retryError.message);
-          
-          // 503 에러가 아니거나 마지막 재시도인 경우 다음 모델로 넘어감
-          if (!retryError.message.includes('503') && !retryError.message.includes('overloaded')) {
-            break; // 503이 아닌 에러는 재시도 불필요
-          }
-          
-          if (retryCount < 3) {
-            // Exponential backoff: 2초, 4초, 8초 대기
-            const waitTime = Math.pow(2, retryCount) * 1000;
-            console.log(`⏰ ${waitTime/1000}초 대기 후 재시도...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-          }
-        }
-      }
-      
-      console.log(`❌ ${modelAttempt.displayName} 모든 재시도 실패, 다음 모델로 전환...`);
-      
-    } catch (modelError) {
-      console.error(`❌ ${modelAttempt.displayName} 모델 오류:`, modelError);
+  // 환경변수에서 지정된 모델만 사용
+  const envModel = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+  const modelAttempt = { name: envModel, displayName: `Gemini (${envModel})` };
+
+  try {
+    console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 중...`);
+
+    const model = ai.getGenerativeModel({ model: modelAttempt.name });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw new Error('API에서 응답을 받지 못했습니다');
     }
+
+    console.log(`✅ ${modelAttempt.displayName} 보고서 생성 성공!`);
+    return text;
+
+  } catch (error: any) {
+    console.error(`❌ ${modelAttempt.displayName} 보고서 생성 실패:`, error.message);
+    return generateFallbackGeminiReport(stocks, priceData, indicators, news, holdings);
   }
-  
-  console.warn('⚠️ 모든 Gemini 모델 시도 실패, 폴백 리포트 생성');
-  return generateFallbackGeminiReport(stocks, priceData, indicators, news, holdings);
 }
 
 /**
@@ -205,13 +168,13 @@ Gemini API 연결 문제로 상세 분석을 제공할 수 없습니다.
 export async function testGeminiConnection(): Promise<boolean> {
   try {
     const ai = getGeminiClient();
-    
-    const response = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-pro',
-      contents: 'Test connection. Reply with "OK"'
-    });
-    
-    return !!(response.text && response.text.includes('OK'));
+    const model = ai.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-pro' });
+
+    const result = await model.generateContent('Test connection. Reply with "OK"');
+    const response = await result.response;
+    const text = response.text();
+
+    return !!(text && text.includes('OK'));
   } catch (error) {
     console.error('Gemini 연결 테스트 실패:', error);
     return false;

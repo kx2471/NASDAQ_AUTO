@@ -27,11 +27,12 @@ trades.forEach(trade => {
 
 console.log(`\n최종 현금 잔고: $${balance.toFixed(2)}`);
 
-// 환율 계산 (1391.7원/달러)
-const krwBalance = balance * 1391.7;
-console.log(`원화 환산: ₩${Math.round(krwBalance).toLocaleString()}`);
+// 동적 환율 계산 (API로 가져오거나 설정에서 읽어오기)
+const exchangeRate = process.env.USD_KRW_RATE || 1391.7; // 기본값으로 현재 환율 사용
+const krwBalance = balance * exchangeRate;
+console.log(`원화 환산: ₩${Math.round(krwBalance).toLocaleString()} (환율: ${exchangeRate})`);
 
-// 270만원이면 달러로 얼마인지 계산
+// 270만원 달러 환산
 const targetKrw = 2700000;
-const targetUsd = targetKrw / 1391.7;
-console.log(`\n₩270만원 = $${targetUsd.toFixed(2)}`);
+const targetUsd = targetKrw / exchangeRate;
+console.log(`\n₩270만원 = $${targetUsd.toFixed(2)} (환율: ${exchangeRate})`);

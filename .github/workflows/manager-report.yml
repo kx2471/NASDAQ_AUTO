@@ -2,8 +2,8 @@ name: Manager Agent Report
 
 on:
   schedule:
-    # 매주 월요일 KST 16:00 (UTC 07:00)에 실행 - Agent 리포트 1시간 후
-    - cron: '0 7 * * 1'
+    # 매주 월요일 KST 16:30 (UTC 07:30)에 실행 - Agent 리포트 1.5시간 후
+    - cron: '30 7 * * 1'
   workflow_dispatch: # 수동 실행 가능
     inputs:
       delay_minutes:
