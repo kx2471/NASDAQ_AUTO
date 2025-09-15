@@ -1,66 +1,102 @@
 ai:
   title: "AI & Machine Learning"
-  description: "인공지능, 머신러닝, 딥러닝 관련 기업"
+  description: "인공지능, 머신러닝, AI 칩 관련 기업"
   keywords:
     - "artificial intelligence"
-    - "machine learning"
-    - "deep learning"
-    - "neural network"
+    - "machine learning" 
     - "AI chip"
     - "GPU"
-    - "data center"
-    - "generative AI"
-    - "LLM"
-    - "computer vision"
+    - "neural network"
+    - "deep learning"
   industries:
     - "Semiconductors"
-    - "Software"
+    - "Software" 
     - "Technology Hardware"
-    - "Internet Content & Information"
-  market_cap_min: 1000000000  # 최소 시가총액 $1B
-  max_symbols: 20             # 최대 종목 수
+  market_cap_min: 1000000000
+  max_symbols: 20
 
 computing:
   title: "Cloud & Computing"
-  description: "클라우드 컴퓨팅, 데이터센터, 엔터프라이즈 소프트웨어"
+  description: "클라우드 컴퓨팅, 엔터프라이즈 소프트웨어"
   keywords:
     - "cloud computing"
-    - "data center"
     - "enterprise software"
     - "SaaS"
-    - "infrastructure"
-    - "cybersecurity"
-    - "database"
-    - "analytics"
-    - "productivity software"
-    - "collaboration"
+    - "data center"
+    - "virtualization"
   industries:
     - "Software"
     - "Technology Hardware"
-    - "Internet Content & Information"
-    - "Computer Hardware"
-  market_cap_min: 2000000000  # 최소 시가총액 $2B
+    - "Internet Services"
+  market_cap_min: 1500000000
   max_symbols: 15
 
 nuclear:
-  title: "Nuclear & Clean Energy"
-  description: "원자력, 청정에너지, 에너지 저장"
+  title: "Nuclear & Clean Energy" 
+  description: "원자력, 청정에너지, 재생에너지"
   keywords:
     - "nuclear power"
-    - "nuclear reactor"
-    - "uranium"
     - "clean energy"
+    - "uranium"
     - "renewable energy"
-    - "energy storage"
-    - "nuclear fuel"
-    - "small modular reactor"
-    - "SMR"
-    - "nuclear technology"
+    - "solar"
+    - "wind"
   industries:
     - "Utilities"
     - "Oil, Gas & Consumable Fuels"
-    - "Electrical Equipment"
-    - "Independent Power and Renewable Electricity"
-    - "Metals & Mining"
-  market_cap_min: 500000000   # 최소 시가총액 $500M
+    - "Alternative Energy"
+  market_cap_min: 500000000
   max_symbols: 25
+
+technology:
+  title: "Technology & Innovation"
+  description: "혁신 기술, 소프트웨어, 하드웨어 기업"
+  keywords:
+    - "technology"
+    - "innovation"
+    - "software"
+    - "hardware"
+    - "digital transformation"
+    - "automation"
+  industries:
+    - "Technology Hardware"
+    - "Software"
+    - "Electronics"
+    - "Communications Equipment"
+  market_cap_min: 800000000
+  max_symbols: 18
+
+aerospace:
+  title: "Aerospace & Satellite"
+  description: "항공우주, 위성, 우주 기술 기업"
+  keywords:
+    - "aerospace"
+    - "satellite"
+    - "space"
+    - "aviation"
+    - "rocket"
+    - "orbital"
+    - "launch"
+  industries:
+    - "Aerospace & Defense"
+    - "Industrial Machinery"
+    - "Technology Hardware"
+  market_cap_min: 300000000
+  max_symbols: 20
+
+defense:
+  title: "Defense & Security"
+  description: "국방, 보안, 사이버 보안 기업"
+  keywords:
+    - "defense"
+    - "military"
+    - "security"
+    - "cybersecurity"
+    - "surveillance"
+    - "weapons"
+  industries:
+    - "Aerospace & Defense"
+    - "Security Services"
+    - "Software"
+  market_cap_min: 600000000
+  max_symbols: 15

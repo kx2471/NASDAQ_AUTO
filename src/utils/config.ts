@@ -59,28 +59,52 @@ export async function loadSectors(): Promise<Record<string, SectorConfig>> {
 function getDefaultSectors(): Record<string, SectorConfig> {
   return {
     ai: {
-      title: 'AI & Technology',
-      description: '인공지능, 머신러닝 관련 기업',
-      keywords: ['artificial intelligence', 'machine learning', 'AI chip', 'GPU'],
+      title: 'AI & Machine Learning',
+      description: '인공지능, 머신러닝, AI 칩 관련 기업',
+      keywords: ['artificial intelligence', 'machine learning', 'AI chip', 'GPU', 'neural network', 'deep learning'],
       industries: ['Semiconductors', 'Software', 'Technology Hardware'],
       market_cap_min: 1000000000,
       max_symbols: 20
     },
     computing: {
-      title: 'Computing & Cloud',
+      title: 'Cloud & Computing',
       description: '클라우드 컴퓨팅, 엔터프라이즈 소프트웨어',
-      keywords: ['cloud computing', 'enterprise software', 'SaaS'],
-      industries: ['Software', 'Technology Hardware'],
-      market_cap_min: 2000000000,
+      keywords: ['cloud computing', 'enterprise software', 'SaaS', 'data center', 'virtualization'],
+      industries: ['Software', 'Technology Hardware', 'Internet Services'],
+      market_cap_min: 1500000000,
       max_symbols: 15
     },
     nuclear: {
-      title: 'Nuclear Energy',
-      description: '원자력, 청정에너지',
-      keywords: ['nuclear power', 'clean energy', 'uranium'],
-      industries: ['Utilities', 'Oil, Gas & Consumable Fuels'],
+      title: 'Nuclear & Clean Energy',
+      description: '원자력, 청정에너지, 재생에너지',
+      keywords: ['nuclear power', 'clean energy', 'uranium', 'renewable energy', 'solar', 'wind'],
+      industries: ['Utilities', 'Oil, Gas & Consumable Fuels', 'Alternative Energy'],
       market_cap_min: 500000000,
       max_symbols: 25
+    },
+    technology: {
+      title: 'Technology & Innovation',
+      description: '혁신 기술, 소프트웨어, 하드웨어 기업',
+      keywords: ['technology', 'innovation', 'software', 'hardware', 'digital transformation', 'automation'],
+      industries: ['Technology Hardware', 'Software', 'Electronics', 'Communications Equipment'],
+      market_cap_min: 800000000,
+      max_symbols: 18
+    },
+    aerospace: {
+      title: 'Aerospace & Satellite',
+      description: '항공우주, 위성, 우주 기술 기업',
+      keywords: ['aerospace', 'satellite', 'space', 'aviation', 'rocket', 'orbital', 'launch'],
+      industries: ['Aerospace & Defense', 'Industrial Machinery', 'Technology Hardware'],
+      market_cap_min: 300000000,
+      max_symbols: 20
+    },
+    defense: {
+      title: 'Defense & Security',
+      description: '국방, 보안, 사이버 보안 기업',
+      keywords: ['defense', 'military', 'security', 'cybersecurity', 'surveillance', 'weapons'],
+      industries: ['Aerospace & Defense', 'Security Services', 'Software'],
+      market_cap_min: 600000000,
+      max_symbols: 15
     }
   };
 }

@@ -1,17 +1,23 @@
-name: Weekly Stock Report
+name: Manager Agent Report
 
 on:
   schedule:
-    # 매주 월요일 KST 15:00 (UTC 06:00)에 실행 - 공휴일이면 다음 개장일에 실행
-    - cron: '0 6 * * 1'
+    # 매주 월요일 KST 16:00 (UTC 07:00)에 실행 - Agent 리포트 1시간 후
+    - cron: '0 7 * * 1'
   workflow_dispatch: # 수동 실행 가능
+    inputs:
+      delay_minutes:
+        description: 'Agent 리포트 완료 대기 시간 (분)'
+        required: false
+        default: '60'
+        type: string
 
 permissions:
   contents: write
   actions: write
 
 jobs:
-  generate-report:
+  generate-manager-report:
     runs-on: ubuntu-latest
     
     steps:
@@ -32,8 +38,19 @@ jobs:
       
     - name: Build TypeScript
       run: npm run build
+
+    - name: Wait for Agent reports completion
+      run: |
+        # 수동 실행 시 지연 시간 적용
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          DELAY_MINUTES=${{ github.event.inputs.delay_minutes || '60' }}
+          echo "⏰ Agent 리포트 완료 대기: ${DELAY_MINUTES}분"
+          sleep $((DELAY_MINUTES * 60))
+        else
+          echo "📅 스케줄 실행: 15:00 Agent 리포트가 완료되었다고 가정"
+        fi
       
-    - name: Generate weekly agent reports
+    - name: Generate Manager Agent report
       env:
         PORT: ${{ secrets.PORT }}
         API_KEY: ${{ secrets.API_KEY }}
@@ -71,27 +88,27 @@ jobs:
         # 데이터 디렉터리 생성
         mkdir -p data/json data/screening data/report data/agent_reports
         
-        # 주간 Agent 리포트 실행 (15:00)
+        # Manager_Agent 통합 리포트 실행 (16:00)
         node --no-deprecation -e "
-        const { runWeekly } = require('./dist/jobs/weekly.js');
-        runWeekly()
+        const { runManager } = require('./dist/jobs/manager.js');
+        runManager()
           .then(() => {
-            console.log('✅ Weekly agent reports generation completed successfully');
+            console.log('✅ Manager Agent integration completed successfully');
             process.exit(0);
           })
           .catch((error) => {
-            console.error('❌ Weekly agent reports generation failed:', error);
+            console.error('❌ Manager Agent integration failed:', error);
             process.exit(1);
           });
         "
       
-    - name: Update repository and commit report
+    - name: Update repository and commit final report
       run: |
         # 최신 상태로 업데이트
         git fetch origin main
         git reset --hard origin/main
         
-        # 리포트 파일만 다시 추가
+        # Manager 리포트 파일만 다시 추가
         git add data/
         
         # 변경사항이 있는 경우에만 커밋
@@ -99,16 +116,16 @@ jobs:
           echo "No changes to commit"
         else
           git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
+          git config --local user.name "GitHub Action (Manager)"
+          git commit -m "🏢 Manager Agent final report - $(date +'%Y-%m-%d %H:%M:%S KST')"
           
           # 안전한 push (충돌 시 3번 재시도)
           for i in {1..3}; do
             if git push origin main; then
-              echo "✅ Push successful on attempt $i"
+              echo "✅ Manager report push successful on attempt $i"
               break
             else
-              echo "⚠️ Push failed on attempt $i, retrying..."
+              echo "⚠️ Manager report push failed on attempt $i, retrying..."
               git fetch origin main
               git rebase origin/main
               sleep 2
