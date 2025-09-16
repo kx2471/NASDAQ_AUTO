@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const readline = require('readline');
+const { spawn } = require('child_process');
 
 // 색상 코드
 const colors = {
@@ -222,8 +223,6 @@ class InteractiveTradeInput {
 
   // Git 커밋
   async gitCommit() {
-    const { spawn } = require('child_process');
-
     console.log(this.color('\n📤 Git 커밋 중...', 'yellow'));
 
     try {
@@ -277,8 +276,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
 
   // 포트폴리오 확인
   async showPortfolio() {
-    const { spawn } = require('child_process');
-
     console.log(this.color('\n💼 현재 포트폴리오를 확인합니다...', 'yellow'));
 
     return new Promise((resolve) => {
