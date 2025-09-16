@@ -15,15 +15,9 @@ function getGeminiClient() {
 /**
  * Gemini Pro로 투자 리포트 생성 (Retry Logic + Fallback 포함)
  */
-export async function generateReportWithGemini(
-  stocks: any[], 
-  priceData: any, 
-  indicators: any, 
-  news: any[], 
-  holdings: any[]
-): Promise<string> {
+export async function generateReportWithGemini(reportPayload: any): Promise<string> {
   const ai = getGeminiClient();
-  const prompt = await createInvestmentPrompt(stocks, priceData, indicators, news, holdings);
+  const prompt = await createInvestmentPromptFromPayload(reportPayload);
   
   // 환경변수에서 지정된 모델만 사용
   const envModel = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
@@ -46,12 +40,55 @@ export async function generateReportWithGemini(
 
   } catch (error: any) {
     console.error(`❌ ${modelAttempt.displayName} 보고서 생성 실패:`, error.message);
-    return generateFallbackGeminiReport(stocks, priceData, indicators, news, holdings);
+    return generateFallbackGeminiReport(reportPayload);
   }
 }
 
 /**
- * 투자 리포트 프롬프트 생성 (prompt.md 파일 사용)
+ * reportPayload를 사용한 투자 리포트 프롬프트 생성
+ */
+async function createInvestmentPromptFromPayload(reportPayload: any): Promise<string> {
+  const fs = require('fs/promises');
+  const path = require('path');
+
+  try {
+    // prompt.md 파일 로드
+    const promptPath = path.join(process.cwd(), 'prompts', 'prompt.md');
+    const promptTemplate = await fs.readFile(promptPath, 'utf8');
+
+    // reportPayload에서 필요한 데이터 추출
+    const dataContext = `
+다음 데이터를 사용하여 리포트를 작성하세요:
+
+**portfolio**: ${JSON.stringify(reportPayload.portfolio, null, 2)}
+**indicators**: ${JSON.stringify(reportPayload.indicators, null, 2)}
+**currentPrices**: ${JSON.stringify(reportPayload.currentPrices, null, 2)}
+**market**: ${JSON.stringify(reportPayload.market, null, 2)}
+**scores**: ${JSON.stringify(reportPayload.scores, null, 2)}
+**news**: ${JSON.stringify(reportPayload.news?.slice(0, 5), null, 2)}
+**performanceReport**: ${reportPayload.performanceReport}
+
+${promptTemplate}`;
+
+    return dataContext;
+
+  } catch (error) {
+    console.warn('prompt.md 파일 로드 실패, 기본 프롬프트 사용:', error);
+
+    // 폴백: 기본 프롬프트
+    return `다음 데이터를 바탕으로 통합 포트폴리오 리포트를 한국어로 작성하세요.
+
+**보유 종목**: ${JSON.stringify(reportPayload.portfolio?.holdings, null, 2)}
+**기술지표**: ${JSON.stringify(reportPayload.indicators, null, 2)}
+**뉴스**: ${JSON.stringify(reportPayload.news?.slice(0, 5), null, 2)}
+**성과 분석**: ${reportPayload.performanceReport}
+
+1000만원 달성을 위한 구체적인 매매 전략과 종목 추천을 포함해주세요.`;
+  }
+}
+
+/**
+ * 투자 리포트 프롬프트 생성 (prompt.md 파일 사용) - 레거시 함수
  */
 async function createInvestmentPrompt(
   stocks: any[], 
@@ -123,15 +160,13 @@ ${promptTemplate}`;
 /**
  * Gemini 실패 시 폴백 리포트 생성
  */
-function generateFallbackGeminiReport(
-  stocks: any[], 
-  priceData: any, 
-  indicators: any, 
-  news: any[], 
-  holdings: any[]
-): string {
+function generateFallbackGeminiReport(reportPayload: any): string {
   const today = new Date().toLocaleDateString('ko-KR');
   
+  const stocks = reportPayload.stocks || [];
+  const holdings = reportPayload.portfolio?.holdings || [];
+  const news = reportPayload.news || [];
+
   return `# 📊 Gemini Pro 데일리 투자 리포트 (폴백)
 
 **⚠️ 알림**: Gemini API 연결 실패로 인한 기본 리포트입니다.
@@ -139,19 +174,19 @@ function generateFallbackGeminiReport(
 ## 📈 분석 요약 (${today})
 
 **스크리닝 결과**: ${stocks.length}개 종목 분석 완료
-**보유 종목**: ${holdings.length}개 
+**보유 종목**: ${holdings.length}개
 **수집 뉴스**: ${news.length}개
 
 ## 🎯 주요 지표
 
 **상위 종목**:
-${stocks.slice(0, 5).map((stock, i) => 
-  `${i + 1}. ${stock.symbol} - ${stock.sector} 섹터`
+${stocks.slice(0, 5).map((stock: any, i: number) =>
+  `${i + 1}. ${stock.symbol} - ${stock.sector || 'Unknown'} 섹터`
 ).join('\n')}
 
 **기술지표 현황**:
-- 전체 종목 중 RSI 50 이상: ${Object.values(indicators).filter((ind: any) => ind.rsi14 > 50).length}개
-- EMA 정배열 종목: ${Object.values(indicators).filter((ind: any) => ind.ema20 > ind.ema50).length}개
+- 보유 종목 수: ${holdings.length}개
+- 수집된 뉴스: ${news.length}개
 
 ## ⚠️ 중요 안내
 

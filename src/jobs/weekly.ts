@@ -157,7 +157,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     if (process.env.GEMINI_API_KEY) {
       console.log('🤖 Agent_Gemini 주간 리포트 생성 중...');
       try {
-        agentGeminiReport = await generateReportWithGemini(stocks, priceData, indicatorsData, news, holdingsData);
+        agentGeminiReport = await generateReportWithGemini(reportPayload);
         console.log('✅ Agent_Gemini 리포트 생성 완료');
       } catch (error) {
         console.error('❌ Agent_Gemini 리포트 생성 실패:', error);
@@ -170,7 +170,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     if (process.env.CLAUDE_API_KEY) {
       console.log('🤖 Agent_Claude 주간 리포트 생성 중...');
       try {
-        agentClaudeReport = await generateReportWithClaude(stocks, priceData, indicatorsData, news, holdingsData);
+        agentClaudeReport = await generateReportWithClaude(reportPayload);
         console.log('✅ Agent_Claude 리포트 생성 완료');
       } catch (error) {
         console.error('❌ Agent_Claude 리포트 생성 실패:', error);

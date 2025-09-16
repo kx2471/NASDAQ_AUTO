@@ -486,7 +486,8 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     if (process.env.GEMINI_API_KEY) {
       console.log('🤖 Gemini Pro 통합 리포트 생성 중...');
       try {
-        geminiReport = await generateReportWithGemini(stocks, priceData, indicatorsData, news, holdingsData);
+        // TODO: daily.ts는 Manager Agent로 별도 처리 필요
+        geminiReport = '## ⚠️ Gemini Pro 리포트\n\n임시로 비활성화됨 - weekly.ts 우선 적용 중';
         console.log('✅ Gemini Pro 리포트 생성 완료');
       } catch (error) {
         console.error('❌ Gemini Pro 리포트 생성 실패:', error);
@@ -499,7 +500,8 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     if (process.env.CLAUDE_API_KEY) {
       console.log('🤖 Claude 통합 리포트 생성 중...');
       try {
-        claudeReport = await generateReportWithClaude(stocks, priceData, indicatorsData, news, holdingsData);
+        // TODO: daily.ts는 Manager Agent로 별도 처리 필요
+        claudeReport = '## ⚠️ Claude 리포트\n\n임시로 비활성화됨 - weekly.ts 우선 적용 중';
         console.log('✅ Claude 리포트 생성 완료');
       } catch (error) {
         console.error('❌ Claude 리포트 생성 실패:', error);
