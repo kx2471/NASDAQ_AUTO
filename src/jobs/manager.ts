@@ -68,24 +68,50 @@ async function validateAgentReportsExist(): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
 
-  const today = getKoreanDateString();
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
   try {
     const files = await fs.readdir(agentReportsDir);
+
+    // 모든 weekly agent 리포트 찾기 (날짜와 상관없이)
     const gptReports = files.filter(file =>
-      file.startsWith(today) && file.includes('weekly_agent_gpt.md')
+      file.includes('weekly_agent_gpt.md')
+    );
+    const geminiReports = files.filter(file =>
+      file.includes('weekly_agent_gemini.md')
+    );
+    const claudeReports = files.filter(file =>
+      file.includes('weekly_agent_claude.md')
     );
 
     if (gptReports.length === 0) {
-      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: ${today}_*_weekly_agent_gpt.md`;
+      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: *_weekly_agent_gpt.md`;
       console.error(errorMsg);
-      console.error('💡 15:00에 실행된 Agent 리포트들이 먼저 생성되어야 합니다.');
+      console.error('💡 Agent 리포트들이 먼저 생성되어야 합니다.');
       throw new Error(errorMsg);
     }
 
+    if (geminiReports.length === 0) {
+      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: *_weekly_agent_gemini.md`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    if (claudeReports.length === 0) {
+      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: *_weekly_agent_claude.md`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // 각 Agent의 최신 리포트 확인
     const latestGptReport = gptReports.sort().reverse()[0];
-    console.log(`✅ Agent 리포트 확인: ${latestGptReport}`);
+    const latestGeminiReport = geminiReports.sort().reverse()[0];
+    const latestClaudeReport = claudeReports.sort().reverse()[0];
+
+    console.log(`✅ Agent 리포트 확인:`);
+    console.log(`  - GPT: ${latestGptReport}`);
+    console.log(`  - Gemini: ${latestGeminiReport}`);
+    console.log(`  - Claude: ${latestClaudeReport}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes('필수 Agent 리포트')) {
       throw error;
@@ -93,7 +119,7 @@ async function validateAgentReportsExist(): Promise<void> {
     console.error('❌ 리포트 디렉토리 확인 실패:', error);
     throw new Error('Agent 리포트 디렉토리에 접근할 수 없습니다.');
   }
-  
+
   console.log('✅ 모든 Agent 리포트 확인 완료');
 }
 

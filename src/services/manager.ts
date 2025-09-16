@@ -80,7 +80,6 @@ async function loadAgentReports(): Promise<{
   gemini: string;
   claude: string;
 }> {
-  const today = getKoreanDateString();
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
   // 해당 날짜의 가장 최신 파일을 찾는 함수
