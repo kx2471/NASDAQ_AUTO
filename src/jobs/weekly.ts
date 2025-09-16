@@ -260,7 +260,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     const agentReportsPath = path.join(process.cwd(), 'data', 'agent_reports');
     await fs.mkdir(agentReportsPath, { recursive: true });
     
-    const today = getKoreanDateString();
+    const today = getKoreanDateTimeString();
     await fs.writeFile(
       path.join(agentReportsPath, `${today}_agent_gpt.md`),
       agentGptReport,
@@ -437,7 +437,7 @@ async function calculateIndicators(pricesData: Record<string, any[]>): Promise<R
  * 주간 리포트 파일 저장
  */
 async function saveWeeklyReportFiles(agentType: string, report: string): Promise<{mdPath: string, htmlPath: string}> {
-  const today = getKoreanDateString();
+  const today = getKoreanDateTimeString();
   const reportDir = path.join(process.cwd(), 'data', 'report');
   
   // 디렉토리 생성
@@ -475,4 +475,16 @@ function getKoreanDateString(): string {
   const now = new Date();
   const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
   return koreanTime.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+/**
+ * 한국 시간 기준 날짜+시간 문자열 생성 (YYYYMMDD_HHMM 형식)
+ */
+function getKoreanDateTimeString(): string {
+  const now = new Date();
+  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
+  const isoString = koreanTime.toISOString();
+  const datePart = isoString.split('T')[0].replace(/-/g, '');
+  const timePart = isoString.split('T')[1].substring(0, 5).replace(':', '');
+  return `${datePart}_${timePart}`;
 }

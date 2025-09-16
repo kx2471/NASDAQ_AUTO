@@ -7,6 +7,15 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
+ * 한국 시간 기준 날짜 문자열 생성 (YYYYMMDD 형식)
+ */
+function getKoreanDateString(): string {
+  const now = new Date();
+  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
+  return koreanTime.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+/**
  * Manager_Agent 서비스
  * 3개 Agent의 보고서를 종합하여 최종 통합 의사결정 제공
  */
@@ -67,34 +76,39 @@ async function loadAgentReports(): Promise<{
   gemini: string;
   claude: string;
 }> {
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const today = getKoreanDateString();
   const agentReportsDir = path.join(process.cwd(), 'data', 'agent_reports');
-  
+
+  // 해당 날짜의 가장 최신 파일을 찾는 함수
+  const findLatestReport = async (agentName: string): Promise<string> => {
+    try {
+      const files = await fs.readdir(agentReportsDir);
+      const agentFiles = files
+        .filter(file => file.startsWith(today) && file.includes(`_agent_${agentName}.md`))
+        .sort()
+        .reverse(); // 최신 파일이 먼저 오도록 정렬
+
+      if (agentFiles.length === 0) {
+        throw new Error(`${agentName} 리포트 파일을 찾을 수 없습니다`);
+      }
+
+      const latestFile = agentFiles[0];
+      console.log(`📄 ${agentName} 최신 리포트: ${latestFile}`);
+
+      return await fs.readFile(
+        path.join(agentReportsDir, latestFile),
+        'utf8'
+      );
+    } catch (error) {
+      console.warn(`⚠️ ${agentName} 리포트 로드 실패:`, error);
+      return `## Agent_${agentName.toUpperCase()} 보고서\n보고서를 찾을 수 없습니다.`;
+    }
+  };
+
   try {
-    const gptReport = await fs.readFile(
-      path.join(agentReportsDir, `${today}_agent_gpt.md`),
-      'utf8'
-    );
-    
-    let geminiReport = '';
-    try {
-      geminiReport = await fs.readFile(
-        path.join(agentReportsDir, `${today}_agent_gemini.md`),
-        'utf8'
-      );
-    } catch {
-      geminiReport = '## Agent_Gemini 보고서\\n보고서를 찾을 수 없습니다.';
-    }
-    
-    let claudeReport = '';
-    try {
-      claudeReport = await fs.readFile(
-        path.join(agentReportsDir, `${today}_agent_claude.md`),
-        'utf8'
-      );
-    } catch {
-      claudeReport = '## Agent_Claude 보고서\\n보고서를 찾을 수 없습니다.';
-    }
+    const gptReport = await findLatestReport('gpt');
+    const geminiReport = await findLatestReport('gemini');
+    const claudeReport = await findLatestReport('claude');
     
     console.log('📋 Agent 보고서 로드 완료');
     return {

@@ -7,6 +7,15 @@ import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 dotenv.config();
 
 /**
+ * 한국 시간 기준 날짜 문자열 생성 (YYYYMMDD 형식)
+ */
+function getKoreanDateString(): string {
+  const now = new Date();
+  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
+  return koreanTime.toISOString().split('T')[0].replace(/-/g, '');
+}
+
+/**
  * Manager_Agent 통합 리포트 생성 파이프라인
  * - 매주 월요일 한국시간 16:00에 GitHub Actions로 자동 실행
  * - Agent_GPT, Agent_Gemini, Agent_Claude의 15:00 리포트를 종합
@@ -58,25 +67,31 @@ export async function runManager(): Promise<void> {
 async function validateAgentReportsExist(): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
-  
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+
+  const today = getKoreanDateString();
   const agentReportsDir = path.join(process.cwd(), 'data', 'agent_reports');
-  
-  const requiredReports = [
-    `${today}_agent_gpt.md`
-  ];
-  
-  for (const reportFile of requiredReports) {
-    const reportPath = path.join(agentReportsDir, reportFile);
-    try {
-      await fs.access(reportPath);
-      console.log(`✅ Agent 리포트 확인: ${reportFile}`);
-    } catch (error) {
-      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: ${reportFile}`;
+
+  try {
+    const files = await fs.readdir(agentReportsDir);
+    const gptReports = files.filter(file =>
+      file.startsWith(today) && file.includes('_agent_gpt.md')
+    );
+
+    if (gptReports.length === 0) {
+      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: ${today}_*_agent_gpt.md`;
       console.error(errorMsg);
       console.error('💡 15:00에 실행된 Agent 리포트들이 먼저 생성되어야 합니다.');
       throw new Error(errorMsg);
     }
+
+    const latestGptReport = gptReports.sort().reverse()[0];
+    console.log(`✅ Agent 리포트 확인: ${latestGptReport}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('필수 Agent 리포트')) {
+      throw error;
+    }
+    console.error('❌ 리포트 디렉토리 확인 실패:', error);
+    throw new Error('Agent 리포트 디렉토리에 접근할 수 없습니다.');
   }
   
   console.log('✅ 모든 Agent 리포트 확인 완료');
