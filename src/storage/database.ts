@@ -301,7 +301,8 @@ export async function getHoldings(): Promise<Holding[]> {
 
   const holdings: Holding[] = [];
   for (const [symbol, data] of holdingsMap) {
-    if (data.totalShares > 0) {
+    // 부동소수점 오차를 고려하여 0.0001주 이상인 경우만 보유 종목으로 간주
+    if (data.totalShares >= 0.0001) {
       holdings.push({
         symbol,
         shares: data.totalShares,
