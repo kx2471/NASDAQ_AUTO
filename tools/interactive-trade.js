@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const readline = require('readline');
 const { spawn } = require('child_process');
+const axios = require('axios');
 
 // 색상 코드
 const colors = {
@@ -21,6 +22,8 @@ class InteractiveTradeInput {
       output: process.stdout
     });
     this.trades = [];
+    this.exchangeRate = null;
+    this.exchangeRateExpiry = null;
   }
 
   // 색상 출력
@@ -33,6 +36,52 @@ class InteractiveTradeInput {
     return new Promise(resolve => {
       this.rl.question(query, resolve);
     });
+  }
+
+  // 실시간 환율 조회 (캐시 포함)
+  async getExchangeRate() {
+    const now = Date.now();
+
+    // 캐시가 유효한 경우 (5분)
+    if (this.exchangeRate && this.exchangeRateExpiry && now < this.exchangeRateExpiry) {
+      return this.exchangeRate;
+    }
+
+    try {
+      console.log(this.color('💱 환율 조회 중...', 'yellow'));
+
+      // exchangerate-api.com 무료 API 사용
+      const response = await axios.get('https://api.exchangerate-api.com/v4/latest/USD', {
+        timeout: 5000
+      });
+
+      if (!response.data.rates || !response.data.rates.KRW) {
+        throw new Error('환율 데이터를 찾을 수 없습니다');
+      }
+
+      this.exchangeRate = response.data.rates.KRW;
+      this.exchangeRateExpiry = now + (5 * 60 * 1000); // 5분 캐시
+
+      console.log(this.color(`💱 현재 환율: ${this.exchangeRate.toFixed(2)}원/달러`, 'green'));
+
+      return this.exchangeRate;
+
+    } catch (error) {
+      console.log(this.color(`⚠️ 환율 조회 실패: ${error.message}`, 'yellow'));
+      console.log(this.color('기본값 1392원/달러 사용', 'yellow'));
+
+      // 기본값 사용
+      this.exchangeRate = 1392;
+      this.exchangeRateExpiry = now + (1 * 60 * 1000); // 1분 후 재시도
+
+      return this.exchangeRate;
+    }
+  }
+
+  // 달러를 원화로 환산
+  formatKRW(usdAmount, exchangeRate) {
+    const krwAmount = usdAmount * exchangeRate;
+    return `₩${krwAmount.toLocaleString('ko-KR', { maximumFractionDigits: 0 })}`;
   }
 
   // 시작 메시지
@@ -66,6 +115,9 @@ class InteractiveTradeInput {
 
     console.log(this.color(`\n💰 ${sideText} 정보를 입력하세요:`, sideColor));
 
+    // 환율 미리 조회 (백그라운드)
+    const exchangeRatePromise = this.getExchangeRate();
+
     const symbol = await this.question('종목 코드: ');
     if (!symbol) {
       console.log(this.color('❌ 종목 코드를 입력해주세요.', 'red'));
@@ -97,12 +149,15 @@ class InteractiveTradeInput {
       amount: qty * price
     };
 
+    // 환율 조회 완료 대기
+    const exchangeRate = await exchangeRatePromise;
+
     // 확인
     console.log(this.color('\n📊 입력된 거래 정보:', 'yellow'));
     console.log(`종목: ${this.color(trade.symbol, 'bright')}`);
     console.log(`${sideText}: ${this.color(`${trade.qty}주`, 'bright')}`);
     console.log(`가격: ${this.color(`$${trade.price}`, 'bright')}`);
-    console.log(`총액: ${this.color(`$${trade.amount.toFixed(2)}`, sideColor)}`);
+    console.log(`총액: ${this.color(`$${trade.amount.toFixed(2)}`, sideColor)} (${this.color(this.formatKRW(trade.amount, exchangeRate), sideColor)})`);
     console.log(`메모: ${trade.note}`);
 
     const confirm = await this.question('\n저장하시겠습니까? (y/n): ');
@@ -118,11 +173,14 @@ class InteractiveTradeInput {
   }
 
   // 입력된 거래 목록 표시
-  showPendingTrades() {
+  async showPendingTrades() {
     if (this.trades.length === 0) {
       console.log(this.color('\n📝 입력된 거래가 없습니다.', 'yellow'));
       return;
     }
+
+    // 환율 조회
+    const exchangeRate = await this.getExchangeRate();
 
     console.log(this.color('\n📋 입력된 거래 목록:', 'yellow'));
     console.log(this.color('-'.repeat(60), 'cyan'));
@@ -135,7 +193,7 @@ class InteractiveTradeInput {
       const sideText = trade.side === 'BUY' ? '매수' : '매도';
 
       console.log(`${index + 1}. ${this.color(trade.symbol, 'bright')} - ${this.color(sideText, sideColor)}`);
-      console.log(`   수량: ${trade.qty}주, 가격: $${trade.price}, 총액: $${trade.amount.toFixed(2)}`);
+      console.log(`   수량: ${trade.qty}주, 가격: $${trade.price}, 총액: $${trade.amount.toFixed(2)} (${this.formatKRW(trade.amount, exchangeRate)})`);
       console.log(`   메모: ${trade.note}`);
       console.log('');
 
@@ -147,9 +205,9 @@ class InteractiveTradeInput {
     });
 
     console.log(this.color('-'.repeat(60), 'cyan'));
-    console.log(`${this.color('매수 총액:', 'green')} $${totalBuy.toFixed(2)}`);
-    console.log(`${this.color('매도 총액:', 'red')} $${totalSell.toFixed(2)}`);
-    console.log(`${this.color('순 현금 변동:', 'blue')} $${(totalSell - totalBuy).toFixed(2)}`);
+    console.log(`${this.color('매수 총액:', 'green')} $${totalBuy.toFixed(2)} (${this.formatKRW(totalBuy, exchangeRate)})`);
+    console.log(`${this.color('매도 총액:', 'red')} $${totalSell.toFixed(2)} (${this.formatKRW(totalSell, exchangeRate)})`);
+    console.log(`${this.color('순 현금 변동:', 'blue')} $${(totalSell - totalBuy).toFixed(2)} (${this.formatKRW(totalSell - totalBuy, exchangeRate)})`);
   }
 
   // 거래 저장 및 Git 커밋
@@ -309,7 +367,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
             break;
 
           case '3':
-            this.showPendingTrades();
+            await this.showPendingTrades();
             break;
 
           case '4':
