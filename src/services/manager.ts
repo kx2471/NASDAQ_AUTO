@@ -268,7 +268,7 @@ async function prepareManagerPayload(params: {
 }
 
 /**
- * Manager_Agent 전용 리포트 생성 (스크리닝 없이 Agent 리포트만 종합)
+ * Manager_Agent 전용 리포트 생성 (새로운 프롬프트 변수 구조 사용)
  */
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
@@ -282,16 +282,9 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     console.log(`🤖 ${model}을 사용하여 Manager 리포트 생성 시작`);
 
-    // 현재 가용 자금 계산
-    const availableCash = payload.portfolio.cash_usd || 0;
-
-    // Agent 보고서에서 현재가 정보 및 매매 제안 추출
-    const extractAgentInsights = () => {
-      const gptReport = payload.agent_reports?.agent_gpt || '';
-      const geminiReport = payload.agent_reports?.agent_gemini || '';
+    // 현재가 정보 추출
+    const extractCurrentPrices = () => {
       const claudeReport = payload.agent_reports?.agent_claude || '';
-
-      // 현재가 정보 추출 (Claude 보고서에서)
       const priceExtraction = {
         BABA: claudeReport.match(/\| BABA.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
         GOOGL: claudeReport.match(/\| GOOGL.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
@@ -299,126 +292,80 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
         COIN: claudeReport.match(/\| COIN.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1]
       };
 
-      let pricesText = '✅ 실시간 현재가: ';
+      const validPrices: Record<string, number> = {};
       Object.entries(priceExtraction).forEach(([symbol, price]) => {
-        if (price) {
-          pricesText += `${symbol}: $${price}, `;
-        }
+        if (price) validPrices[symbol] = parseFloat(price);
       });
 
-      // 각 Agent의 매매 제안 추출
-      const extractTradingRecommendation = (report: string, agentName: string) => {
-        // 한줄평 섹션 전체 추출
-        const tradingSection = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|$)/)?.[1] || '';
-
-        // 각 라인별로 분석
-        const lines = tradingSection.split('\n').filter(line => line.trim());
-
-        let sellRecommendation = '없음';
-        let buyRecommendation = '없음';
-        let outlook = '중립';
-        let riskLevel = '보통';
-
-        for (const line of lines) {
-          if (line.includes('매도 추천:')) {
-            sellRecommendation = line.replace(/.*매도 추천:\s*/, '').trim();
-          } else if (line.includes('매수 추천:')) {
-            buyRecommendation = line.replace(/.*매수 추천:\s*/, '').trim();
-          } else if (line.includes('1000만원 목표 전망:')) {
-            outlook = line.replace(/.*1000만원 목표 전망:\s*/, '').trim();
-          } else if (line.includes('위험도 평가:')) {
-            riskLevel = line.replace(/.*위험도 평가:\s*/, '').trim();
-          }
-        }
-
-        return {
-          agent: agentName,
-          sell: sellRecommendation,
-          buy: buyRecommendation,
-          outlook: outlook,
-          risk: riskLevel
-        };
-      };
-
-      const agentInsights = [
-        extractTradingRecommendation(gptReport, 'GPT'),
-        extractTradingRecommendation(geminiReport, 'Gemini'),
-        extractTradingRecommendation(claudeReport, 'Claude')
-      ];
-
-      return {
-        prices: pricesText.slice(0, -2),
-        insights: agentInsights
-      };
+      return validPrices;
     };
-
-    const { prices: currentPricesInfo, insights: agentInsights } = extractAgentInsights();
 
     // 각 Agent의 전략과 추천 종목을 구체적으로 추출
-    const extractAgentStrategy = (report: string, agentName: string) => {
-      // 매매 의견 섹션 추출
-      const tradingSection = report.match(/## 2\. 매매 의견.*?(?=## 3\.|$)/s)?.[0] || '';
+    const extractAgentData = (report: string, agentName: string) => {
+      // 매매 의견 섹션 (보유 종목 분석)
+      const tradingOpinionMatch = report.match(/## 2\. 매매 의견.*?(?=## 3\.|$)/s);
+      const tradingOpinion = tradingOpinionMatch ? tradingOpinionMatch[0].trim() : '';
 
-      // 고성장 추천 종목 섹션 추출
-      const recommendationSection = report.match(/## 3\. 고성장 추천 종목.*?(?=## 4\.|$)/s)?.[0] || '';
+      // 고성장 추천 종목 섹션
+      const recommendationMatch = report.match(/## 3\. 고성장 추천 종목.*?(?=## 4\.|$)/s);
+      const recommendations = recommendationMatch ? recommendationMatch[0].trim() : '';
 
       // 핵심 매매 제안 한줄평 추출
-      const tradingAdvice = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|$)/)?.[1] || '';
+      const adviceMatch = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|추가 유의|$)/);
+      const advice = adviceMatch ? adviceMatch[1].trim() : '';
 
       return {
-        strategy: tradingSection.trim() || `${agentName} 전략 정보 없음`,
-        recommendations: recommendationSection.trim() || `${agentName} 추천 종목 없음`,
-        advice: tradingAdvice.trim() || `${agentName} 한줄평 없음`
+        strategy: tradingOpinion || `Agent_${agentName} 매매 의견 정보 없음`,
+        recommendations: recommendations || `Agent_${agentName} 추천 종목 정보 없음`,
+        advice: advice || `Agent_${agentName} 한줄평 정보 없음`
       };
     };
 
-    const gptData = extractAgentStrategy(payload.agent_reports?.agent_gpt || '', 'GPT');
-    const geminiData = extractAgentStrategy(payload.agent_reports?.agent_gemini || '', 'Gemini');
-    const claudeData = extractAgentStrategy(payload.agent_reports?.agent_claude || '', 'Claude');
+    const gptData = extractAgentData(payload.agent_reports?.agent_gpt || '', 'GPT');
+    const geminiData = extractAgentData(payload.agent_reports?.agent_gemini || '', 'Gemini');
+    const claudeData = extractAgentData(payload.agent_reports?.agent_claude || '', 'Claude');
+    const currentPrices = extractCurrentPrices();
+    const availableCash = payload.portfolio.cash_usd || 0;
 
-    // 새로운 프롬프트 변수 형식에 맞게 데이터 구성
-    const managerData = `
-**매매 전략 분석 필수**:
-- gpt_strategy: ${gptData.strategy}
+    // 새로운 프롬프트 변수에 맞게 템플릿 치환
+    const processedPrompt = prompt
+      .replace(/{gpt_strategy}/g, gptData.strategy)
+      .replace(/{claude_strategy}/g, claudeData.strategy)
+      .replace(/{gemini_strategy}/g, geminiData.strategy)
+      .replace(/{gpt_recommendations}/g, gptData.recommendations)
+      .replace(/{claude_recommendations}/g, claudeData.recommendations)
+      .replace(/{gemini_recommendations}/g, geminiData.recommendations)
+      .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
+      .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
+      .replace(/{exchange_rate}/g, (payload.portfolio?.exchange_rate || 'N/A').toString());
 
-- claude_strategy: ${claudeData.strategy}
+    console.log('🔄 프롬프트 변수 치환 완료');
 
-- gemini_strategy: ${geminiData.strategy}
+    // Manager용 추가 컨텍스트
+    const managerContext = `
+**현재 상황 브리핑**:
+- 현금: $${availableCash.toFixed(2)}
+- 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
+- 목표: 1년 내 ₩10,000,000 달성
 
-**추천 종목 분석 필수**:
-- gpt_recommendations: ${gptData.recommendations}
+**각 Agent 핵심 매매 제안 요약**:
+- Agent_GPT: ${gptData.advice}
+- Agent_Gemini: ${geminiData.advice}
+- Agent_Claude: ${claudeData.advice}
 
-- claude_recommendations: ${claudeData.recommendations}
-
-- gemini_recommendations: ${geminiData.recommendations}
-
-**포트폴리오 현황**:
-- portfolio: ${JSON.stringify(payload.portfolio?.holdings || [])}
-- currentPrices: ${currentPricesInfo}
-- exchange_rate: ${payload.portfolio?.exchange_rate || 'N/A'}
-
-**현재 가용 자금**: $${availableCash.toFixed(2)}
-
-**각 Agent 핵심 매매 제안**:
-- GPT: ${gptData.advice}
-- Gemini: ${geminiData.advice}
-- Claude: ${claudeData.advice}
-
-**중요 지침**:
-1. 위 전략들을 개별적으로 분석하여 Manager만의 독립적 판단을 내리세요
-2. Agent 간 의견 충돌 시 명확한 중재 논리를 제시하세요
-3. 매도 시 정확한 현금화 계산을 수행하세요
-4. 1000만원 목표 달성을 위한 구체적 전략을 제시하세요
+**Manager 핵심 임무**:
+위 3개 Agent의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
+Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
 `;
 
     const messages = [
       {
         role: 'system' as const,
-        content: prompt
+        content: processedPrompt
       },
       {
         role: 'user' as const,
-        content: managerData
+        content: managerContext
       }
     ];
 
