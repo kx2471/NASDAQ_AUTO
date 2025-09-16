@@ -377,6 +377,29 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     const availableCash = payload.portfolio.cash_usd || 0;
 
     // 새로운 프롬프트 변수에 맞게 템플릿 치환
+    // 환율 디버깅 - 먼저 실행
+    const exchangeRateValue = (() => {
+      const exchangeRate = payload.portfolio?.exchange_rate;
+      console.log('🔍 환율 원본 데이터:', exchangeRate);
+      console.log('🔍 환율 타입:', typeof exchangeRate);
+
+      if (typeof exchangeRate === 'number') {
+        console.log('🔍 환율 처리: 숫자형');
+        return exchangeRate.toString();
+      } else if (exchangeRate && typeof exchangeRate === 'object' && 'usd_to_krw' in exchangeRate) {
+        console.log('🔍 환율 처리: 객체형, usd_to_krw =', exchangeRate.usd_to_krw);
+        return exchangeRate.usd_to_krw.toString();
+      } else {
+        console.log('🔍 환율 처리: 기본값 1392 사용');
+        return '1392';
+      }
+    })();
+    console.log('🔍 환율 디버깅:', {
+      raw: payload.portfolio?.exchange_rate,
+      type: typeof payload.portfolio?.exchange_rate,
+      processed: exchangeRateValue
+    });
+
     const processedPrompt = prompt
       .replace(/{gpt_strategy}/g, gptData.strategy)
       .replace(/{claude_strategy}/g, claudeData.strategy)
@@ -386,32 +409,7 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       .replace(/{gemini_recommendations}/g, geminiData.recommendations)
       .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
       .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
-      .replace(/{exchange_rate}/g, (() => {
-        const exchangeRate = payload.portfolio?.exchange_rate;
-        if (typeof exchangeRate === 'number') {
-          return exchangeRate.toString();
-        } else if (exchangeRate && typeof exchangeRate === 'object' && 'usd_to_krw' in exchangeRate) {
-          return exchangeRate.usd_to_krw.toString();
-        } else {
-          return '1392';
-        }
-      })());
-
-    // 환율 디버깅
-    console.log('🔍 환율 디버깅:', {
-      raw: payload.portfolio?.exchange_rate,
-      type: typeof payload.portfolio?.exchange_rate,
-      processed: (() => {
-        const exchangeRate = payload.portfolio?.exchange_rate;
-        if (typeof exchangeRate === 'number') {
-          return exchangeRate.toString();
-        } else if (exchangeRate && typeof exchangeRate === 'object' && 'usd_to_krw' in exchangeRate) {
-          return exchangeRate.usd_to_krw.toString();
-        } else {
-          return '1392';
-        }
-      })()
-    });
+      .replace(/{exchange_rate}/g, exchangeRateValue);
 
     console.log('🔄 프롬프트 변수 치환 완료');
 
