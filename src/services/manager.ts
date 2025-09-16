@@ -386,7 +386,32 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       .replace(/{gemini_recommendations}/g, geminiData.recommendations)
       .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
       .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
-      .replace(/{exchange_rate}/g, (payload.portfolio?.exchange_rate || 'N/A').toString());
+      .replace(/{exchange_rate}/g, (() => {
+        const exchangeRate = payload.portfolio?.exchange_rate;
+        if (typeof exchangeRate === 'number') {
+          return exchangeRate.toString();
+        } else if (exchangeRate && typeof exchangeRate === 'object' && 'usd_to_krw' in exchangeRate) {
+          return exchangeRate.usd_to_krw.toString();
+        } else {
+          return '1392';
+        }
+      })());
+
+    // 환율 디버깅
+    console.log('🔍 환율 디버깅:', {
+      raw: payload.portfolio?.exchange_rate,
+      type: typeof payload.portfolio?.exchange_rate,
+      processed: (() => {
+        const exchangeRate = payload.portfolio?.exchange_rate;
+        if (typeof exchangeRate === 'number') {
+          return exchangeRate.toString();
+        } else if (exchangeRate && typeof exchangeRate === 'object' && 'usd_to_krw' in exchangeRate) {
+          return exchangeRate.usd_to_krw.toString();
+        } else {
+          return '1392';
+        }
+      })()
+    });
 
     console.log('🔄 프롬프트 변수 치환 완료');
 
