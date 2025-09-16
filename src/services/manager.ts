@@ -354,27 +354,61 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     const { prices: currentPricesInfo, insights: agentInsights } = extractAgentInsights();
 
-    // 각 Agent의 구체적 매매 제안을 포함한 정보
-    const agentSummary = agentInsights.map(insight =>
-      `- ${insight.agent}: 매도[${insight.sell}] / 매수[${insight.buy}] / 전망[${insight.outlook}] / 위험도[${insight.risk}]`
-    ).join('\n');
+    // 각 Agent의 전략과 추천 종목을 구체적으로 추출
+    const extractAgentStrategy = (report: string, agentName: string) => {
+      // 매매 의견 섹션 추출
+      const tradingSection = report.match(/## 2\. 매매 의견.*?(?=## 3\.|$)/s)?.[0] || '';
 
+      // 고성장 추천 종목 섹션 추출
+      const recommendationSection = report.match(/## 3\. 고성장 추천 종목.*?(?=## 4\.|$)/s)?.[0] || '';
+
+      // 핵심 매매 제안 한줄평 추출
+      const tradingAdvice = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|$)/)?.[1] || '';
+
+      return {
+        strategy: tradingSection.trim() || `${agentName} 전략 정보 없음`,
+        recommendations: recommendationSection.trim() || `${agentName} 추천 종목 없음`,
+        advice: tradingAdvice.trim() || `${agentName} 한줄평 없음`
+      };
+    };
+
+    const gptData = extractAgentStrategy(payload.agent_reports?.agent_gpt || '', 'GPT');
+    const geminiData = extractAgentStrategy(payload.agent_reports?.agent_gemini || '', 'Gemini');
+    const claudeData = extractAgentStrategy(payload.agent_reports?.agent_claude || '', 'Claude');
+
+    // 새로운 프롬프트 변수 형식에 맞게 데이터 구성
     const managerData = `
-현재 보유 현금: $${availableCash.toFixed(2)}
-보유 종목: ${JSON.stringify(payload.portfolio?.holdings || [])}
+**매매 전략 분석 필수**:
+- gpt_strategy: ${gptData.strategy}
 
-${currentPricesInfo}
+- claude_strategy: ${claudeData.strategy}
 
-🎯 각 Agent 구체적 매매 제안:
-${agentSummary}
+- gemini_strategy: ${geminiData.strategy}
 
-매수 지시는 가용 현금 $${availableCash.toFixed(2)} 내에서만 가능.
-목표: 1년 내 ₩10,000,000 달성
+**추천 종목 분석 필수**:
+- gpt_recommendations: ${gptData.recommendations}
 
-🔥 중요:
-1. 실시간 현재가가 확보되어 정확한 매도 현금화 계산이 가능합니다.
-2. 각 Agent의 구체적인 매매 제안을 종합하여 최종 결정을 내리세요.
-3. 매도 결정 시 반드시 "현재량 × 현재가 = 현금화 금액"을 계산하여 명시하세요.
+- claude_recommendations: ${claudeData.recommendations}
+
+- gemini_recommendations: ${geminiData.recommendations}
+
+**포트폴리오 현황**:
+- portfolio: ${JSON.stringify(payload.portfolio?.holdings || [])}
+- currentPrices: ${currentPricesInfo}
+- exchange_rate: ${payload.portfolio?.exchange_rate || 'N/A'}
+
+**현재 가용 자금**: $${availableCash.toFixed(2)}
+
+**각 Agent 핵심 매매 제안**:
+- GPT: ${gptData.advice}
+- Gemini: ${geminiData.advice}
+- Claude: ${claudeData.advice}
+
+**중요 지침**:
+1. 위 전략들을 개별적으로 분석하여 Manager만의 독립적 판단을 내리세요
+2. Agent 간 의견 충돌 시 명확한 중재 논리를 제시하세요
+3. 매도 시 정확한 현금화 계산을 수행하세요
+4. 1000만원 목표 달성을 위한 구체적 전략을 제시하세요
 `;
 
     const messages = [
