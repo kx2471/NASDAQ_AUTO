@@ -293,11 +293,8 @@ class InteractiveTradeInput {
         `${t.symbol} ${t.side === 'BUY' ? '매수' : '매도'} ${t.qty}주`
       ).join(', ');
 
-      const commitMsg = `대화형 매매 입력: ${tradesSummary} - ${timestamp}
-
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>`;
+      // Windows에서 안전한 단일 라인 커밋 메시지
+      const commitMsg = `📈 대화형 매매: ${tradesSummary} - ${timestamp}`;
 
       // git commit
       await this.runCommand('git', ['commit', '-m', commitMsg]);

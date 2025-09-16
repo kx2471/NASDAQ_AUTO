@@ -98,5 +98,45 @@
     "fee": 0,
     "note": "Manager권고사항",
     "id": 10
+  },
+  {
+    "traded_at": "2025-09-16T22:51:12.498Z",
+    "symbol": "TSLA",
+    "side": "SELL",
+    "qty": 2,
+    "price": 421.68,
+    "fee": 0,
+    "note": "manager의견",
+    "id": 11
+  },
+  {
+    "traded_at": "2025-09-16T22:51:12.604Z",
+    "symbol": "CRWD",
+    "side": "SELL",
+    "qty": 1,
+    "price": 445.06,
+    "fee": 0,
+    "note": "MANAGER",
+    "id": 12
+  },
+  {
+    "traded_at": "2025-09-16T22:51:12.709Z",
+    "symbol": "NVDA",
+    "side": "BUY",
+    "qty": 4,
+    "price": 175.25,
+    "fee": 0,
+    "note": "MANAGER",
+    "id": 13
+  },
+  {
+    "traded_at": "2025-09-16T22:51:12.815Z",
+    "symbol": "AMKR",
+    "side": "BUY",
+    "qty": 20,
+    "price": 27.1,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 14
   }
 ]
