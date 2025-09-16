@@ -1,266 +1,183 @@
 """
-OpenAI GPT service for investment report generation
+OpenAI GPT 서비스
+GPT-5 모델을 사용한 주식 분석 리포트 생성
 """
-import asyncio
-from datetime import datetime
-from typing import Optional, Dict, Any
+
+import logging
+from typing import Dict, Any, Optional
 from openai import AsyncOpenAI
 
-from nasdaq_auto.core.config import settings
-from nasdaq_auto.models.reports import AgentReport, AgentType
+from nasdaq_auto.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIService:
-    """OpenAI GPT service for generating investment reports"""
+    """OpenAI GPT 서비스"""
 
     def __init__(self):
-        if not settings.openai_api_key:
-            raise ValueError("OpenAI API key not found in settings")
-
-        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_model
-        self.max_tokens = 15000  # GPT-5 token limit from original
-
-    async def generate_report(self, report_payload: Dict[str, Any]) -> AgentReport:
-        """
-        Generate investment report using OpenAI GPT
-
-        Args:
-            report_payload: Complete report data payload
-
-        Returns:
-            AgentReport object with generated content
-        """
-        try:
-            print(f"🤖 {self.model}를 사용하여 보고서 생성 중...")
-
-            # Create prompt from payload
-            prompt = await self._create_investment_prompt(report_payload)
-
-            # Call OpenAI API
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 전문적인 투자 분석가입니다. 한국어로 상세하고 실용적인 투자 리포트를 작성해주세요."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=self.max_tokens,
-                temperature=0.7,
-                top_p=0.9
-            )
-
-            # Extract response
-            if not response.choices or not response.choices[0].message.content:
-                raise ValueError("Empty response from OpenAI API")
-
-            content = response.choices[0].message.content.strip()
-
-            # Extract token usage
-            token_usage = {
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0
-            }
-
-            print(f"✅ {self.model} 보고서 생성 성공! (토큰: {token_usage['total_tokens']})")
-
-            return AgentReport(
-                agent_type=AgentType.GPT,
-                content=content,
-                generation_time=datetime.now(),
-                model_used=self.model,
-                token_usage=token_usage,
-                success=True
-            )
-
-        except Exception as e:
-            error_msg = f"OpenAI 리포트 생성 실패: {str(e)}"
-            print(f"❌ {error_msg}")
-
-            return AgentReport(
-                agent_type=AgentType.GPT,
-                content=self._generate_fallback_report(report_payload),
-                generation_time=datetime.now(),
-                model_used=self.model,
-                success=False,
-                error_message=error_msg
-            )
-
-    async def _create_investment_prompt(self, payload: Dict[str, Any]) -> str:
-        """
-        Create investment prompt from payload data
-
-        Args:
-            payload: Report data payload
-
-        Returns:
-            Formatted prompt string
-        """
-        try:
-            # Load prompt template
-            prompt_path = settings.prompts_dir / "prompt.md"
-
-            if prompt_path.exists():
-                with open(prompt_path, 'r', encoding='utf-8') as f:
-                    prompt_template = f.read()
-            else:
-                prompt_template = self._get_default_prompt_template()
-
-            # Format data context
-            data_context = f"""
-다음 데이터를 사용하여 리포트를 작성하세요:
-
-**portfolio**: {self._format_json(payload.get('portfolio', {}))}
-**indicators**: {self._format_json(payload.get('indicators', {}))}
-**currentPrices**: {self._format_json(payload.get('currentPrices', {}))}
-**market**: {self._format_json(payload.get('market', {}))}
-**scores**: {self._format_json(payload.get('scores', {}))}
-**news**: {self._format_json(payload.get('news', [])[:5])}
-**performanceReport**: {payload.get('performanceReport', 'N/A')}
-
-{prompt_template}
-"""
-
-            return data_context
-
-        except Exception as e:
-            print(f"⚠️ 프롬프트 생성 실패, 기본 프롬프트 사용: {e}")
-            return self._get_fallback_prompt(payload)
-
-    def _format_json(self, data: Any) -> str:
-        """Format data as JSON string"""
-        import json
-        try:
-            return json.dumps(data, indent=2, ensure_ascii=False, default=str)
-        except Exception:
-            return str(data)
-
-    def _get_default_prompt_template(self) -> str:
-        """Get default prompt template"""
-        return """
-통합 포트폴리오 리포트를 한국어로 작성하세요.
-
-## 구성
-
-**0. 성과 추적** (performanceReport가 있는 경우 포함)
-{performanceReport 내용을 그대로 포함}
-
-**1. 포트폴리오 현황**
-| 종목 | 수량 | 평단($) | 현재가($) | 평가액($) | 수익률(%) |
-
-⚠️ **데이터 참조 방법 (중요):**
-- **보유 종목 정보**: portfolio.holdings 배열에서
-  - holdings[].symbol: 종목코드
-  - holdings[].shares: 보유 수량
-  - holdings[].avg_cost: 평균 매수가격 (평단가)
-- **현재가**: currentPrices[symbol] 또는 indicators[symbol].close에서 확인
-- **기술지표**: indicators[symbol].rsi14, indicators[symbol].ema20, indicators[symbol].ema50
-- **환율**: exchange_rate (USD → KRW 환산용)
-- **평가액 계산**: shares × 현재가
-- **수익률 계산**: ((현재가 - 평단가) / 평단가) × 100
-
-**2. 시장 분석**
-주요 보유 종목들의 기술적 분석 및 시장 동향
-
-**3. 뉴스 분석**
-최근 뉴스가 포트폴리오에 미치는 영향 분석
-
-**4. 투자 전략**
-현재 상황에 기반한 구체적인 매매 전략
-
-**5. 리스크 관리**
-포트폴리오 리스크 요소 및 대응 방안
-
-1000만원 달성을 위한 구체적인 매매 전략과 종목 추천을 포함해주세요.
-"""
-
-    def _get_fallback_prompt(self, payload: Dict[str, Any]) -> str:
-        """Get fallback prompt when template loading fails"""
-        return f"""
-다음 데이터를 바탕으로 통합 포트폴리오 리포트를 한국어로 작성하세요.
-
-**보유 종목**: {self._format_json(payload.get('portfolio', {}).get('holdings', []))}
-**기술지표**: {self._format_json(payload.get('indicators', {}))}
-**뉴스**: {self._format_json(payload.get('news', [])[:5])}
-**성과 분석**: {payload.get('performanceReport', 'N/A')}
-
-1000만원 달성을 위한 구체적인 매매 전략과 종목 추천을 포함해주세요.
-"""
-
-    def _generate_fallback_report(self, payload: Dict[str, Any]) -> str:
-        """Generate fallback report when API fails"""
-        today = datetime.now().strftime('%Y-%m-%d')
-
-        holdings = payload.get('portfolio', {}).get('holdings', [])
-        news_count = len(payload.get('news', []))
-
-        return f"""# 📊 GPT-5 데일리 투자 리포트 (폴백)
-
-**⚠️ 알림**: OpenAI API 연결 실패로 인한 기본 리포트입니다.
-
-## 📈 분석 요약 ({today})
-
-**보유 종목**: {len(holdings)}개
-**수집 뉴스**: {news_count}개
-
-## 🎯 주요 지표
-
-**보유 종목 현황**:
-{self._format_holdings_fallback(holdings)}
-
-## ⚠️ 중요 안내
-
-OpenAI API 연결 문제로 상세 분석을 제공할 수 없습니다.
-정상 서비스 복구 후 다시 시도하시기 바랍니다.
-
----
-*본 리포트는 기술적 오류로 인한 임시 버전입니다*"""
-
-    def _format_holdings_fallback(self, holdings: list) -> str:
-        """Format holdings for fallback report"""
-        if not holdings:
-            return "보유 종목이 없습니다."
-
-        lines = []
-        for i, holding in enumerate(holdings[:5], 1):
-            symbol = holding.get('symbol', 'Unknown')
-            shares = holding.get('shares', 0)
-            avg_cost = holding.get('avg_cost', 0)
-            lines.append(f"{i}. {symbol}: {shares}주 (평단가: ${avg_cost:.2f})")
-
-        return '\n'.join(lines)
+        self.settings = get_settings()
+        self.client = AsyncOpenAI(api_key=self.settings.openai_api_key)
+        self.model = "gpt-5"  # GPT-5 모델 사용
+        self.max_tokens = 15000  # 토큰 한도
 
     async def test_connection(self) -> bool:
-        """
-        Test OpenAI API connection
-
-        Returns:
-            True if connection successful, False otherwise
-        """
+        """OpenAI API 연결 테스트"""
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": "Test connection. Reply with 'OK'"
-                    }
-                ],
+                messages=[{"role": "user", "content": "Hello"}],
                 max_tokens=10
             )
-
-            if response.choices and response.choices[0].message.content:
-                content = response.choices[0].message.content.strip()
-                return 'OK' in content.upper()
-
+            return bool(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"OpenAI 연결 테스트 실패: {e}")
             return False
+
+    async def generate_report(self, report_data: Dict[str, Any]) -> str:
+        """Agent_GPT 리포트 생성"""
+        logger.info("🤖 Agent_GPT 리포트 생성 시작")
+
+        try:
+            # 프롬프트 구성
+            system_prompt = self._build_system_prompt()
+            user_prompt = self._build_user_prompt(report_data)
+
+            # GPT API 호출
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=self.max_tokens,
+                temperature=0.7
+            )
+
+            content = response.choices[0].message.content
+
+            # 토큰 사용량 로그
+            usage = response.usage
+            logger.info(f"📊 GPT 토큰 사용량 - 입력: {usage.prompt_tokens}, 출력: {usage.completion_tokens}, 총: {usage.total_tokens}")
+
+            return content
 
         except Exception as e:
-            print(f"❌ OpenAI 연결 테스트 실패: {e}")
-            return False
+            logger.error(f"❌ Agent_GPT 리포트 생성 실패: {e}")
+            raise
+
+    async def generate_manager_report(self, report_data: Dict[str, Any]) -> str:
+        """Manager Agent 리포트 생성"""
+        logger.info("🏆 Manager Agent 리포트 생성 시작")
+
+        try:
+            # Manager 전용 프롬프트 구성
+            system_prompt = "당신은 Manager_Agent입니다. 3개 Agent의 주간 보고서를 종합하여 최종 투자 의사결정을 내리는 포트폴리오 매니저입니다."
+            user_prompt = self._build_manager_prompt(report_data)
+
+            # GPT API 호출
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=self.max_tokens,
+                temperature=0.7
+            )
+
+            content = response.choices[0].message.content
+
+            # 토큰 사용량 로그
+            usage = response.usage
+            logger.info(f"📊 Manager GPT 토큰 사용량 - 입력: {usage.prompt_tokens}, 출력: {usage.completion_tokens}, 총: {usage.total_tokens}")
+
+            return content
+
+        except Exception as e:
+            logger.error(f"❌ Manager Agent 리포트 생성 실패: {e}")
+            raise
+
+    def _build_system_prompt(self) -> str:
+        """Agent_GPT 시스템 프롬프트 구성"""
+        return """당신은 Agent_GPT입니다. 주식 시장 분석 전문가로서 포트폴리오 분석 및 투자 권고를 제공합니다.
+
+주요 역할:
+1. 포트폴리오 현황 분석
+2. 기술적/기본적 분석을 통한 매매 제안
+3. 1년 내 1000만원 목표 달성을 위한 전략 수립
+4. 위험 관리 및 수익률 최적화
+
+분석 시 고려사항:
+- 현실적이고 구체적인 매매 제안
+- 세금 및 수수료 고려
+- 환율 리스크 분석
+- 단기/중기 목표가 설정
+- 손절/익절 기준 명확화"""
+
+    def _build_user_prompt(self, report_data: Dict[str, Any]) -> str:
+        """Agent_GPT 사용자 프롬프트 구성"""
+        # 리포트 페이로드 구성 (TypeScript 버전과 동일한 구조)
+        prompt_parts = []
+
+        # 에이전트 프롬프트
+        prompt_parts.append(report_data.get("agent_prompt", ""))
+
+        # 성과 리포트 (있는 경우)
+        if report_data.get("performance_report"):
+            prompt_parts.append(f"performanceReport: {report_data['performance_report']}")
+
+        # 포트폴리오 데이터
+        portfolio = report_data.get("portfolio", {})
+        prompt_parts.append(f"portfolio: {portfolio}")
+
+        # 현재가 데이터
+        current_prices = report_data.get("current_prices", {})
+        prompt_parts.append(f"currentPrices: {current_prices}")
+
+        # 기술 지표
+        indicators = report_data.get("indicators", {})
+        prompt_parts.append(f"indicators: {indicators}")
+
+        # 환율
+        exchange_rate = report_data.get("exchange_rate", 0)
+        prompt_parts.append(f"exchange_rate: {exchange_rate}")
+
+        # 성과 데이터
+        performance = report_data.get("performance", {})
+        for key, value in performance.items():
+            prompt_parts.append(f"{key}: {value}")
+
+        return "\n".join(prompt_parts)
+
+    def _build_manager_prompt(self, report_data: Dict[str, Any]) -> str:
+        """Manager Agent 프롬프트 구성"""
+        prompt_parts = []
+
+        # Manager 프롬프트
+        prompt_parts.append(report_data.get("manager_prompt", ""))
+
+        # 포트폴리오 데이터
+        portfolio = report_data.get("portfolio", {})
+        prompt_parts.append(f"portfolio: {portfolio}")
+
+        # 현재가 데이터
+        current_prices = report_data.get("current_prices", {})
+        prompt_parts.append(f"currentPrices: {current_prices}")
+
+        # 환율
+        exchange_rate = report_data.get("exchange_rate", 0)
+        prompt_parts.append(f"exchange_rate: {exchange_rate}")
+
+        # 각 에이전트 리포트
+        agent_reports = {
+            "agent_gpt": report_data.get("agent_gpt_report", ""),
+            "agent_gemini": report_data.get("agent_gemini_report", ""),
+            "agent_claude": report_data.get("agent_claude_report", "")
+        }
+
+        for agent_name, report_content in agent_reports.items():
+            if report_content:
+                prompt_parts.append(f"{agent_name}_report: {report_content}")
+
+        return "\n".join(prompt_parts)
