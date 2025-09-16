@@ -293,7 +293,7 @@ class InteractiveTradeInput {
         `${t.symbol} ${t.side === 'BUY' ? '매수' : '매도'} ${t.qty}주`
       ).join(', ');
 
-      const commitMsg = `📈 대화형 매매 입력: ${tradesSummary} - ${timestamp}
+      const commitMsg = `대화형 매매 입력: ${tradesSummary} - ${timestamp}
 
 🤖 Generated with [Claude Code](https://claude.ai/code)
 

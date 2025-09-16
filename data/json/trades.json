@@ -78,5 +78,25 @@
     "fee": 0,
     "note": "Manager 권고 신규매수",
     "id": 8
+  },
+  {
+    "traded_at": "2025-09-16T20:35:29.777Z",
+    "symbol": "GOOGL",
+    "side": "SELL",
+    "qty": 0.866031,
+    "price": 218.23,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 9
+  },
+  {
+    "traded_at": "2025-09-16T20:44:58.660Z",
+    "symbol": "TSLA",
+    "side": "BUY",
+    "qty": 1,
+    "price": 422,
+    "fee": 0,
+    "note": "Manager권고사항",
+    "id": 10
   }
 ]
