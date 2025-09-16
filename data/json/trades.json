@@ -38,5 +38,45 @@
     "fee": 0,
     "note": "현재 보유 종목",
     "id": 4
+  },
+  {
+    "traded_at": "2025-09-16T08:44:59.344Z",
+    "symbol": "BABA",
+    "side": "SELL",
+    "qty": 1,
+    "price": 157.66,
+    "fee": 0,
+    "note": "Manager 권고 전량매도",
+    "id": 5
+  },
+  {
+    "traded_at": "2025-09-16T08:45:05.123Z",
+    "symbol": "GOOGL",
+    "side": "SELL",
+    "qty": 4,
+    "price": 253.58,
+    "fee": 0,
+    "note": "Manager 권고 전량매도",
+    "id": 6
+  },
+  {
+    "traded_at": "2025-09-16T08:45:11.356Z",
+    "symbol": "TSLA",
+    "side": "BUY",
+    "qty": 1,
+    "price": 419.97,
+    "fee": 0,
+    "note": "Manager 권고 신규매수",
+    "id": 7
+  },
+  {
+    "traded_at": "2025-09-16T08:45:16.999Z",
+    "symbol": "CRWD",
+    "side": "BUY",
+    "qty": 1,
+    "price": 447.51,
+    "fee": 0,
+    "note": "Manager 권고 신규매수",
+    "id": 8
   }
 ]
