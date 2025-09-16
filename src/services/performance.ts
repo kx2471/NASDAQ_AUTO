@@ -9,6 +9,10 @@ export interface PerformanceData {
   current_value_krw: number;
   total_return_krw: number;
   total_return_percent: number;
+  // 초기 자금 기준 수익률 (220만원 기준)
+  initial_capital_krw: number;
+  total_return_from_initial_krw: number;
+  total_return_from_initial_percent: number;
   daily_return_krw: number;
   daily_return_percent: number;
   target_progress: number; // 1000만원 목표 대비 진행률
@@ -34,35 +38,40 @@ export function calculateCurrentPerformance(
   holdings: Array<{ symbol: string; shares: number; avg_cost: number }>,
   currentPrices: Record<string, number>,
   exchangeRate: number,
-  previousValue?: number
+  previousValue?: number,
+  initialCapitalKRW: number = 2200000 // 초기 자금 220만원
 ): PerformanceData {
-  
+
   const currentDate = new Date().toISOString().split('T')[0];
-  
-  // 총 투자금 계산 (USD)
-  const totalInvestmentUSD = holdings.reduce((sum, holding) => 
+
+  // 총 투자금 계산 (USD) - 실제 투자에 사용된 금액
+  const totalInvestmentUSD = holdings.reduce((sum, holding) =>
     sum + (holding.shares * holding.avg_cost), 0
   );
-  
+
   // 현재 평가액 계산 (USD)
   const currentValueUSD = holdings.reduce((sum, holding) => {
     const currentPrice = currentPrices[holding.symbol] || holding.avg_cost;
     return sum + (holding.shares * currentPrice);
   }, 0);
-  
+
   // KRW 변환
   const totalInvestmentKRW = totalInvestmentUSD * exchangeRate;
   const currentValueKRW = currentValueUSD * exchangeRate;
   
-  // 수익 계산
+  // 수익 계산 (투자원금 기준)
   const totalReturnKRW = currentValueKRW - totalInvestmentKRW;
   const totalReturnPercent = (totalReturnKRW / totalInvestmentKRW) * 100;
-  
+
+  // 초기 자금 기준 전체 수익률 계산
+  const totalReturnFromInitialKRW = currentValueKRW - initialCapitalKRW;
+  const totalReturnFromInitialPercent = (totalReturnFromInitialKRW / initialCapitalKRW) * 100;
+
   // 일일 수익 계산 (이전값이 있는 경우)
   const dailyReturnKRW = previousValue ? currentValueKRW - previousValue : 0;
-  const dailyReturnPercent = previousValue ? 
+  const dailyReturnPercent = previousValue ?
     ((currentValueKRW - previousValue) / previousValue) * 100 : 0;
-  
+
   // 1000만원 목표 대비 진행률
   const targetProgress = (currentValueKRW / 10000000) * 100;
   
@@ -72,6 +81,10 @@ export function calculateCurrentPerformance(
     current_value_krw: Math.round(currentValueKRW),
     total_return_krw: Math.round(totalReturnKRW),
     total_return_percent: Math.round(totalReturnPercent * 100) / 100,
+    // 초기 자금 기준 수익률
+    initial_capital_krw: initialCapitalKRW,
+    total_return_from_initial_krw: Math.round(totalReturnFromInitialKRW),
+    total_return_from_initial_percent: Math.round(totalReturnFromInitialPercent * 100) / 100,
     daily_return_krw: Math.round(dailyReturnKRW),
     daily_return_percent: Math.round(dailyReturnPercent * 100) / 100,
     target_progress: Math.round(targetProgress * 100) / 100
