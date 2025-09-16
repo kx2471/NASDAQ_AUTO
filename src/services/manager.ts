@@ -37,13 +37,17 @@ export async function generateManagerReport(): Promise<string> {
   try {
     // 1. Agent 보고서들 로드
     const agentReports = await loadAgentReports();
-    
+
     // 2. 현재 포트폴리오 데이터 수집
+    console.log('📊 포트폴리오 데이터 수집 중...');
     const portfolioData = await getCurrentPortfolioData();
-    
+    console.log('✅ 포트폴리오 데이터 수집 완료');
+
     // 3. 성과 분석 데이터
+    console.log('📈 성과 분석 데이터 수집 중...');
     const performanceData = await getCurrentPerformanceData();
-    
+    console.log('✅ 성과 분석 데이터 수집 완료:', performanceData ? '데이터 있음' : '데이터 없음');
+
     // 4. Manager_Agent 프롬프트 로드
     const managerPrompt = await loadManagerPrompt();
     
@@ -155,19 +159,35 @@ async function getCurrentPerformanceData(): Promise<any> {
       getCashBalance(),
       getCachedExchangeRate()
     ]);
-    
-    // 현재가는 Agent 보고서에서 추출하거나 별도 조회 필요
-    // 여기서는 간단히 기본값 사용
-    const currentPrices: Record<string, number> = {};
-    
+
+    // 보유 종목의 현재가 수집 (Agent와 동일한 방식 사용)
+    const { fetchDailyPrices } = await import('./market');
+    const holdingSymbols = holdings.map(h => h.symbol);
+    let currentPrices: Record<string, number> = {};
+
+    if (holdingSymbols.length > 0) {
+      console.log(`📊 Manager Agent - 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
+      try {
+        const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+        for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+          if (prices && Array.isArray(prices) && prices.length > 0) {
+            currentPrices[symbol] = prices[prices.length - 1].close;
+            console.log(`💰 ${symbol}: $${currentPrices[symbol]}`);
+          }
+        }
+      } catch (priceError) {
+        console.warn('⚠️ 현재가 수집 실패, 빈 데이터 사용:', priceError);
+      }
+    }
+
     const performance = calculateCurrentPerformance(
       holdings,
       currentPrices,
       exchangeRate.usd_to_krw
     );
-    
+
     const targetAnalysis = analyzeTargetProgress(performance);
-    
+
     return {
       performance,
       targetAnalysis
@@ -264,19 +284,97 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     // 현재 가용 자금 계산
     const availableCash = payload.portfolio.cash_usd || 0;
-    
-    // 극도로 간소화된 핵심 정보만
+
+    // Agent 보고서에서 현재가 정보 및 매매 제안 추출
+    const extractAgentInsights = () => {
+      const gptReport = payload.agent_reports?.agent_gpt || '';
+      const geminiReport = payload.agent_reports?.agent_gemini || '';
+      const claudeReport = payload.agent_reports?.agent_claude || '';
+
+      // 현재가 정보 추출 (Claude 보고서에서)
+      const priceExtraction = {
+        BABA: claudeReport.match(/\| BABA.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
+        GOOGL: claudeReport.match(/\| GOOGL.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
+        NVDA: claudeReport.match(/\| NVDA.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
+        COIN: claudeReport.match(/\| COIN.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1]
+      };
+
+      let pricesText = '✅ 실시간 현재가: ';
+      Object.entries(priceExtraction).forEach(([symbol, price]) => {
+        if (price) {
+          pricesText += `${symbol}: $${price}, `;
+        }
+      });
+
+      // 각 Agent의 매매 제안 추출
+      const extractTradingRecommendation = (report: string, agentName: string) => {
+        // 한줄평 섹션 전체 추출
+        const tradingSection = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|$)/)?.[1] || '';
+
+        // 각 라인별로 분석
+        const lines = tradingSection.split('\n').filter(line => line.trim());
+
+        let sellRecommendation = '없음';
+        let buyRecommendation = '없음';
+        let outlook = '중립';
+        let riskLevel = '보통';
+
+        for (const line of lines) {
+          if (line.includes('매도 추천:')) {
+            sellRecommendation = line.replace(/.*매도 추천:\s*/, '').trim();
+          } else if (line.includes('매수 추천:')) {
+            buyRecommendation = line.replace(/.*매수 추천:\s*/, '').trim();
+          } else if (line.includes('1000만원 목표 전망:')) {
+            outlook = line.replace(/.*1000만원 목표 전망:\s*/, '').trim();
+          } else if (line.includes('위험도 평가:')) {
+            riskLevel = line.replace(/.*위험도 평가:\s*/, '').trim();
+          }
+        }
+
+        return {
+          agent: agentName,
+          sell: sellRecommendation,
+          buy: buyRecommendation,
+          outlook: outlook,
+          risk: riskLevel
+        };
+      };
+
+      const agentInsights = [
+        extractTradingRecommendation(gptReport, 'GPT'),
+        extractTradingRecommendation(geminiReport, 'Gemini'),
+        extractTradingRecommendation(claudeReport, 'Claude')
+      ];
+
+      return {
+        prices: pricesText.slice(0, -2),
+        insights: agentInsights
+      };
+    };
+
+    const { prices: currentPricesInfo, insights: agentInsights } = extractAgentInsights();
+
+    // 각 Agent의 구체적 매매 제안을 포함한 정보
+    const agentSummary = agentInsights.map(insight =>
+      `- ${insight.agent}: 매도[${insight.sell}] / 매수[${insight.buy}] / 전망[${insight.outlook}] / 위험도[${insight.risk}]`
+    ).join('\n');
+
     const managerData = `
 현재 보유 현금: $${availableCash.toFixed(2)}
 보유 종목: ${JSON.stringify(payload.portfolio?.holdings || [])}
 
-Agent 의견 요약:
-- GPT: ${payload.agent_reports?.agent_gpt?.substring(0, 300) || 'N/A'}
-- Gemini: ${payload.agent_reports?.agent_gemini?.substring(0, 300) || 'N/A'}  
-- Claude: ${payload.agent_reports?.agent_claude?.substring(0, 300) || 'N/A'}
+${currentPricesInfo}
+
+🎯 각 Agent 구체적 매매 제안:
+${agentSummary}
 
 매수 지시는 가용 현금 $${availableCash.toFixed(2)} 내에서만 가능.
 목표: 1년 내 ₩10,000,000 달성
+
+🔥 중요:
+1. 실시간 현재가가 확보되어 정확한 매도 현금화 계산이 가능합니다.
+2. 각 Agent의 구체적인 매매 제안을 종합하여 최종 결정을 내리세요.
+3. 매도 결정 시 반드시 "현재량 × 현재가 = 현금화 금액"을 계산하여 명시하세요.
 `;
 
     const messages = [
