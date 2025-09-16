@@ -69,16 +69,16 @@ async function validateAgentReportsExist(): Promise<void> {
   const path = await import('path');
 
   const today = getKoreanDateString();
-  const agentReportsDir = path.join(process.cwd(), 'data', 'agent_reports');
+  const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
   try {
     const files = await fs.readdir(agentReportsDir);
     const gptReports = files.filter(file =>
-      file.startsWith(today) && file.includes('_agent_gpt.md')
+      file.startsWith(today) && file.includes('weekly_agent_gpt.md')
     );
 
     if (gptReports.length === 0) {
-      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: ${today}_*_agent_gpt.md`;
+      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: ${today}_*_weekly_agent_gpt.md`;
       console.error(errorMsg);
       console.error('💡 15:00에 실행된 Agent 리포트들이 먼저 생성되어야 합니다.');
       throw new Error(errorMsg);

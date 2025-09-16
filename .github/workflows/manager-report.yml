@@ -86,7 +86,7 @@ jobs:
         BACKUP_JSON_FILES: ${{ secrets.BACKUP_JSON_FILES }}
       run: |
         # 데이터 디렉터리 생성
-        mkdir -p data/json data/screening data/report data/agent_reports
+        mkdir -p data/json data/screening data/report
         
         # Manager_Agent 통합 리포트 실행 (16:00)
         node --no-deprecation -e "
