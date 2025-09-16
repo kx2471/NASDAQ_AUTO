@@ -287,17 +287,12 @@ class InteractiveTradeInput {
       // git add
       await this.runCommand('git', ['add', 'data/json/trades.json']);
 
-      // 커밋 메시지 생성
-      const timestamp = new Date().toLocaleString('ko-KR');
-      const tradesSummary = this.trades.map(t =>
-        `${t.symbol} ${t.side === 'BUY' ? '매수' : '매도'} ${t.qty}주`
-      ).join(', ');
+      // 간단한 커밋 메시지 (특수문자 제거)
+      const tradeCount = this.trades.length;
+      const commitMsg = `Trading update: ${tradeCount} trades added`;
 
-      // Windows에서 안전한 단일 라인 커밋 메시지 (이모지 제거)
-      const commitMsg = `대화형 매매: ${tradesSummary} - ${timestamp}`;
-
-      // git commit
-      await this.runCommand('git', ['commit', '-m', commitMsg]);
+      // git commit with quoted message
+      await this.runCommand('git', ['commit', '-m', `"${commitMsg}"`]);
 
       // git push
       await this.runCommand('git', ['push']);
@@ -306,6 +301,7 @@ class InteractiveTradeInput {
 
     } catch (error) {
       console.log(this.color(`❌ Git 커밋 실패: ${error.message}`, 'red'));
+      console.log(this.color('수동으로 커밋하세요: git add . && git commit -m "Trading update" && git push', 'yellow'));
     }
   }
 
