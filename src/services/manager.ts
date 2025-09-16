@@ -81,14 +81,14 @@ async function loadAgentReports(): Promise<{
   claude: string;
 }> {
   const today = getKoreanDateString();
-  const agentReportsDir = path.join(process.cwd(), 'data', 'agent_reports');
+  const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
   // 해당 날짜의 가장 최신 파일을 찾는 함수
   const findLatestReport = async (agentName: string): Promise<string> => {
     try {
       const files = await fs.readdir(agentReportsDir);
       const agentFiles = files
-        .filter(file => file.startsWith(today) && file.includes(`_agent_${agentName}.md`))
+        .filter(file => file.includes(`_weekly_agent_${agentName}.md`))
         .sort()
         .reverse(); // 최신 파일이 먼저 오도록 정렬
 
@@ -302,17 +302,60 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     // 각 Agent의 전략과 추천 종목을 구체적으로 추출
     const extractAgentData = (report: string, agentName: string) => {
-      // 매매 의견 섹션 (보유 종목 분석)
-      const tradingOpinionMatch = report.match(/## 2\. 매매 의견.*?(?=## 3\.|$)/s);
-      const tradingOpinion = tradingOpinionMatch ? tradingOpinionMatch[0].trim() : '';
+      // 매매 의견 섹션 (보유 종목 분석) - 더 넓은 패턴으로 검색
+      let tradingOpinion = '';
+      const tradingPatterns = [
+        /## 2\. 매매 의견.*?(?=## 3\.|## 4\.|$)/s,
+        /매매 의견.*?(?=고성장 추천|## 3\.|## 4\.|$)/s,
+        /보유종목.*?(?=고성장 추천|## 3\.|## 4\.|$)/s
+      ];
 
-      // 고성장 추천 종목 섹션
-      const recommendationMatch = report.match(/## 3\. 고성장 추천 종목.*?(?=## 4\.|$)/s);
-      const recommendations = recommendationMatch ? recommendationMatch[0].trim() : '';
+      for (const pattern of tradingPatterns) {
+        const match = report.match(pattern);
+        if (match && match[0].length > 50) {
+          tradingOpinion = match[0].trim();
+          break;
+        }
+      }
 
-      // 핵심 매매 제안 한줄평 추출
-      const adviceMatch = report.match(/🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|추가 유의|$)/);
-      const advice = adviceMatch ? adviceMatch[1].trim() : '';
+      // 고성장 추천 종목 섹션 - 더 넓은 패턴으로 검색
+      let recommendations = '';
+      const recommendationPatterns = [
+        /## 3\. 고성장 추천 종목.*?(?=## 4\.|## 5\.|$)/s,
+        /고성장 추천 종목.*?(?=## 4\.|## 5\.|시장 동향|$)/s,
+        /\*\*3\. 고성장 추천 종목.*?(?=\*\*4\.|## 4\.|$)/s,
+        /신규 매수 계획.*?(?=## 4\.|시장 동향|$)/s
+      ];
+
+      for (const pattern of recommendationPatterns) {
+        const match = report.match(pattern);
+        if (match && match[0].length > 100) {
+          recommendations = match[0].trim();
+          break;
+        }
+      }
+
+      // 핵심 매매 제안 한줄평 추출 - 더 정확한 패턴
+      let advice = '';
+      const advicePatterns = [
+        /🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|추가 유의|부록|$)/,
+        /⚡ 이번 주 핵심 액션([\s\S]*?)(?=💡 1000만원|$)/,
+        /💡 1000만원 목표 전망([\s\S]*?)(?=📊 위험도|$)/
+      ];
+
+      for (const pattern of advicePatterns) {
+        const match = report.match(pattern);
+        if (match && match[1]) {
+          advice = match[1].trim();
+          break;
+        }
+      }
+
+      // 추출된 내용 검증 및 로깅
+      console.log(`📋 ${agentName} 추출 결과:`);
+      console.log(`  - 전략 길이: ${tradingOpinion.length}자`);
+      console.log(`  - 추천 길이: ${recommendations.length}자`);
+      console.log(`  - 한줄평 길이: ${advice.length}자`);
 
       return {
         strategy: tradingOpinion || `Agent_${agentName} 매매 의견 정보 없음`,
@@ -324,6 +367,12 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     const gptData = extractAgentData(payload.agent_reports?.agent_gpt || '', 'GPT');
     const geminiData = extractAgentData(payload.agent_reports?.agent_gemini || '', 'Gemini');
     const claudeData = extractAgentData(payload.agent_reports?.agent_claude || '', 'Claude');
+
+    // 추출 결과 상세 디버깅
+    console.log('🔍 Claude 전략 첫 200자:', claudeData.strategy.substring(0, 200));
+    console.log('🔍 Claude 추천 첫 200자:', claudeData.recommendations.substring(0, 200));
+    console.log('🔍 Gemini 전략 첫 200자:', geminiData.strategy.substring(0, 200));
+    console.log('🔍 Gemini 추천 첫 200자:', geminiData.recommendations.substring(0, 200));
     const currentPrices = extractCurrentPrices();
     const availableCash = payload.portfolio.cash_usd || 0;
 
