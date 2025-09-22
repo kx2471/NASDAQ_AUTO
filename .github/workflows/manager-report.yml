@@ -2,8 +2,8 @@ name: Manager Agent Report
 
 on:
   schedule:
-    # 매주 월요일 KST 16:30 (UTC 07:30)에 실행 - Agent 리포트 1.5시간 후
-    - cron: '30 7 * * 1'
+    # 매주 월요일 KST 15:30 (UTC 06:30)에 실행 - Agent 리포트 30분 후
+    - cron: '30 6 * * 1'
   workflow_dispatch: # 수동 실행 가능
     inputs:
       delay_minutes:
@@ -88,7 +88,7 @@ jobs:
         # 데이터 디렉터리 생성
         mkdir -p data/json data/screening data/report
         
-        # Manager_Agent 통합 리포트 실행 (16:00)
+        # Manager_Agent 통합 리포트 실행 (15:30)
         node --no-deprecation -e "
         const { runManager } = require('./dist/jobs/manager.js');
         runManager()

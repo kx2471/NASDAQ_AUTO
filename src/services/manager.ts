@@ -73,12 +73,13 @@ export async function generateManagerReport(): Promise<string> {
 }
 
 /**
- * Agent 보고서들 로드
+ * Agent 보고서들과 과거 Manager 보고서들 로드
  */
 async function loadAgentReports(): Promise<{
   gpt: string;
   gemini: string;
   claude: string;
+  previousManagerReports: string[];
 }> {
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
@@ -108,20 +109,61 @@ async function loadAgentReports(): Promise<{
     }
   };
 
+  // 과거 Manager 보고서들 로드
+  const loadPreviousManagerReports = async (): Promise<string[]> => {
+    try {
+      const files = await fs.readdir(agentReportsDir);
+      const managerFiles = files
+        .filter(file => file.includes('_manager_final.md'))
+        .sort()
+        .reverse(); // 최신부터 정렬
+
+      console.log(`📚 발견된 과거 Manager 보고서: ${managerFiles.length}개`);
+
+      const reports: string[] = [];
+      // 최대 3개의 과거 보고서만 로드 (토큰 효율성)
+      const reportsToLoad = managerFiles.slice(0, 3);
+
+      for (const file of reportsToLoad) {
+        try {
+          const content = await fs.readFile(
+            path.join(agentReportsDir, file),
+            'utf8'
+          );
+          reports.push(`### ${file}\n${content}\n---\n`);
+          console.log(`📄 과거 Manager 보고서 로드: ${file}`);
+        } catch (error) {
+          console.warn(`⚠️ Manager 보고서 로드 실패: ${file}`, error);
+        }
+      }
+
+      return reports;
+    } catch (error) {
+      console.warn('⚠️ 과거 Manager 보고서 디렉토리 접근 실패:', error);
+      return [];
+    }
+  };
+
   try {
-    const gptReport = await findLatestReport('gpt');
-    const geminiReport = await findLatestReport('gemini');
-    const claudeReport = await findLatestReport('claude');
-    
-    console.log('📋 Agent 보고서 로드 완료');
+    const [gptReport, geminiReport, claudeReport, previousManagerReports] = await Promise.all([
+      findLatestReport('gpt'),
+      findLatestReport('gemini'),
+      findLatestReport('claude'),
+      loadPreviousManagerReports()
+    ]);
+
+    console.log('📋 Agent 보고서 및 과거 Manager 보고서 로드 완료');
+    console.log(`📚 과거 Manager 보고서 ${previousManagerReports.length}개 로드됨`);
+
     return {
       gpt: gptReport,
       gemini: geminiReport,
-      claude: claudeReport
+      claude: claudeReport,
+      previousManagerReports
     };
-    
+
   } catch (error) {
-    console.error('❌ Agent 보고서 로드 실패:', error);
+    console.error('❌ 보고서 로드 실패:', error);
     throw new Error('Agent 보고서들을 찾을 수 없습니다. 15:00 Agent 리포트가 먼저 생성되어야 합니다.');
   }
 }
@@ -232,13 +274,13 @@ async function loadManagerPrompt(): Promise<string> {
  * Manager_Agent용 페이로드 준비
  */
 async function prepareManagerPayload(params: {
-  agentReports: { gpt: string; gemini: string; claude: string };
+  agentReports: { gpt: string; gemini: string; claude: string; previousManagerReports: string[] };
   portfolioData: any;
   performanceData: any;
   managerPrompt: string;
 }): Promise<any> {
   const { agentReports, portfolioData, performanceData, managerPrompt } = params;
-  
+
   // Manager_Agent 전용 페이로드 구성
   return {
     manager_prompt: managerPrompt,
@@ -247,6 +289,7 @@ async function prepareManagerPayload(params: {
       agent_gemini: agentReports.gemini,
       agent_claude: agentReports.claude
     },
+    previous_manager_reports: agentReports.previousManagerReports,
     portfolio: portfolioData,
     performance: performanceData,
     market: {
@@ -412,6 +455,17 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     console.log('🔄 프롬프트 변수 치환 완료');
 
+    // 과거 Manager 보고서 요약 생성
+    const previousReportsSummary = (() => {
+      const reports = payload.previous_manager_reports || [];
+      if (reports.length === 0) {
+        return "과거 Manager 보고서 없음 (첫 실행)";
+      }
+
+      console.log(`📚 과거 Manager 보고서 ${reports.length}개 컨텍스트에 포함`);
+      return reports.join('\n');
+    })();
+
     // Manager용 추가 컨텍스트
     const managerContext = `
 **현재 상황 브리핑**:
@@ -424,9 +478,14 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - Agent_Gemini: ${geminiData.advice}
 - Agent_Claude: ${claudeData.advice}
 
+**과거 Manager 투자 결정 이력** (최근 3개):
+${previousReportsSummary}
+
 **Manager 핵심 임무**:
-위 3개 Agent의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
-Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
+1. 위 3개 Agent의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
+2. 과거 Manager 보고서들의 투자 결정과 그 결과를 참고하여 일관성 있는 전략을 수립하세요.
+3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
+4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
 `;
 
     const messages = [
