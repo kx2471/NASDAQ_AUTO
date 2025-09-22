@@ -148,5 +148,85 @@
     "fee": 0,
     "note": "매수 거래",
     "id": 15
+  },
+  {
+    "traded_at": "2025-09-22T08:44:08.899Z",
+    "symbol": "BIDU",
+    "side": "BUY",
+    "qty": 4,
+    "price": 139.59,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 16
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.003Z",
+    "symbol": "NVDA",
+    "side": "SELL",
+    "qty": 6,
+    "price": 175.37,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 17
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.104Z",
+    "symbol": "COIN",
+    "side": "SELL",
+    "qty": 1,
+    "price": 330.96,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 18
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.206Z",
+    "symbol": "AAOI",
+    "side": "SELL",
+    "qty": 3,
+    "price": 28.84,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 19
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.308Z",
+    "symbol": "AMKR",
+    "side": "SELL",
+    "qty": 20,
+    "price": 28.43,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 20
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.410Z",
+    "symbol": "GOOGL",
+    "side": "BUY",
+    "qty": 1,
+    "price": 254.25,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 21
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.513Z",
+    "symbol": "FTAI",
+    "side": "BUY",
+    "qty": 1,
+    "price": 179.45,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 22
+  },
+  {
+    "traded_at": "2025-09-22T08:44:09.617Z",
+    "symbol": "CRWD",
+    "side": "BUY",
+    "qty": 2,
+    "price": 498.69,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 23
   }
 ]
