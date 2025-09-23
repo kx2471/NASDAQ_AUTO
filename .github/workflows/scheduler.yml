@@ -1,10 +1,10 @@
 name: Daily Stock Report Scheduler
 
-# KST 16:00 = UTC 07:00 (평일에만 실행)
 on:
   schedule:
-    - cron: '0 7 * * 1-5'  # 월-금 UTC 07:00
+    - cron: '0 7 * * 1'  # 매주 월요일 UTC 07:00 (KST 16:00)
   workflow_dispatch:  # 수동 실행 허용
+
 
 jobs:
   run-daily-report:
