@@ -238,5 +238,35 @@
     "fee": 0,
     "note": "매도 거래",
     "id": 24
+  },
+  {
+    "traded_at": "2025-09-24T00:10:34.701Z",
+    "symbol": "GOOGL",
+    "side": "SELL",
+    "qty": 1,
+    "price": 252.2,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 25
+  },
+  {
+    "traded_at": "2025-09-24T00:10:34.810Z",
+    "symbol": "TSLA",
+    "side": "BUY",
+    "qty": 1,
+    "price": 426.7,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 26
+  },
+  {
+    "traded_at": "2025-09-24T00:10:34.913Z",
+    "symbol": "NVDA",
+    "side": "BUY",
+    "qty": 2,
+    "price": 178.3,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 27
   }
 ]
