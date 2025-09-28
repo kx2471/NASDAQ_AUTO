@@ -284,6 +284,10 @@ class InteractiveTradeInput {
     console.log(this.color('\n📤 Git 커밋 중...', 'yellow'));
 
     try {
+      // git pull 먼저 실행
+      console.log(this.color('📥 최신 변경사항 가져오는 중...', 'yellow'));
+      await this.runCommand('git', ['pull']);
+
       // git add
       await this.runCommand('git', ['add', 'data/json/trades.json']);
 
@@ -301,7 +305,7 @@ class InteractiveTradeInput {
 
     } catch (error) {
       console.log(this.color(`❌ Git 커밋 실패: ${error.message}`, 'red'));
-      console.log(this.color('수동으로 커밋하세요: git add . && git commit -m "Trading update" && git push', 'yellow'));
+      console.log(this.color('수동으로 커밋하세요: git pull && git add . && git commit -m "Trading update" && git push', 'yellow'));
     }
   }
 
