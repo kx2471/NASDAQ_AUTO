@@ -50,7 +50,8 @@
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17748723113 --log)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17751260395 --log)",
       "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17759892989 --log)",
-      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17778745045 --log)"
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" run view 17778745045 --log)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
