@@ -24,6 +24,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
+        ref: dev  # dev 브랜치에서 실행
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
       
@@ -104,9 +105,9 @@ jobs:
       
     - name: Update repository and commit final report
       run: |
-        # 최신 상태로 업데이트
-        git fetch origin main
-        git reset --hard origin/main
+        # 최신 상태로 업데이트 (dev 브랜치)
+        git fetch origin dev
+        git reset --hard origin/dev
         
         # Manager 리포트 파일만 다시 추가
         git add data/
@@ -121,13 +122,13 @@ jobs:
           
           # 안전한 push (충돌 시 3번 재시도)
           for i in {1..3}; do
-            if git push origin main; then
+            if git push origin dev; then
               echo "✅ Manager report push successful on attempt $i"
               break
             else
               echo "⚠️ Manager report push failed on attempt $i, retrying..."
-              git fetch origin main
-              git rebase origin/main
+              git fetch origin dev
+              git rebase origin/dev
               sleep 2
             fi
           done
