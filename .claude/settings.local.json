@@ -25,7 +25,8 @@
       "Bash(set MAIL_TO=kx2471@gmail.com)",
       "Bash(copy:*)",
       "Bash(npm run report:unified:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
