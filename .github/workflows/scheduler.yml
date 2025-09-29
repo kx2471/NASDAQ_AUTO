@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: dev  # dev 브랜치에서 실행
+
     - name: Display current time (KST)
       run: |
         echo "현재 시각 (KST): $(TZ=Asia/Seoul date)"
