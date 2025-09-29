@@ -278,5 +278,35 @@
     "fee": 0,
     "note": "매도 거래",
     "id": 28
+  },
+  {
+    "traded_at": "2025-09-29T13:32:54.126Z",
+    "symbol": "TSLA",
+    "side": "SELL",
+    "qty": 1,
+    "price": 444.01,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 29
+  },
+  {
+    "traded_at": "2025-09-29T13:32:54.230Z",
+    "symbol": "AMKR",
+    "side": "BUY",
+    "qty": 10,
+    "price": 29.4,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 30
+  },
+  {
+    "traded_at": "2025-09-29T13:32:54.333Z",
+    "symbol": "AAPB",
+    "side": "BUY",
+    "qty": 8,
+    "price": 30.05,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 31
   }
 ]
