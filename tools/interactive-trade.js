@@ -284,28 +284,31 @@ class InteractiveTradeInput {
     console.log(this.color('\n📤 Git 커밋 중...', 'yellow'));
 
     try {
-      // git pull 먼저 실행
-      console.log(this.color('📥 최신 변경사항 가져오는 중...', 'yellow'));
-      await this.runCommand('git', ['pull']);
-
-      // git add
+      // 1단계: 현재 변경사항 커밋 & 푸시
+      console.log(this.color('📤 거래 데이터 커밋 중...', 'yellow'));
       await this.runCommand('git', ['add', 'data/json/trades.json']);
 
-      // 간단한 커밋 메시지 (특수문자 제거)
       const tradeCount = this.trades.length;
       const commitMsg = `Trading update: ${tradeCount} trades added`;
 
-      // git commit with quoted message
-      await this.runCommand('git', ['commit', '-m', `"${commitMsg}"`]);
+      await this.runCommand('git', ['commit', '-m', commitMsg]);
+      await this.runCommand('git', ['push']);
 
-      // git push
+      console.log(this.color('✅ 거래 데이터 푸시 완료!', 'green'));
+
+      // 2단계: 보고서 병합을 위해 pull
+      console.log(this.color('📥 최신 변경사항(보고서) 가져오는 중...', 'yellow'));
+      await this.runCommand('git', ['pull', '--no-rebase']);
+
+      // 3단계: 병합된 내용 푸시
+      console.log(this.color('📤 병합된 변경사항 푸시 중...', 'yellow'));
       await this.runCommand('git', ['push']);
 
       console.log(this.color('✅ Git 커밋 완료!', 'green'));
 
     } catch (error) {
       console.log(this.color(`❌ Git 커밋 실패: ${error.message}`, 'red'));
-      console.log(this.color('수동으로 커밋하세요: git pull && git add . && git commit -m "Trading update" && git push', 'yellow'));
+      console.log(this.color('수동으로 커밋하세요: git add . && git commit -m "Trading update" && git push && git pull && git push', 'yellow'));
     }
   }
 
