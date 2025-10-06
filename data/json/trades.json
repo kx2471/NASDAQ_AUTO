@@ -308,5 +308,45 @@
     "fee": 0,
     "note": "매수 거래",
     "id": 31
+  },
+  {
+    "traded_at": "2025-10-06T09:30:57.285Z",
+    "symbol": "AAPB",
+    "side": "SELL",
+    "qty": 8,
+    "price": 30.65,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 32
+  },
+  {
+    "traded_at": "2025-10-06T09:30:57.390Z",
+    "symbol": "CRWD",
+    "side": "SELL",
+    "qty": 1,
+    "price": 493.02,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 33
+  },
+  {
+    "traded_at": "2025-10-06T09:30:57.493Z",
+    "symbol": "GILT",
+    "side": "BUY",
+    "qty": 60,
+    "price": 13.88,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 34
+  },
+  {
+    "traded_at": "2025-10-06T09:30:57.597Z",
+    "symbol": "AMKR",
+    "side": "BUY",
+    "qty": 1,
+    "price": 29.74,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 35
   }
 ]
