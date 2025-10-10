@@ -58,9 +58,13 @@ Thumbs.db
 # Cache
 data/cache/
 
-# Generated reports (optional - remove if you want to track them)
-# data/report/*.md
-# data/report/*.html
+# Personal trading data (excluded from main branch)
+data/json/trades.json
+data/json/cash_events.json
+data/json/performance_history.json
+
+# Generated reports
+data/report/
 
 # Scripts with sensitive data
 scripts/update-github-secrets.js
