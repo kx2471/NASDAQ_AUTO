@@ -5,14 +5,6 @@
  * POST /api/trades - 새 거래 추가
  */
 
-// Octokit 동적 import
-let Octokit;
-try {
-  Octokit = require('@octokit/rest').Octokit;
-} catch (e) {
-  console.error('Failed to load @octokit/rest:', e);
-}
-
 // GitHub 설정
 const OWNER = 'kx2471';
 const REPO = 'NASDAQ_AUTO';
@@ -23,6 +15,7 @@ const FILE_PATH = 'data/json/trades.json';
  * GitHub API 클라이언트 생성
  */
 function createOctokit(token) {
+  const { Octokit } = require('@octokit/rest');
   return new Octokit({
     auth: token
   });
