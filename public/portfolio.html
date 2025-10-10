@@ -202,19 +202,23 @@
       <!-- 요약 -->
       <div id="summary" class="summary" style="display: none;">
         <div class="summary-item">
-          <div class="summary-label">현금 잔고</div>
+          <div class="summary-label">💵 현재 환율</div>
+          <div class="summary-value" id="exchangeRate">-</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">💰 현금 잔고</div>
           <div class="summary-value" id="cashBalance">-</div>
         </div>
         <div class="summary-item">
-          <div class="summary-label">보유 종목 수</div>
+          <div class="summary-label">📊 보유 종목 수</div>
           <div class="summary-value" id="totalSymbols">-</div>
         </div>
         <div class="summary-item">
-          <div class="summary-label">총 투자액</div>
+          <div class="summary-label">📈 총 투자액</div>
           <div class="summary-value" id="totalInvested">-</div>
         </div>
         <div class="summary-item">
-          <div class="summary-label">총 자산</div>
+          <div class="summary-label">💎 총 자산</div>
           <div class="summary-value" id="totalAssets">-</div>
         </div>
       </div>
@@ -340,6 +344,12 @@
       const totalInvestedKRW = portfolio.summary.totalInvested * rate;
       const totalAssetsKRW = portfolio.summary.totalAssets * rate;
 
+      // 환율 표시
+      document.getElementById('exchangeRate').innerHTML = `
+        ₩${rate.toFixed(2)}<br>
+        <small style="opacity: 0.8; font-size: 14px;">KRW/USD</small>
+      `;
+
       document.getElementById('cashBalance').innerHTML = `
         ${portfolio.cash.formatted}<br>
         <small style="opacity: 0.8; font-size: 14px;">₩${cashKRW.toLocaleString('ko-KR', {maximumFractionDigits: 0})}</small>
@@ -375,12 +385,6 @@
           holdingsBody.appendChild(row);
         });
       }
-
-      // 환율 정보 표시
-      const rateInfo = document.createElement('p');
-      rateInfo.style.cssText = 'margin-top: 10px; color: #999; font-size: 12px; text-align: right;';
-      rateInfo.textContent = `환율: ${rate.toFixed(2)} KRW/USD`;
-      document.getElementById('holdings').appendChild(rateInfo);
 
       document.getElementById('holdings').style.display = 'block';
     }
