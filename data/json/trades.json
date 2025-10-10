@@ -428,5 +428,15 @@
     "price": 395.89,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 44,
+    "traded_at": "2025-10-10T15:02:00.294Z",
+    "symbol": "CRWD",
+    "side": "BUY",
+    "qty": 1,
+    "price": 513.34,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
