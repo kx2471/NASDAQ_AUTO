@@ -398,5 +398,15 @@
     "fee": 0,
     "note": "매도 거래",
     "id": 40
+  },
+  {
+    "id": 41,
+    "traded_at": "2025-10-10T15:00:52.841Z",
+    "symbol": "AMKR",
+    "side": "SELL",
+    "qty": 11,
+    "price": 30.52,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
