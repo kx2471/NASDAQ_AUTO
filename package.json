@@ -23,6 +23,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.62.0",
     "@google/genai": "^1.19.0",
+    "@google/generative-ai": "^0.24.1",
+    "@octokit/rest": "^21.0.2",
     "@supabase/supabase-js": "^2.57.4",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
