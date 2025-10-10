@@ -14,8 +14,8 @@ const FILE_PATH = 'data/json/trades.json';
 /**
  * GitHub API 클라이언트 생성
  */
-function createOctokit(token) {
-  const { Octokit } = require('@octokit/rest');
+async function createOctokit(token) {
+  const { Octokit } = await import('@octokit/rest');
   return new Octokit({
     auth: token
   });
@@ -110,7 +110,7 @@ module.exports = async (req, res) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const octokit = createOctokit(token);
+    const octokit = await createOctokit(token);
 
     // GET - 거래 내역 조회
     if (req.method === 'GET') {
