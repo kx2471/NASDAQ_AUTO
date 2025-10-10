@@ -415,6 +415,11 @@
       mangle: false
     });
 
+    // API URL
+    const API_URL = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/api/report'
+      : '/api/report';
+
     // 로컬 스토리지에서 토큰 불러오기
     const tokenInput = document.getElementById('token');
     const savedToken = localStorage.getItem('github_token');
@@ -427,11 +432,6 @@
     tokenInput.addEventListener('change', (e) => {
       localStorage.setItem('github_token', e.target.value);
     });
-
-    // API URL
-    const API_URL = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000/api/report'
-      : '/api/report';
 
     // 메시지 표시
     function showMessage(text, type = 'success') {
