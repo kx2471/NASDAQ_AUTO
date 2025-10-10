@@ -27,7 +27,8 @@
       "Bash(npm run report:unified:*)",
       "Bash(npm run:*)",
       "Bash(git checkout:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

@@ -348,5 +348,55 @@
     "fee": 0,
     "note": "매수 거래",
     "id": 35
+  },
+  {
+    "traded_at": "2025-10-10T13:47:36.276Z",
+    "symbol": "BURU",
+    "side": "BUY",
+    "qty": 55,
+    "price": 0.3241,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 36
+  },
+  {
+    "traded_at": "2025-10-10T13:47:36.386Z",
+    "symbol": "CRWD",
+    "side": "SELL",
+    "qty": 1,
+    "price": 485.06,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 37
+  },
+  {
+    "traded_at": "2025-10-10T13:47:36.488Z",
+    "symbol": "BURU",
+    "side": "SELL",
+    "qty": 55,
+    "price": 0.6339,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 38
+  },
+  {
+    "traded_at": "2025-10-10T13:47:36.590Z",
+    "symbol": "BURU",
+    "side": "BUY",
+    "qty": 827,
+    "price": 0.6277,
+    "fee": 0,
+    "note": "매수 거래",
+    "id": 39
+  },
+  {
+    "traded_at": "2025-10-10T13:47:36.691Z",
+    "symbol": "BURU",
+    "side": "SELL",
+    "qty": 827,
+    "price": 0.56,
+    "fee": 0,
+    "note": "매도 거래",
+    "id": 40
   }
 ]
