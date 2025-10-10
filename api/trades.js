@@ -5,7 +5,13 @@
  * POST /api/trades - 새 거래 추가
  */
 
-const { Octokit } = require('@octokit/rest');
+// Octokit 동적 import
+let Octokit;
+try {
+  Octokit = require('@octokit/rest').Octokit;
+} catch (e) {
+  console.error('Failed to load @octokit/rest:', e);
+}
 
 // GitHub 설정
 const OWNER = 'kx2471';
