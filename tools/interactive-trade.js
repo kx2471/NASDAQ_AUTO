@@ -291,7 +291,8 @@ class InteractiveTradeInput {
       const tradeCount = this.trades.length;
       const commitMsg = `Trading update: ${tradeCount} trades added`;
 
-      await this.runCommand('git', ['commit', '-m', commitMsg]);
+      // 커밋 메시지는 하나의 인자로 전달
+      await this.runCommand('git', ['commit', '-m', `"${commitMsg}"`]);
       await this.runCommand('git', ['push']);
 
       console.log(this.color('✅ 거래 데이터 푸시 완료!', 'green'));
@@ -315,8 +316,11 @@ class InteractiveTradeInput {
   // 명령어 실행
   runCommand(command, args) {
     return new Promise((resolve, reject) => {
-      const process = spawn(command, args, {
-        stdio: 'pipe',
+      // shell: true일 때는 문자열로 결합해서 전달
+      const fullCommand = `${command} ${args.join(' ')}`;
+
+      const process = spawn(fullCommand, [], {
+        stdio: 'inherit',
         shell: true
       });
 
@@ -324,7 +328,7 @@ class InteractiveTradeInput {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`명령어 실행 실패: ${command} ${args.join(' ')}`));
+          reject(new Error(`명령어 실행 실패: ${fullCommand}`));
         }
       });
 
