@@ -90,9 +90,9 @@ function calculateHoldings(trades) {
     }
   });
 
-  // 보유량이 0인 종목 제거
+  // 보유량이 0이거나 거의 0인 종목 제거 (부동소수점 오차 고려)
   Object.keys(holdings).forEach(symbol => {
-    if (holdings[symbol].qty === 0) {
+    if (Math.abs(holdings[symbol].qty) < 0.001) {
       delete holdings[symbol];
     }
   });
