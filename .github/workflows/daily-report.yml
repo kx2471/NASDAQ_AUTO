@@ -90,28 +90,53 @@ jobs:
         # 최신 상태로 업데이트 (dev 브랜치)
         git fetch origin dev
         git reset --hard origin/dev
-        
+
         # 리포트 파일만 다시 추가
         git add data/
-        
+
         # 변경사항이 있는 경우에만 커밋
         if git diff --staged --quiet; then
           echo "No changes to commit"
-        else
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
-          
-          # 안전한 push (충돌 시 3번 재시도)
-          for i in {1..3}; do
-            if git push origin dev; then
-              echo "✅ Push successful on attempt $i"
-              break
-            else
-              echo "⚠️ Push failed on attempt $i, retrying..."
-              git fetch origin dev
-              git rebase origin/dev
-              sleep 2
-            fi
-          done
+          exit 0
         fi
+
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
+
+        # dev 브랜치에 push (충돌 시 3번 재시도)
+        for i in {1..3}; do
+          if git push origin dev; then
+            echo "✅ Push to dev successful on attempt $i"
+            break
+          else
+            echo "⚠️ Push to dev failed on attempt $i, retrying..."
+            git fetch origin dev
+            git rebase origin/dev
+            sleep 2
+          fi
+        done
+
+    - name: Merge dev to main and deploy to Vercel
+      run: |
+        # main 브랜치로 체크아웃
+        git fetch origin main
+        git checkout main
+        git reset --hard origin/main
+
+        # dev 브랜치를 main으로 머지 (fast-forward)
+        git merge origin/dev --no-edit -m "🔄 Auto-merge dev to main for Vercel deployment"
+
+        # main 브랜치에 push (충돌 시 3번 재시도)
+        for i in {1..3}; do
+          if git push origin main; then
+            echo "✅ Push to main successful on attempt $i"
+            echo "🚀 Vercel will now deploy the updated reports"
+            break
+          else
+            echo "⚠️ Push to main failed on attempt $i, retrying..."
+            git fetch origin main
+            git rebase origin/main
+            sleep 2
+          fi
+        done
