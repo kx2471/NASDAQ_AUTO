@@ -29,7 +29,10 @@ jobs:
 
     - name: Install dependencies
       run: npm install
-      
+
+    - name: Build TypeScript
+      run: npm run build
+
     - name: Generate weekly agent reports
       env:
         PORT: ${{ secrets.PORT }}
