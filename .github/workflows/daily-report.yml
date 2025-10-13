@@ -25,15 +25,14 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-        
+        node-version: '20'
+
     - name: Install dependencies
-      run: npm ci
-      
+      run: npm install
+
     - name: Build TypeScript
       run: npm run build
-      
+
     - name: Generate weekly agent reports
       env:
         PORT: ${{ secrets.PORT }}
