@@ -19,10 +19,14 @@ module.exports = async (req, res) => {
   }
 
   try {
+    console.log('📡 [/api/reports] Starting request...');
+
     // GitHub API를 통해 data/report 디렉토리 내용 가져오기
     const GITHUB_REPO = 'kx2471/nasdaq_auto';
     const GITHUB_BRANCH = 'main';
     const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/report?ref=${GITHUB_BRANCH}`;
+
+    console.log('🔗 [/api/reports] Fetching from:', apiUrl);
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -31,14 +35,18 @@ module.exports = async (req, res) => {
       }
     });
 
+    console.log('📥 [/api/reports] GitHub API response status:', response.status);
+
     if (!response.ok) {
       if (response.status === 404) {
+        console.log('⚠️ [/api/reports] Directory not found, returning empty array');
         return res.status(200).json({ success: true, data: [] });
       }
       throw new Error(`GitHub API error: ${response.status}`);
     }
 
     const files = await response.json();
+    console.log('📂 [/api/reports] Found', files.length, 'files');
 
     // .md 파일만 필터링하고 날짜순 정렬
     const mdFiles = files
@@ -85,13 +93,15 @@ module.exports = async (req, res) => {
       }
     }
 
+    console.log('✅ [/api/reports] Returning', reports.length, 'reports');
+
     res.status(200).json({
       success: true,
       data: reports
     });
 
   } catch (error) {
-    console.error('Error listing reports:', error);
+    console.error('❌ [/api/reports] Error:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error',

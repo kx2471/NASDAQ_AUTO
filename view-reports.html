@@ -177,17 +177,24 @@
     // 리포트 로드
     async function loadReports() {
       try {
+        console.log('📡 Fetching reports from /api/reports...');
         const response = await fetch('/api/reports');
+        console.log('📥 Response status:', response.status);
+
         const result = await response.json();
+        console.log('📄 API Result:', result);
 
         if (!result.success) {
-          throw new Error(result.error);
+          throw new Error(result.error || 'Unknown error');
         }
 
+        console.log('✅ Reports loaded:', result.data.length);
         displayReports(result.data);
       } catch (error) {
-        document.getElementById('reportGrid').innerHTML = 
-          `<p style="color: #dc3545;">오류: ${error.message}</p>`;
+        console.error('❌ Error loading reports:', error);
+        document.getElementById('reportGrid').innerHTML =
+          `<p style="color: #dc3545;">오류: ${error.message}</p>
+           <p style="color: #999; font-size: 12px; margin-top: 10px;">자세한 내용은 브라우저 콘솔을 확인하세요 (F12)</p>`;
       }
     }
 
@@ -213,22 +220,36 @@
 
     // 리포트 보기
     async function viewReport(filename) {
+      console.log('📖 Opening report:', filename);
       document.getElementById('modal').style.display = 'block';
       document.getElementById('modalContent').innerHTML = '<div class="loading">로딩 중...</div>';
 
       try {
-        const response = await fetch(`/api/report?filename=${encodeURIComponent(filename)}`);
+        if (!filename) {
+          throw new Error('Filename is empty');
+        }
+
+        const url = `/api/report?filename=${encodeURIComponent(filename)}`;
+        console.log('📡 Fetching from:', url);
+
+        const response = await fetch(url);
+        console.log('📥 Response status:', response.status);
+
         const result = await response.json();
+        console.log('📄 API Result:', result);
 
         if (!result.success) {
-          throw new Error(result.error);
+          throw new Error(result.error || 'Unknown error');
         }
 
         const html = marked.parse(result.data.content);
         document.getElementById('modalContent').innerHTML = html;
+        console.log('✅ Report displayed successfully');
       } catch (error) {
-        document.getElementById('modalContent').innerHTML = 
-          `<p style="color: #dc3545;">오류: ${error.message}</p>`;
+        console.error('❌ Error loading report:', error);
+        document.getElementById('modalContent').innerHTML =
+          `<p style="color: #dc3545;">오류: ${error.message}</p>
+           <p style="color: #999; font-size: 12px; margin-top: 10px;">파일명: ${filename || '(없음)'}</p>`;
       }
     }
 
