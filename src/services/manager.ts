@@ -90,15 +90,14 @@ async function loadAgentReports(): Promise<{
       const agentFiles = files
         .filter(file => file.includes(`_weekly_agent_${agentName}.md`))
         .map(file => {
-          // 파일명에서 날짜와 시간 추출 (YYYYMMDD_HHMM 형식)
           const match = file.match(/^(\d{8})(?:_(\d{4}))?_weekly_agent/);
           if (match) {
             const dateStr = match[1]; // YYYYMMDD
-            const timeStr = match[2] || '0000'; // HHMM (없으면 0000)
+            const timeStr = match[2] || '0000'; // HHMM
             const sortKey = `${dateStr}_${timeStr}`;
             return { file, sortKey };
           }
-          return { file, sortKey: '00000000_0000' }; // 형식에 맞지 않으면 최하위로
+          return { file, sortKey: '00000000_0000' };
         })
         .sort((a, b) => b.sortKey.localeCompare(a.sortKey)); // 최신순 (내림차순)
 
@@ -107,7 +106,7 @@ async function loadAgentReports(): Promise<{
       }
 
       const latestFile = agentFiles[0].file;
-      console.log(`📄 ${agentName} 최신 리포트: ${latestFile} (정렬키: ${agentFiles[0].sortKey})`);
+      console.log(`📄 ${agentName} 최신 리포트: ${latestFile} (sortKey: ${agentFiles[0].sortKey})`);
 
       return await fs.readFile(
         path.join(agentReportsDir, latestFile),
