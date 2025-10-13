@@ -89,15 +89,24 @@ async function loadAgentReports(): Promise<{
       const files = await fs.readdir(agentReportsDir);
       const agentFiles = files
         .filter(file => file.includes(`_weekly_agent_${agentName}.md`))
-        .sort()
-        .reverse(); // 최신 파일이 먼저 오도록 정렬
+        .map(file => {
+          const match = file.match(/^(\d{8})(?:_(\d{4}))?_weekly_agent/);
+          if (match) {
+            const dateStr = match[1]; // YYYYMMDD
+            const timeStr = match[2] || '0000'; // HHMM
+            const sortKey = `${dateStr}_${timeStr}`;
+            return { file, sortKey };
+          }
+          return { file, sortKey: '00000000_0000' };
+        })
+        .sort((a, b) => b.sortKey.localeCompare(a.sortKey)); // 최신순 (내림차순)
 
       if (agentFiles.length === 0) {
         throw new Error(`${agentName} 리포트 파일을 찾을 수 없습니다`);
       }
 
-      const latestFile = agentFiles[0];
-      console.log(`📄 ${agentName} 최신 리포트: ${latestFile}`);
+      const latestFile = agentFiles[0].file;
+      console.log(`📄 ${agentName} 최신 리포트: ${latestFile} (sortKey: ${agentFiles[0].sortKey})`);
 
       return await fs.readFile(
         path.join(agentReportsDir, latestFile),
