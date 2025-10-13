@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>보고서 - NASDAQ AutoTrader</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      margin-bottom: 20px;
+    }
+    h1 { color: #333; margin-bottom: 20px; }
+    .nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      padding: 10px 20px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .nav a:hover, .nav a.active {
+      background: #667eea;
+      color: white;
+    }
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .report-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-left: 4px solid #667eea;
+    }
+    .report-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .report-date {
+      color: #667eea;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .report-type {
+      background: #667eea;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .report-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .report-summary {
+      color: #666;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #666;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    .modal-content {
+      background: white;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 40px;
+      border-radius: 12px;
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 30px;
+      cursor: pointer;
+      color: #999;
+    }
+    .modal-close:hover { color: #333; }
+    .report-content {
+      line-height: 1.8;
+      color: #333;
+    }
+    .report-content h1 {
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .report-content h2 {
+      margin-top: 30px;
+      margin-bottom: 15px;
+      color: #444;
+    }
+    .report-content h3 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+      color: #555;
+    }
+    .report-content p { margin-bottom: 15px; }
+    .report-content ul, .report-content ol {
+      margin-bottom: 15px;
+      padding-left: 30px;
+    }
+    .report-content li { margin-bottom: 8px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <a href="/">매매 입력</a>
+      <a href="/portfolio.html">포트폴리오</a>
+      <a href="/view-reports.html" class="active">보고서</a>
+    </div>
+
+    <div class="card">
+      <h1>📊 AI 투자 보고서</h1>
+      <p style="color: #666; margin-bottom: 20px;">생성된 보고서 목록</p>
+      
+      <div id="reportGrid" class="loading">리포트 로딩 중...</div>
+    </div>
+  </div>
+
+  <!-- 모달 -->
+  <div id="modal" class="modal" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+      <div id="modalContent" class="report-content"></div>
+    </div>
+  </div>
+
+  <script>
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    });
+
+    // 리포트 로드
+    async function loadReports() {
+      try {
+        const response = await fetch('/api/reports');
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        displayReports(result.data);
+      } catch (error) {
+        document.getElementById('reportGrid').innerHTML = 
+          `<p style="color: #dc3545;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 리포트 표시
+    function displayReports(reports) {
+      const grid = document.getElementById('reportGrid');
+
+      if (reports.length === 0) {
+        grid.innerHTML = '<p style="color: #999;">생성된 리포트가 없습니다.</p>';
+        return;
+      }
+
+      grid.className = 'report-grid';
+      grid.innerHTML = reports.map(report => `
+        <div class="report-card" onclick="viewReport('${report.filename}')">
+          <div class="report-date">${report.date}${report.time ? ' ' + report.time : ''}</div>
+          <div class="report-type">${report.sector}</div>
+          <div class="report-title">${report.title}</div>
+          <div class="report-summary">${report.summary}</div>
+        </div>
+      `).join('');
+    }
+
+    // 리포트 보기
+    async function viewReport(filename) {
+      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modalContent').innerHTML = '<div class="loading">로딩 중...</div>';
+
+      try {
+        const response = await fetch(`/api/report?filename=${encodeURIComponent(filename)}`);
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+
+        const html = marked.parse(result.data.content);
+        document.getElementById('modalContent').innerHTML = html;
+      } catch (error) {
+        document.getElementById('modalContent').innerHTML = 
+          `<p style="color: #dc3545;">오류: ${error.message}</p>`;
+      }
+    }
+
+    // 모달 닫기
+    function closeModal(event) {
+      if (!event || event.target.id === 'modal') {
+        document.getElementById('modal').style.display = 'none';
+      }
+    }
+
+    // 페이지 로드 시
+    loadReports();
+  </script>
+</body>
+</html>

@@ -63,9 +63,6 @@ data/json/trades.json
 data/json/cash_events.json
 data/json/performance_history.json
 
-# Generated reports
-data/report/
-
 # Scripts with sensitive data
 scripts/update-github-secrets.js
 scripts/test-github-secrets.js
