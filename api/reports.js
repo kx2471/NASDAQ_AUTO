@@ -1,10 +1,8 @@
 /**
  * Vercel 서버리스 함수: 리포트 목록 API
  * GET /api/reports
+ * GitHub Repository에서 직접 데이터 가져오기
  */
-
-const fs = require('fs');
-const path = require('path');
 
 module.exports = async (req, res) => {
   // CORS 헤더 설정
@@ -21,33 +19,48 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const reportDir = path.join(process.cwd(), 'data', 'report');
+    // GitHub API를 통해 data/report 디렉토리 내용 가져오기
+    const GITHUB_REPO = 'kx2471/nasdaq_auto';
+    const GITHUB_BRANCH = 'main';
+    const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/data/report?ref=${GITHUB_BRANCH}`;
 
-    // 디렉토리 존재 확인
-    if (!fs.existsSync(reportDir)) {
-      return res.status(200).json({ success: true, data: [] });
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Nasdaq-AutoTrader'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return res.status(200).json({ success: true, data: [] });
+      }
+      throw new Error(`GitHub API error: ${response.status}`);
     }
 
-    const files = fs.readdirSync(reportDir);
+    const files = await response.json();
 
     // .md 파일만 필터링하고 날짜순 정렬
     const mdFiles = files
-      .filter(file => file.endsWith('.md') && !file.includes('_meta'))
+      .filter(file => file.name.endsWith('.md') && !file.name.includes('_meta'))
+      .map(file => file.name)
       .sort((a, b) => b.localeCompare(a)) // 최신순
       .slice(0, 20); // 최근 20개만
 
     const reports = [];
 
-    for (const file of mdFiles) {
-      const match = file.match(/^(\d{8})(?:_(\d{4}))?_(.+)\.md$/);
+    for (const filename of mdFiles) {
+      const match = filename.match(/^(\d{8})(?:_(\d{4}))?_(.+)\.md$/);
       if (match) {
         const date = match[1];
         const time = match[2] || '';
         const type = match[3];
 
         try {
-          const filePath = path.join(reportDir, file);
-          const content = fs.readFileSync(filePath, 'utf-8');
+          // 파일 내용 가져오기
+          const contentUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/report/${filename}`;
+          const contentResponse = await fetch(contentUrl);
+          const content = await contentResponse.text();
 
           // 첫 줄을 제목으로 사용
           const lines = content.split('\n');
@@ -57,17 +70,17 @@ module.exports = async (req, res) => {
           const summary = content.substring(0, 200).trim() + '...';
 
           reports.push({
-            filename: file,
+            filename,
             date: date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
             time: time ? time.replace(/(\d{2})(\d{2})/, '$1:$2') : null,
             sector: type,
             title,
             summary,
-            htmlPath: file.replace('.md', '.html'),
+            htmlPath: filename.replace('.md', '.html'),
             createdAt: null
           });
         } catch (error) {
-          console.error(`Error reading file ${file}:`, error);
+          console.error(`Error reading file ${filename}:`, error);
         }
       }
     }

@@ -1,10 +1,8 @@
 /**
  * Vercel 서버리스 함수: 특정 리포트 내용 API
  * GET /api/report?filename=20250915_unified_gpt5.md
+ * GitHub Repository에서 직접 데이터 가져오기
  */
-
-const fs = require('fs');
-const path = require('path');
 
 module.exports = async (req, res) => {
   // CORS 헤더 설정
@@ -32,14 +30,21 @@ module.exports = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid filename' });
     }
 
-    const filePath = path.join(process.cwd(), 'data', 'report', filename);
+    // GitHub에서 파일 내용 가져오기
+    const GITHUB_REPO = 'kx2471/nasdaq_auto';
+    const GITHUB_BRANCH = 'main';
+    const contentUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/report/${filename}`;
 
-    // 파일 존재 확인
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, error: 'Report not found' });
+    const response = await fetch(contentUrl);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return res.status(404).json({ success: false, error: 'Report not found' });
+      }
+      throw new Error(`GitHub fetch error: ${response.status}`);
     }
 
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const content = await response.text();
 
     res.status(200).json({
       success: true,
