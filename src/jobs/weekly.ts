@@ -255,36 +255,9 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
         console.warn('⚠️ Agent_Gemini 이메일 전송 실패:', (emailError as Error).message);
       }
     }
-    
-    // Agent 리포트들을 저장하여 Manager_Agent가 참조할 수 있도록 함
-    const agentReportsPath = path.join(process.cwd(), 'data', 'agent_reports');
-    await fs.mkdir(agentReportsPath, { recursive: true });
-    
-    const today = getKoreanDateTimeString();
-    await fs.writeFile(
-      path.join(agentReportsPath, `${today}_agent_gpt.md`),
-      agentGptReport,
-      'utf8'
-    );
-    
-    if (agentGeminiReport) {
-      await fs.writeFile(
-        path.join(agentReportsPath, `${today}_agent_gemini.md`),
-        agentGeminiReport,
-        'utf8'
-      );
-    }
-    
-    if (agentClaudeReport) {
-      await fs.writeFile(
-        path.join(agentReportsPath, `${today}_agent_claude.md`),
-        agentClaudeReport,
-        'utf8'
-      );
-    }
-    
-    console.log('💾 Agent 리포트들이 Manager_Agent 참조용으로 저장됨');
-    
+
+    console.log('✅ Agent별 주간 리포트 처리 완료 (data/report 폴더에 저장됨)');
+
   } catch (error) {
     console.error('❌ Agent별 주간 리포트 처리 실패:', error);
     throw error;
