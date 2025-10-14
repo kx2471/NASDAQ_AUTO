@@ -448,5 +448,15 @@
     "price": 194.37,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 46,
+    "traded_at": "2025-10-14T10:32:21.655Z",
+    "symbol": "COIN",
+    "side": "SELL",
+    "qty": 2,
+    "price": 360.77,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
