@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: dev  # dev 브랜치에서 실행
+          ref: main  # main 브랜치에서 실행
 
       - name: Check environment variables
         run: |
