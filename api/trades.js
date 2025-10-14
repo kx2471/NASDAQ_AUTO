@@ -8,7 +8,7 @@
 // GitHub 설정
 const OWNER = 'kx2471';
 const REPO = 'NASDAQ_AUTO';
-const BRANCH = 'dev';
+const BRANCH = 'main';
 const FILE_PATH = 'data/json/trades.json';
 
 /**
