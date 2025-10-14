@@ -163,6 +163,18 @@
       color: #666;
       padding: 20px;
     }
+
+    .delete-btn {
+      width: auto;
+      padding: 6px 12px;
+      background: #dc3545;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+
+    .delete-btn:hover {
+      background: #c82333;
+    }
   </style>
 </head>
 <body>
@@ -291,6 +303,42 @@
       }, 5000);
     }
 
+    // 거래 삭제
+    async function deleteTrade(tradeId) {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        showMessage('GitHub Token을 입력해주세요', 'error');
+        return;
+      }
+
+      if (!confirm('정말 이 거래를 삭제하시겠습니까?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}?id=${tradeId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || error.error);
+        }
+
+        const result = await response.json();
+        showMessage(`✅ ${result.message}`, 'success');
+
+        // 거래 목록 새로고침
+        await loadTrades();
+
+      } catch (error) {
+        showMessage(`❌ 오류: ${error.message}`, 'error');
+      }
+    }
+
     // 거래 목록 로드
     async function loadTrades() {
       const token = tokenInput.value.trim();
@@ -326,8 +374,11 @@
               <strong>${trade.symbol}</strong>
               <small style="color: #666;"> ${trade.side} ${trade.qty}주 @ $${trade.price}</small>
             </div>
-            <div style="text-align: right; font-size: 12px; color: #999;">
-              ${new Date(trade.traded_at).toLocaleDateString('ko-KR')}
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="text-align: right; font-size: 12px; color: #999;">
+                ${new Date(trade.traded_at).toLocaleDateString('ko-KR')}
+              </div>
+              <button class="delete-btn" onclick="deleteTrade(${trade.id})" title="삭제">🗑️</button>
             </div>
           </div>
         `).join('');
