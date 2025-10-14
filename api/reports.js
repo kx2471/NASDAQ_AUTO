@@ -2,6 +2,7 @@
  * Vercel 서버리스 함수: 리포트 목록 API
  * GET /api/reports
  * GitHub Repository에서 직접 데이터 가져오기
+ * Updated: 2025-10-13 - Fixed report paths
  */
 
 module.exports = async (req, res) => {
