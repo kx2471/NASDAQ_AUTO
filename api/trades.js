@@ -3,6 +3,7 @@
  *
  * GET /api/trades - 모든 거래 내역 조회
  * POST /api/trades - 새 거래 추가
+ * DELETE /api/trades?id=123 - 거래 삭제
  */
 
 // GitHub 설정
@@ -84,13 +85,47 @@ async function addTrade(octokit, trade) {
 }
 
 /**
+ * trades.json 파일에서 거래 삭제
+ */
+async function deleteTrade(octokit, tradeId) {
+  // 1. 현재 파일 읽기
+  const { trades, sha } = await readTrades(octokit);
+
+  // 2. 거래 찾기
+  const tradeIndex = trades.findIndex(t => t.id === parseInt(tradeId));
+  if (tradeIndex === -1) {
+    throw new Error('거래 내역을 찾을 수 없습니다.');
+  }
+
+  const deletedTrade = trades[tradeIndex];
+
+  // 3. 거래 삭제
+  trades.splice(tradeIndex, 1);
+
+  // 4. 파일 업데이트
+  const newContent = Buffer.from(JSON.stringify(trades, null, 2)).toString('base64');
+
+  await octokit.repos.createOrUpdateFileContents({
+    owner: OWNER,
+    repo: REPO,
+    path: FILE_PATH,
+    message: `Delete trade: ${deletedTrade.symbol} ${deletedTrade.side} ${deletedTrade.qty}@${deletedTrade.price} (ID: ${deletedTrade.id})`,
+    content: newContent,
+    sha: sha,
+    branch: BRANCH
+  });
+
+  return deletedTrade;
+}
+
+/**
  * API Handler
  */
 module.exports = async (req, res) => {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
 
   // OPTIONS 요청 처리 (CORS preflight)
@@ -150,10 +185,31 @@ module.exports = async (req, res) => {
       });
     }
 
+    // DELETE - 거래 삭제
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+
+      // 입력 검증
+      if (!id) {
+        return res.status(400).json({
+          error: 'Missing required parameter',
+          required: ['id']
+        });
+      }
+
+      const deletedTrade = await deleteTrade(octokit, id);
+
+      return res.status(200).json({
+        success: true,
+        message: '거래가 삭제되었습니다.',
+        trade: deletedTrade
+      });
+    }
+
     // 지원하지 않는 메서드
     return res.status(405).json({
       error: 'Method not allowed',
-      allowed: ['GET', 'POST']
+      allowed: ['GET', 'POST', 'DELETE']
     });
 
   } catch (error) {
