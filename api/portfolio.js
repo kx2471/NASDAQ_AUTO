@@ -23,7 +23,7 @@ async function readFileFromGitHub(octokit, filePath) {
       owner: 'kx2471',
       repo: 'NASDAQ_AUTO',
       path: filePath,
-      ref: 'dev'
+      ref: 'main'
     });
 
     const content = Buffer.from(data.content, 'base64').toString('utf8');
