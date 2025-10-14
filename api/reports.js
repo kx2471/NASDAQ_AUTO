@@ -65,32 +65,19 @@ module.exports = async (req, res) => {
         const time = match[2] || '';
         const type = match[3];
 
-        try {
-          // 파일 내용 가져오기
-          const contentUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/report/${filename}`;
-          const contentResponse = await fetch(contentUrl);
-          const content = await contentResponse.text();
+        // 파일명에서 제목 생성
+        const title = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-          // 첫 줄을 제목으로 사용
-          const lines = content.split('\n');
-          const title = lines[0].replace(/^#\s*/, '').trim() || type;
-
-          // 첫 200자를 요약으로 사용
-          const summary = content.substring(0, 200).trim() + '...';
-
-          reports.push({
-            filename,
-            date: date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
-            time: time ? time.replace(/(\d{2})(\d{2})/, '$1:$2') : null,
-            sector: type,
-            title,
-            summary,
-            htmlPath: filename.replace('.md', '.html'),
-            createdAt: null
-          });
-        } catch (error) {
-          console.error(`Error reading file ${filename}:`, error);
-        }
+        reports.push({
+          filename,
+          date: date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
+          time: time ? time.replace(/(\d{2})(\d{2})/, '$1:$2') : null,
+          sector: type,
+          title,
+          summary: `리포트를 클릭하여 전체 내용을 확인하세요.`,
+          htmlPath: filename.replace('.md', '.html'),
+          createdAt: null
+        });
       }
     }
 
