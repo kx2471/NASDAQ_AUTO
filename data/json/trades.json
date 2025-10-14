@@ -470,16 +470,6 @@
     "note": "BUY 거래"
   },
   {
-    "id": 48,
-    "traded_at": "2025-10-14T10:33:01.007Z",
-    "symbol": "NVDA",
-    "side": "SELL",
-    "qty": 2,
-    "price": 189.29,
-    "fee": 0,
-    "note": "SELL 거래"
-  },
-  {
     "id": 49,
     "traded_at": "2025-10-14T10:33:12.274Z",
     "symbol": "NVDA",
