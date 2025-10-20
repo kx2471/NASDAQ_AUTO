@@ -542,14 +542,20 @@ ${previousReportsSummary}
  * Manager_Agent 리포트 저장
  */
 export async function saveManagerReport(report: string): Promise<string> {
-  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  // 한국 시간 기준으로 날짜와 시간 생성 (YYYYMMDD_HHMM 형식)
+  const now = new Date();
+  const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
+  const dateStr = koreanTime.toISOString().split('T')[0].replace(/-/g, '');
+  const timeStr = koreanTime.toISOString().split('T')[1].substring(0, 5).replace(':', '');
+  const timestamp = `${dateStr}_${timeStr}`;
+
   const reportDir = path.join(process.cwd(), 'data', 'report');
-  
+
   await fs.mkdir(reportDir, { recursive: true });
-  
-  const mdPath = path.join(reportDir, `${today}_manager_final.md`);
+
+  const mdPath = path.join(reportDir, `${timestamp}_manager_final.md`);
   await fs.writeFile(mdPath, report, 'utf8');
-  
+
   console.log('💾 Manager_Agent 최종 리포트 저장 완료:', mdPath);
   return mdPath;
 }
