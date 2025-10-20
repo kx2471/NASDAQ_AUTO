@@ -528,5 +528,15 @@
     "price": 234,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 56,
+    "traded_at": "2025-10-20T12:17:22.559Z",
+    "symbol": "AMD",
+    "side": "BUY",
+    "qty": 5,
+    "price": 237.16,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
