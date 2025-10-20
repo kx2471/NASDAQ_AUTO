@@ -1,9 +1,15 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "buildCommand": "npm run build",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+  "version": 2,
+  "builds": [
+    {
+      "src": "dist/server/app.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "dist/server/app.js"
+    }
   ]
 }
