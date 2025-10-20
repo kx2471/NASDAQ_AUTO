@@ -63,14 +63,21 @@ export async function sendReportEmail(options: EmailOptions): Promise<void> {
 }
 
 /**
- * Resend를 사용한 이메일 발송
+ * 지연 함수 (재시도용)
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Resend를 사용한 이메일 발송 (재시도 로직 포함)
  */
 async function sendWithResend(options: {
   to: string;
   subject: string;
   html: string;
   attachments: Array<{ filename: string; path: string }>;
-}): Promise<void> {
+}, maxRetries: number = 3): Promise<void> {
   const { to, subject, html, attachments } = options;
 
   if (!process.env.RESEND_API_KEY) {
@@ -94,30 +101,64 @@ async function sendWithResend(options: {
     }
   }
 
-  const result = await resend.emails.send({
-    from,
-    to,
-    subject,
-    html,
-    attachments: attachmentData,
-    headers: {
-      'X-Priority': '1',
-      'X-MSMail-Priority': 'High',
-      'Importance': 'high',
-      'X-Mailer': 'Nasdaq AutoTrader System'
+  // 재시도 로직
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📧 이메일 발송 시도 ${attempt}/${maxRetries}...`);
+
+      const result = await resend.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        attachments: attachmentData,
+        headers: {
+          'X-Priority': '1',
+          'X-MSMail-Priority': 'High',
+          'Importance': 'high',
+          'X-Mailer': 'Nasdaq AutoTrader System'
+        }
+      });
+
+      console.log('📧 Resend API 응답:', JSON.stringify(result, null, 2));
+
+      if (result.error) {
+        const errorCode = (result.error as any).statusCode || 0;
+        console.error('❌ Resend API 에러:', result.error);
+
+        // 500번대 에러는 재시도, 400번대는 즉시 실패
+        if (errorCode >= 500 && attempt < maxRetries) {
+          const waitTime = 2000 * attempt; // 2초, 4초, 6초
+          console.log(`⚠️ 서버 에러(${errorCode}), ${waitTime/1000}초 후 재시도...`);
+          await sleep(waitTime);
+          lastError = new Error(`Resend API 에러: ${result.error.message || JSON.stringify(result.error)}`);
+          continue;
+        }
+
+        throw new Error(`Resend API 에러: ${result.error.message || JSON.stringify(result.error)}`);
+      }
+
+      if (result.data) {
+        console.log('✅ 이메일 ID:', result.data.id);
+        console.log(`✅ 이메일 발송 성공 (시도 ${attempt}/${maxRetries})`);
+        return; // 성공 시 함수 종료
+      }
+
+    } catch (error) {
+      lastError = error as Error;
+
+      if (attempt < maxRetries) {
+        const waitTime = 2000 * attempt;
+        console.log(`⚠️ 발송 실패 (시도 ${attempt}/${maxRetries}), ${waitTime/1000}초 후 재시도...`);
+        await sleep(waitTime);
+      }
     }
-  });
-
-  console.log('📧 Resend API 응답:', JSON.stringify(result, null, 2));
-
-  if (result.error) {
-    console.error('❌ Resend API 에러:', result.error);
-    throw new Error(`Resend API 에러: ${result.error.message || JSON.stringify(result.error)}`);
   }
 
-  if (result.data) {
-    console.log('✅ 이메일 ID:', result.data.id);
-  }
+  // 모든 재시도 실패
+  throw lastError || new Error('이메일 발송 실패 (알 수 없는 에러)');
 }
 
 /**
