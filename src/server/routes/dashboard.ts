@@ -208,8 +208,8 @@ router.get('/api/reports/:filename', async (req, res) => {
   try {
     const filename = req.params.filename;
     
-    // 보안: 파일명 검증
-    if (!/^\\d{8}_[a-z_]+\\.md$/.test(filename)) {
+    // 보안: 파일명 검증 (YYYYMMDD_HHMM_name.md 또는 YYYYMMDD_name.md)
+    if (!/^\d{8}(_\d{4})?_[a-z_]+\.md$/.test(filename)) {
       return res.status(400).json({ success: false, error: 'Invalid filename' });
     }
 
