@@ -94,7 +94,7 @@ async function sendWithResend(options: {
     }
   }
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from,
     to,
     subject,
@@ -107,6 +107,17 @@ async function sendWithResend(options: {
       'X-Mailer': 'Nasdaq AutoTrader System'
     }
   });
+
+  console.log('📧 Resend API 응답:', JSON.stringify(result, null, 2));
+
+  if (result.error) {
+    console.error('❌ Resend API 에러:', result.error);
+    throw new Error(`Resend API 에러: ${result.error.message || JSON.stringify(result.error)}`);
+  }
+
+  if (result.data) {
+    console.log('✅ 이메일 ID:', result.data.id);
+  }
 }
 
 /**
