@@ -1,0 +1,33 @@
+# Backend files - not needed for frontend deployment
+src/
+dist/
+tools/
+prompts/
+
+# Data files - managed by GitHub Actions
+data/
+
+# Config files
+.env
+.env.*
+*.log
+
+# Node modules
+node_modules/
+
+# TypeScript
+tsconfig.json
+*.ts
+
+# Testing
+tests/
+*.test.js
+
+# Documentation
+docs/
+README.md
+CLAUDE.md
+
+# Git
+.git/
+.gitignore
