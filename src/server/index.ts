@@ -164,8 +164,13 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 서버 시작
-app.listen(PORT, () => {
-  console.log(`🚀 Stock Report System 서버가 포트 ${PORT}에서 실행 중입니다`);
-  console.log(`📊 API 문서: http://localhost:${PORT}/v1/health`);
-});
+// Vercel serverless functions를 위한 export
+export default app;
+
+// 로컬 개발 환경에서만 서버 시작
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Stock Report System 서버가 포트 ${PORT}에서 실행 중입니다`);
+    console.log(`📊 API 문서: http://localhost:${PORT}/v1/health`);
+  });
+}
