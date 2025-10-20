@@ -1,7 +1,9 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "public": true,
-  "buildCommand": "echo 'Static site - no build needed'",
-  "outputDirectory": "public"
+  "buildCommand": "npm run build",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/public/$1" }
+  ]
 }

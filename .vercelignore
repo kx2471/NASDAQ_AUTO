@@ -1,11 +1,6 @@
-# Backend files - not needed for frontend deployment
-src/
-dist/
+# Backend source files - will be built by Vercel
 tools/
 prompts/
-
-# Data files - managed by GitHub Actions
-data/
 
 # Config files
 .env
