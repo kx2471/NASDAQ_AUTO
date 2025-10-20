@@ -520,16 +520,6 @@
     "note": "SELL 거래"
   },
   {
-    "id": 55,
-    "traded_at": "2025-10-20T12:17:07.665Z",
-    "symbol": "FSLA",
-    "side": "SELL",
-    "qty": 2,
-    "price": 234,
-    "fee": 0,
-    "note": "SELL 거래"
-  },
-  {
     "id": 56,
     "traded_at": "2025-10-20T12:17:22.559Z",
     "symbol": "AMD",
