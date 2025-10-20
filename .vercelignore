@@ -1,4 +1,4 @@
-# Backend source files - will be built by Vercel
+# Development tools (not needed in production)
 tools/
 prompts/
 
@@ -7,12 +7,8 @@ prompts/
 .env.*
 *.log
 
-# Node modules
+# Node modules (will be installed by Vercel)
 node_modules/
-
-# TypeScript
-tsconfig.json
-*.ts
 
 # Testing
 tests/
@@ -26,3 +22,5 @@ CLAUDE.md
 # Git
 .git/
 .gitignore
+
+# Note: tsconfig.json and *.ts files are INCLUDED for Vercel build
