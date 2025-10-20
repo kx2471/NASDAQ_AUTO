@@ -87,11 +87,13 @@ jobs:
       
     - name: Update repository and commit report
       run: |
-        # 최신 상태로 업데이트 (main 브랜치)
+        # 최신 변경사항 가져오기
         git fetch origin main
-        git reset --hard origin/main
 
-        # 리포트 파일만 다시 추가
+        # 최신 상태로 동기화 (충돌 시 자동 병합)
+        git pull origin main --no-edit --strategy-option=theirs || echo "Pull conflict, will resolve during push"
+
+        # 리포트 파일 추가
         git add data/
 
         # 변경사항이 있는 경우에만 커밋
@@ -102,7 +104,7 @@ jobs:
 
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git commit -m "📊 Daily report generated - $(date +'%Y-%m-%d %H:%M:%S KST')"
+        git commit -m "📊 Weekly agent reports - $(date +'%Y-%m-%d %H:%M:%S KST')"
 
         # main 브랜치에 push (충돌 시 3번 재시도)
         for i in {1..3}; do
@@ -113,7 +115,7 @@ jobs:
           else
             echo "⚠️ Push to main failed on attempt $i, retrying..."
             git fetch origin main
-            git rebase origin/main
+            git pull origin main --no-edit --strategy-option=theirs
             sleep 2
           fi
         done
