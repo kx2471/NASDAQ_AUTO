@@ -105,11 +105,13 @@ jobs:
       
     - name: Update repository and commit final report
       run: |
-        # 최신 상태로 업데이트 (main 브랜치)
+        # 최신 변경사항 가져오기
         git fetch origin main
-        git reset --hard origin/main
 
-        # Manager 리포트 파일만 다시 추가
+        # 최신 상태로 동기화 (충돌 시 자동 병합)
+        git pull origin main --no-edit --strategy-option=theirs || echo "Pull conflict, will resolve during push"
+
+        # Manager 리포트 파일 추가
         git add data/
 
         # 변경사항이 있는 경우에만 커밋
@@ -128,7 +130,7 @@ jobs:
             else
               echo "⚠️ Manager report push failed on attempt $i, retrying..."
               git fetch origin main
-              git rebase origin/main
+              git pull origin main --no-edit --strategy-option=theirs
               sleep 2
             fi
           done
