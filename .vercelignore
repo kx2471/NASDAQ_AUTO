@@ -24,3 +24,4 @@ CLAUDE.md
 .gitignore
 
 # Note: tsconfig.json and *.ts files are INCLUDED for Vercel build
+# Note: data/ folder is INCLUDED for web UI to read reports and portfolio data
