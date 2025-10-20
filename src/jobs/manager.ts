@@ -47,16 +47,26 @@ export async function runManager(): Promise<void> {
 
     // 5. Manager_Agent 이메일 발송 (16:00)
     console.log('📧 Manager_Agent 최종 리포트 이메일 발송 중...');
-    await sendManagerEmail(managerReport, reportPath);
+    try {
+      await sendManagerEmail(managerReport, reportPath);
+      console.log('✅ Manager_Agent 이메일 발송 완료');
+    } catch (emailError) {
+      console.error('⚠️ Manager_Agent 이메일 발송 실패 (보고서는 정상 저장됨):', emailError);
+      // 이메일 실패해도 파이프라인은 계속 진행
+    }
 
     console.log('🎉 Manager_Agent 통합 리포트 파이프라인 완료');
 
   } catch (error) {
     console.error('❌ Manager_Agent 파이프라인 실패:', error);
-    
-    // 실패 시 오류 이메일 발송
-    await sendErrorEmail(error as Error);
-    
+
+    // 실패 시 오류 이메일 발송 시도 (실패해도 무시)
+    try {
+      await sendErrorEmail(error as Error);
+    } catch (emailError) {
+      console.error('⚠️ 오류 알림 이메일도 발송 실패 (무시):', emailError);
+    }
+
     throw error;
   }
 }
