@@ -558,5 +558,15 @@
     "price": 234,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 60,
+    "traded_at": "2025-10-26T20:53:10.757Z",
+    "symbol": "AAOI",
+    "side": "SELL",
+    "qty": 7,
+    "price": 29.54,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
