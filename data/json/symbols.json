@@ -3,7 +3,7 @@
     "symbol": "CNBC",
     "name": "CNBC Corp",
     "exchange": "NASDAQ",
-    "sector": "defense",
+    "sector": "ai",
     "industry": "Unknown",
     "active": true
   },
@@ -11,7 +11,7 @@
     "symbol": "AGIX",
     "name": "KRANESHARES ARTIFICIAL INTELLIGENCE AND TECHNOLOGY ETF",
     "exchange": "NASDAQ",
-    "sector": "technology",
+    "sector": "ai",
     "industry": "Unknown",
     "active": true
   },
@@ -115,7 +115,7 @@
     "symbol": "AAVM",
     "name": "Alpha Architect Value Momentum Trend ETF",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "computing",
     "industry": "Unknown",
     "active": true
   },
@@ -123,7 +123,7 @@
     "symbol": "ABCL",
     "name": "AbCellera Biologics Inc",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "ai",
     "industry": "Unknown",
     "active": true
   },
@@ -131,7 +131,7 @@
     "symbol": "ABEO",
     "name": "Abeona Therapeutics Inc",
     "exchange": "NASDAQ",
-    "sector": "computing",
+    "sector": "ai",
     "industry": "Unknown",
     "active": true
   },
@@ -620,6 +620,134 @@
     "name": "WisdomTree Global Defense Fund",
     "exchange": "NASDAQ",
     "sector": "defense",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AMD",
+    "name": "AMD Corp",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "PM",
+    "name": "PM Corp",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "WISE",
+    "name": "THEMES GENERATIVE ARTIFICIAL INTELLIGENCE ETF",
+    "exchange": "NASDAQ",
+    "sector": "ai",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "-P-HIZ",
+    "name": "Presurance Holdings Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACBU",
+    "name": "Artius II Acquisition Inc - Units (1 Ord Shs & 1 Rts)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACI",
+    "name": "Armada Acquisition Corp II - Class A",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AACIW",
+    "name": "Armada Acquisition Corp II - Warrants(21/05/2030)",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAL",
+    "name": "American Airlines Group Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAON",
+    "name": "AAON Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPB",
+    "name": "GRANITESHARES 2X LONG AAPL DAILY ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPG",
+    "name": "Ascentage Pharma Group International",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AAPU",
+    "name": "DIREXION DAILY AAPL BULL 2X SHARES",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "AARD",
+    "name": "Aardvark Therapeutics Inc",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "DTCR",
+    "name": "GLOBAL X DATA CENTER & DIGITAL INFRASTRUCTURE ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "SKYY",
+    "name": "FIRST TRUST CLOUD COMPUTING ETF",
+    "exchange": "NASDAQ",
+    "sector": "computing",
     "industry": "Unknown",
     "active": true
   }
