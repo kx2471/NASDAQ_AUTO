@@ -598,5 +598,15 @@
     "price": 247.6,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 64,
+    "traded_at": "2025-10-27T21:15:16.261Z",
+    "symbol": "GEOS",
+    "side": "BUY",
+    "qty": 19,
+    "price": 26.53,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
