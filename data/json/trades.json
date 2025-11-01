@@ -618,5 +618,15 @@
     "price": 29.86,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 66,
+    "traded_at": "2025-11-01T04:05:20.768Z",
+    "symbol": "FSLR",
+    "side": "SELL",
+    "qty": 5,
+    "price": 222.99,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
