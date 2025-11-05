@@ -668,5 +668,15 @@
     "price": 13.12,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 71,
+    "traded_at": "2025-11-05T11:28:53.559Z",
+    "symbol": "CSIQ",
+    "side": "BUY",
+    "qty": 28,
+    "price": 22.99,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
