@@ -28,9 +28,17 @@
       "Bash(npm run:*)",
       "Bash(git checkout:*)",
       "Bash(git pull:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(git stash:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(gh workflow:*)",
+      "Bash(git rm:*)",
+      "Bash(gh run view 18645094028 --log)",
+      "Bash(gh run view 18645402844 --log)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "Explanatory"
 }
