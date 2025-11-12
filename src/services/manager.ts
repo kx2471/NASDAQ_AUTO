@@ -557,8 +557,34 @@ ${previousReportsSummary}
       throw new Error('OpenAI API로부터 빈 응답을 받았습니다');
     }
 
+    // 리포트 메타데이터 헤더 생성
+    const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const reportHeader = `# 🏢 Manager_Agent 최종 통합 리포트
+
+---
+
+## 📋 리포트 메타데이터
+
+**생성 일시**: ${currentDate}
+**사용 모델**: ${model} (xAI Grok)
+
+### 참조한 Agent 보고서
+
+✅ **Agent_GPT**: ${payload.agent_reports?.agent_gpt ? `${(payload.agent_reports.agent_gpt.length / 1000).toFixed(1)}K 자` : '없음'}
+✅ **Agent_Gemini**: ${payload.agent_reports?.agent_gemini ? `${(payload.agent_reports.agent_gemini.length / 1000).toFixed(1)}K 자` : '없음'}
+✅ **Agent_Claude**: ${payload.agent_reports?.agent_claude ? `${(payload.agent_reports.agent_claude.length / 1000).toFixed(1)}K 자` : '없음'}
+${payload.agent_reports?.agent_grok ? `✅ **Agent_Grok**: ${(payload.agent_reports.agent_grok.length / 1000).toFixed(1)}K 자` : '⚠️ **Agent_Grok**: 아직 생성되지 않음'}
+
+### 과거 Manager 보고서
+
+📚 **참조한 과거 리포트**: ${payload.previous_manager_reports?.length || 0}개
+
+---
+
+`;
+
     console.log('✅ Manager LLM 보고서 생성 완료');
-    return content;
+    return reportHeader + content;
 
   } catch (error) {
     console.error('❌ Manager 직접 리포트 생성 중 오류:', error);
