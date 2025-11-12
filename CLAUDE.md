@@ -7,7 +7,7 @@
 **Nasdaq AutoTrader** - AI 기반 주식 자동 분석 및 리포트 시스템입니다.
 
 ### 핵심 기능
-- **Multi-Agent 시스템**: GPT-5, Gemini, Claude 3개 AI Agent + Manager Agent
+- **Multi-Agent 시스템**: GPT-5, Gemini, Claude, Grok 4개 AI Agent + Manager Agent
 - **주간 리포트**: 매주 월요일 오후 3시 자동 발송
 - **매매 관리**: 간편한 매수/매도 입력 및 추적
 - **포트폴리오 추적**: 실시간 현금/보유종목 관리
@@ -57,6 +57,7 @@
 OPENAI_API_KEY=sk-proj-...
 GEMINI_API_KEY=AIzaSy...
 CLAUDE_API_KEY=sk-ant-...
+GROK_API_KEY=xai-...
 
 # Email
 RESEND_API_KEY=re_...
@@ -113,7 +114,8 @@ node test-manager-only.js
 1. **Agent_Claude**: 기술적 분석 중심
 2. **Agent_GPT**: 종합적 시장 분석 (GPT-5 사용)
 3. **Agent_Gemini**: 뉴스 및 센티먼트 분석
-4. **Manager_Agent**: 3개 Agent 보고서 통합 및 최종 매매 결정
+4. **Agent_Grok**: 독창적인 시장 인사이트 (xAI Grok 사용)
+5. **Manager_Agent**: 4개 Agent 보고서 통합 및 최종 매매 결정
 
 ### 데이터 관리
 - **현금 잔고**: `data/json/cash_events.json` - 입출금 기록
@@ -154,17 +156,19 @@ node test-manager-only.js
 ## 주요 변경 이력
 
 ### 2025-09-15: 완전한 매매 시스템 구축
-- ✅ Multi-Agent 시스템 구현 (GPT-5, Gemini, Claude + Manager)
+- ✅ Multi-Agent 시스템 구현 (GPT-5, Gemini, Claude, Grok + Manager)
 - ✅ 매매 입력 자동화 (`add-trade.js`)
 - ✅ 현금 잔고 추적 시스템
 - ✅ 데이터 무결성 보호 (하드코딩 방지)
 - ✅ 주간 리포트 이메일 발송 (월요일 3PM)
+- ✅ Grok Agent 추가 (xAI Grok-beta 모델)
 
 ### 주요 수정사항
-- **이메일 발송 순서**: Claude → GPT-5 → Gemini
-- **Manager Agent 구조 개선**: 데이터 수집 중복 제거
+- **이메일 발송 순서**: Claude → GPT-5 → Gemini → Grok
+- **Manager Agent 구조 개선**: 4개 Agent 보고서 통합 분석
 - **토큰 한도 최적화**: GPT-5 15,000 토큰
 - **Supabase 비활성화**: JSON 기반 안전한 운영
+- **Grok 통합**: xAI API 연동 및 독립적인 시장 분석
 
 ## 주의사항
 
