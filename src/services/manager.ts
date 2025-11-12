@@ -85,7 +85,7 @@ async function loadAgentReports(): Promise<{
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
 
   // 해당 날짜의 가장 최신 파일을 찾는 함수
-  const findLatestReport = async (agentName: string): Promise<string> => {
+  const findLatestReport = async (agentName: string, required: boolean = true): Promise<string> => {
     try {
       const files = await fs.readdir(agentReportsDir);
       const agentFiles = files
@@ -103,7 +103,12 @@ async function loadAgentReports(): Promise<{
         .sort((a, b) => b.sortKey.localeCompare(a.sortKey)); // 최신순 (내림차순)
 
       if (agentFiles.length === 0) {
-        throw new Error(`${agentName} 리포트 파일을 찾을 수 없습니다`);
+        if (required) {
+          throw new Error(`${agentName} 리포트 파일을 찾을 수 없습니다`);
+        } else {
+          console.warn(`⚠️ ${agentName} 리포트 파일을 찾을 수 없습니다 (선택적 Agent)`);
+          return `## Agent_${agentName.toUpperCase()} 보고서\n\n아직 생성되지 않았습니다. 첫 번째 weekly 리포트 실행을 기다려주세요.`;
+        }
       }
 
       const latestFile = agentFiles[0].file;
@@ -115,7 +120,11 @@ async function loadAgentReports(): Promise<{
       );
     } catch (error) {
       console.warn(`⚠️ ${agentName} 리포트 로드 실패:`, error);
-      return `## Agent_${agentName.toUpperCase()} 보고서\n보고서를 찾을 수 없습니다.`;
+      if (required) {
+        return `## Agent_${agentName.toUpperCase()} 보고서\n\n보고서를 찾을 수 없습니다.`;
+      } else {
+        return `## Agent_${agentName.toUpperCase()} 보고서\n\n아직 생성되지 않았습니다.`;
+      }
     }
   };
 
@@ -156,10 +165,10 @@ async function loadAgentReports(): Promise<{
 
   try {
     const [gptReport, geminiReport, claudeReport, grokReport, previousManagerReports] = await Promise.all([
-      findLatestReport('gpt'),
-      findLatestReport('gemini'),
-      findLatestReport('claude'),
-      findLatestReport('grok'),
+      findLatestReport('gpt', true),      // 필수 Agent
+      findLatestReport('gemini', true),   // 필수 Agent
+      findLatestReport('claude', true),   // 필수 Agent
+      findLatestReport('grok', false),    // 선택적 Agent (Grok이 추가된 직후에는 없을 수 있음)
       loadPreviousManagerReports()
     ]);
 
@@ -176,7 +185,7 @@ async function loadAgentReports(): Promise<{
 
   } catch (error) {
     console.error('❌ 보고서 로드 실패:', error);
-    throw new Error('Agent 보고서들을 찾을 수 없습니다. 15:00 Agent 리포트가 먼저 생성되어야 합니다.');
+    throw new Error('필수 Agent 보고서들(GPT, Gemini, Claude)을 찾을 수 없습니다. 15:00 Agent 리포트가 먼저 생성되어야 합니다.');
   }
 }
 
@@ -327,15 +336,26 @@ async function prepareManagerPayload(params: {
  */
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Manager Agent 모델 설정 (환경변수 우선)
+    const managerModel = process.env.MANAGER_MODEL || process.env.GROK_MODEL || 'grok-4-fast-reasoning';
+    const isGrokModel = managerModel.includes('grok');
+
+    // API 키 및 클라이언트 설정
+    const apiKey = isGrokModel ? process.env.GROK_API_KEY : process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다');
+      throw new Error(`${isGrokModel ? 'GROK_API_KEY' : 'OPENAI_API_KEY'} 환경변수가 설정되지 않았습니다`);
     }
 
-    const client = new OpenAI({ apiKey });
-    const model = process.env.LLM_MODEL || 'gpt-5';
+    // Grok 사용 시 baseURL 변경
+    const clientConfig: any = { apiKey };
+    if (isGrokModel) {
+      clientConfig.baseURL = 'https://api.x.ai/v1';
+    }
 
-    console.log(`🤖 ${model}을 사용하여 Manager 리포트 생성 시작`);
+    const client = new OpenAI(clientConfig);
+    const model = managerModel;
+
+    console.log(`🤖 Manager Agent - ${model}을 사용하여 리포트 생성 시작`);
 
     // 현재가 정보 추출
     const extractCurrentPrices = () => {
