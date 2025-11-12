@@ -68,6 +68,10 @@ jobs:
         ENABLE_GEMINI_REPORT: ${{ secrets.ENABLE_GEMINI_REPORT }}
         CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         CLAUDE_MODEL: ${{ secrets.CLAUDE_MODEL }}
+        GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+        GROK_MODEL: ${{ secrets.GROK_MODEL }}
+        ENABLE_GROK_REPORT: ${{ secrets.ENABLE_GROK_REPORT }}
+        MANAGER_MODEL: ${{ secrets.MANAGER_MODEL }}
         MAIL_PROVIDER: ${{ secrets.MAIL_PROVIDER }}
         RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         SMTP_HOST: ${{ secrets.SMTP_HOST }}

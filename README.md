@@ -184,8 +184,14 @@ node tools/add-trade.js --help
 - **강점**: 리스크 관리 및 장기적 관점
 - **출력**: 균형잡힌 포트폴리오 제안
 
-### 4. Manager_Agent (통합 관리자)
-- **역할**: 3개 Agent 보고서 종합 분석
+### 4. Agent_Grok (xAI Grok)
+- **특징**: 독창적이고 실시간 시장 인사이트
+- **강점**: 독특한 관점의 기회 발굴
+- **출력**: 창의적인 투자 아이디어 및 분석
+
+### 5. Manager_Agent (통합 관리자)
+- **역할**: 4개 Agent 보고서 종합 분석
+- **사용 모델**: Grok-4-fast-reasoning (고속 추론)
 - **특징**: 최종 매매 결정 및 현금 관리
 - **출력**: 실행 가능한 구체적 매매 지시
 
@@ -258,6 +264,60 @@ node tools/add-trade.js BUY TEST 1 100 "테스트"
 - **DANGER-ZONE.md**: 데이터 무결성 보호 가이드
 - **매도량 검증**: 보유량 초과 매도 방지
 - **하드코딩 방지**: 동적 데이터 사용 강제
+
+## ⚙️ GitHub Actions 설정
+
+GitHub Actions에서 자동 리포트 생성을 활성화하려면 다음 Secrets를 설정하세요:
+
+### 필수 Secrets 설정
+
+**Settings → Secrets and variables → Actions → New repository secret**
+
+```bash
+# LLM API Keys (필수)
+OPENAI_API_KEY=sk-proj-...          # GPT-5 Agent
+GEMINI_API_KEY=AIzaSy...            # Gemini Agent
+CLAUDE_API_KEY=sk-ant-...           # Claude Agent
+GROK_API_KEY=xai-...                # Grok Agent (신규 추가!)
+
+# LLM Models
+LLM_MODEL=gpt-5
+GEMINI_MODEL=gemini-2.5-pro
+CLAUDE_MODEL=claude-opus-4-1-20250805
+GROK_MODEL=grok-4-fast-reasoning    # Grok Agent 모델
+MANAGER_MODEL=grok-4-fast-reasoning # Manager Agent 모델 (신규!)
+
+# Feature Flags
+ENABLE_GEMINI_REPORT=true
+ENABLE_GROK_REPORT=true             # Grok 활성화 (신규!)
+
+# Email
+RESEND_API_KEY=re_...
+MAIL_TO=your-email@gmail.com
+MAIL_FROM=Stock Report <noreply@...>
+
+# Data APIs
+ALPHAVANTAGE_API_KEY=...
+NEWSAPI_API_KEY=...
+
+# Server
+BASE_URL=https://your-app.com
+API_KEY=nasdaq-autotrader-secret-2025
+PORT=8080
+
+# Other
+LLM_PROVIDER=OPENAI
+MAIL_PROVIDER=RESEND
+MARKET_TZ=America/New_York
+SEND_TZ=Asia/Seoul
+```
+
+### 자동 실행 스케줄
+
+- **📅 Agent 리포트**: 매주 월요일 15:00 (KST)
+  - Agent_Claude, Agent_GPT, Agent_Gemini, **Agent_Grok** 생성
+- **🏢 Manager 리포트**: 매주 월요일 15:30 (KST)
+  - 4개 Agent 보고서 통합 분석 (Grok-4-fast-reasoning 사용)
 
 ## 📚 관련 문서
 
