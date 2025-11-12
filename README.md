@@ -1,20 +1,21 @@
 # 🚀 NASDAQ AutoTrader - Multi-Agent AI 투자 시스템
 
-**4개의 AI Agent가 협력하여 포트폴리오를 관리하는 완전 자동화 투자 시스템**
+**5개의 AI Agent가 협력하여 포트폴리오를 관리하는 완전 자동화 투자 시스템**
 
 - **Agent_GPT**: OpenAI GPT-5로 체계적인 투자 분석
-- **Agent_Gemini**: Google Gemini로 빠른 시장 트렌드 분석  
+- **Agent_Gemini**: Google Gemini로 빠른 시장 트렌드 분석
 - **Agent_Claude**: Anthropic Claude로 심층적인 리스크 분석
-- **Manager_Agent**: 3개 Agent 보고서를 통합하여 최종 매매 결정
+- **Agent_Grok**: xAI Grok으로 독창적인 시장 인사이트
+- **Manager_Agent**: 4개 Agent 보고서를 통합하여 최종 매매 결정
 
 ## 🎯 프로젝트 개요
 
 현재 **₩295만원 포트폴리오**를 **1년 내 ₩1,000만원 (260% 성장)**으로 달성하기 위한 **Multi-Agent AI 투자 시스템**입니다.
 
 ### ✨ 핵심 특징
-- 🤖 **4개 AI Agent 협력**: GPT-5, Gemini, Claude + Manager Agent
+- 🤖 **5개 AI Agent 협력**: GPT-5, Gemini, Claude, Grok + Manager Agent
 - 📊 **실시간 포트폴리오 추적**: 현금/보유종목 독립 관리
-- 📧 **주간 리포트**: 매주 월요일 오후 3시 자동 발송 
+- 📧 **주간 리포트**: 매주 월요일 오후 3시 자동 발송
 - 💰 **간편 매매 시스템**: 명령어 한 줄로 매수/매도
 - 🔒 **안전 보장**: 매도량 검증 및 데이터 무결성 보호
 
@@ -32,16 +33,16 @@
 │         - 포트폴리오 현황 계산                              │
 │         - 시장 데이터 분석                                  │
 └─────────────┬──────────┬──────────┬─────────────────────────┘
-              │          │          │
-        ┌─────▼────┐ ┌───▼────┐ ┌───▼────┐
-        │Agent_GPT │ │Agent   │ │Agent   │
-        │ (GPT-5)  │ │Gemini  │ │Claude  │
-        └─────┬────┘ └───┬────┘ └───┬────┘
-              │          │          │
-        ┌─────▼──────────▼──────────▼─────┐
-        │         Manager_Agent           │
-        │    (3개 보고서 통합 분석)        │
-        └─────────────┬───────────────────┘
+              │          │          │          │
+        ┌─────▼────┐ ┌───▼────┐ ┌───▼────┐ ┌───▼────┐
+        │Agent_GPT │ │Agent   │ │Agent   │ │Agent   │
+        │ (GPT-5)  │ │Gemini  │ │Claude  │ │ Grok   │
+        └─────┬────┘ └───┬────┘ └───┬────┘ └───┬────┘
+              │          │          │          │
+        ┌─────▼──────────▼──────────▼──────────▼─────┐
+        │            Manager_Agent                    │
+        │       (4개 보고서 통합 분석)                │
+        └─────────────┬──────────────────────────────┘
                       │
         ┌─────────────▼───────────────────┐
         │       Email Delivery            │
@@ -60,6 +61,7 @@ NASDAQ_AUTO/
 │   │   ├── llm.ts              # GPT-5 서비스
 │   │   ├── gemini.ts           # Gemini 서비스
 │   │   ├── claude.ts           # Claude 서비스
+│   │   ├── grok.ts             # Grok 서비스
 │   │   ├── manager.ts          # Manager Agent
 │   │   ├── screening.ts        # 종목 스크리닝
 │   │   ├── market.ts           # 시장 데이터
@@ -100,8 +102,9 @@ npm install
 
 # 환경 변수 설정 (.env 파일 생성)
 OPENAI_API_KEY=your-openai-api-key
-GEMINI_API_KEY=your-gemini-api-key  
+GEMINI_API_KEY=your-gemini-api-key
 CLAUDE_API_KEY=your-claude-api-key
+GROK_API_KEY=your-grok-api-key
 RESEND_API_KEY=your-resend-api-key
 MAIL_TO=your-email@example.com
 ALPHAVANTAGE_API_KEY=your-alpha-vantage-key

@@ -6,6 +6,7 @@ import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
 import { generateReportWithGemini } from '../services/gemini';
 import { generateReportWithClaude } from '../services/claude';
+import { generateReportWithGrok } from '../services/grok';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
@@ -177,7 +178,20 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
         agentClaudeReport = '## ⚠️ Agent_Claude 리포트\n\nClaude API 연결 문제로 리포트를 생성할 수 없습니다.';
       }
     }
-    
+
+    // Agent_Grok 주간 리포트 생성
+    let agentGrokReport = '';
+    if (process.env.GROK_API_KEY && process.env.ENABLE_GROK_REPORT === 'true') {
+      console.log('🤖 Agent_Grok 주간 리포트 생성 중...');
+      try {
+        agentGrokReport = await generateReportWithGrok(reportPayload);
+        console.log('✅ Agent_Grok 리포트 생성 완료');
+      } catch (error) {
+        console.error('❌ Agent_Grok 리포트 생성 실패:', error);
+        agentGrokReport = '## ⚠️ Agent_Grok 리포트\n\nGrok API 연결 문제로 리포트를 생성할 수 없습니다.';
+      }
+    }
+
     // 주간 리포트 파일 저장 (Agent별)
     console.log('💾 Agent별 주간 리포트 파일 저장 중...');
     const { mdPath: gptMdPath } = await saveWeeklyReportFiles('agent_gpt', agentGptReport);
@@ -193,8 +207,14 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       const { mdPath: claudePath } = await saveWeeklyReportFiles('agent_claude', agentClaudeReport);
       claudeMdPath = claudePath;
     }
-    
-    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT5 → Gemini
+
+    let grokMdPath = '';
+    if (agentGrokReport) {
+      const { mdPath: grokPath } = await saveWeeklyReportFiles('agent_grok', agentGrokReport);
+      grokMdPath = grokPath;
+    }
+
+    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT5 → Gemini → Grok
     console.log('📧 Agent별 주간 리포트 이메일 발송 중...');
     const currentDate = new Date().toLocaleDateString('ko-KR');
     
@@ -237,14 +257,14 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       console.warn('⚠️ Agent_GPT 이메일 전송 실패:', (emailError as Error).message);
     }
     
-    // 3. Agent_Gemini 이메일 발송 (마지막)
+    // 3. Agent_Gemini 이메일 발송
     if (agentGeminiReport && geminiMdPath) {
       try {
         const geminiEmailHtml = wrapInEmailTemplate(
-          agentGeminiReport.replace(/\n/g, '<br>'), 
+          agentGeminiReport.replace(/\n/g, '<br>'),
           `Agent_Gemini 주간 리포트 (${currentDate})`
         );
-        
+
         await sendReportEmail({
           subject: `🤖 Agent_Gemini 주간 리포트 - ${currentDate}`,
           html: geminiEmailHtml,
@@ -253,6 +273,25 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
         console.log('📧 Agent_Gemini 이메일 전송 완료');
       } catch (emailError) {
         console.warn('⚠️ Agent_Gemini 이메일 전송 실패:', (emailError as Error).message);
+      }
+    }
+
+    // 4. Agent_Grok 이메일 발송 (마지막)
+    if (agentGrokReport && grokMdPath) {
+      try {
+        const grokEmailHtml = wrapInEmailTemplate(
+          agentGrokReport.replace(/\n/g, '<br>'),
+          `Agent_Grok 주간 리포트 (${currentDate})`
+        );
+
+        await sendReportEmail({
+          subject: `🤖 Agent_Grok 주간 리포트 - ${currentDate}`,
+          html: grokEmailHtml,
+          mdPath: grokMdPath
+        });
+        console.log('📧 Agent_Grok 이메일 전송 완료');
+      } catch (emailError) {
+        console.warn('⚠️ Agent_Grok 이메일 전송 실패:', (emailError as Error).message);
       }
     }
 

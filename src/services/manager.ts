@@ -79,6 +79,7 @@ async function loadAgentReports(): Promise<{
   gpt: string;
   gemini: string;
   claude: string;
+  grok: string;
   previousManagerReports: string[];
 }> {
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
@@ -154,10 +155,11 @@ async function loadAgentReports(): Promise<{
   };
 
   try {
-    const [gptReport, geminiReport, claudeReport, previousManagerReports] = await Promise.all([
+    const [gptReport, geminiReport, claudeReport, grokReport, previousManagerReports] = await Promise.all([
       findLatestReport('gpt'),
       findLatestReport('gemini'),
       findLatestReport('claude'),
+      findLatestReport('grok'),
       loadPreviousManagerReports()
     ]);
 
@@ -168,6 +170,7 @@ async function loadAgentReports(): Promise<{
       gpt: gptReport,
       gemini: geminiReport,
       claude: claudeReport,
+      grok: grokReport,
       previousManagerReports
     };
 
@@ -283,7 +286,7 @@ async function loadManagerPrompt(): Promise<string> {
  * Manager_Agent용 페이로드 준비
  */
 async function prepareManagerPayload(params: {
-  agentReports: { gpt: string; gemini: string; claude: string; previousManagerReports: string[] };
+  agentReports: { gpt: string; gemini: string; claude: string; grok: string; previousManagerReports: string[] };
   portfolioData: any;
   performanceData: any;
   managerPrompt: string;
@@ -296,7 +299,8 @@ async function prepareManagerPayload(params: {
     agent_reports: {
       agent_gpt: agentReports.gpt,
       agent_gemini: agentReports.gemini,
-      agent_claude: agentReports.claude
+      agent_claude: agentReports.claude,
+      agent_grok: agentReports.grok
     },
     previous_manager_reports: agentReports.previousManagerReports,
     portfolio: portfolioData,
@@ -418,6 +422,7 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     const gptData = extractAgentData(payload.agent_reports?.agent_gpt || '', 'GPT');
     const geminiData = extractAgentData(payload.agent_reports?.agent_gemini || '', 'Gemini');
     const claudeData = extractAgentData(payload.agent_reports?.agent_claude || '', 'Claude');
+    const grokData = extractAgentData(payload.agent_reports?.agent_grok || '', 'Grok');
 
     // 추출 결과 상세 디버깅
     console.log('🔍 Claude 전략 첫 200자:', claudeData.strategy.substring(0, 200));
@@ -455,9 +460,11 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       .replace(/{gpt_strategy}/g, gptData.strategy)
       .replace(/{claude_strategy}/g, claudeData.strategy)
       .replace(/{gemini_strategy}/g, geminiData.strategy)
+      .replace(/{grok_strategy}/g, grokData.strategy)
       .replace(/{gpt_recommendations}/g, gptData.recommendations)
       .replace(/{claude_recommendations}/g, claudeData.recommendations)
       .replace(/{gemini_recommendations}/g, geminiData.recommendations)
+      .replace(/{grok_recommendations}/g, grokData.recommendations)
       .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
       .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
       .replace(/{exchange_rate}/g, exchangeRateValue);
@@ -486,12 +493,13 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - Agent_GPT: ${gptData.advice}
 - Agent_Gemini: ${geminiData.advice}
 - Agent_Claude: ${claudeData.advice}
+- Agent_Grok: ${grokData.advice}
 
 **과거 Manager 투자 결정 이력** (최근 3개):
 ${previousReportsSummary}
 
 **Manager 핵심 임무**:
-1. 위 3개 Agent의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
+1. 위 4개 Agent(GPT, Gemini, Claude, Grok)의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
 2. 과거 Manager 보고서들의 투자 결정과 그 결과를 참고하여 일관성 있는 전략을 수립하세요.
 3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
 4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
