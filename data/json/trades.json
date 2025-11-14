@@ -858,5 +858,15 @@
     "price": 260.65,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 90,
+    "traded_at": "2025-11-14T16:49:59.128Z",
+    "symbol": "SNDK",
+    "side": "SELL",
+    "qty": 1,
+    "price": 262.57,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
