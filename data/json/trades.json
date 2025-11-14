@@ -838,5 +838,15 @@
     "price": 19.39,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 88,
+    "traded_at": "2025-11-14T16:49:21.887Z",
+    "symbol": "AAOI",
+    "side": "SELL",
+    "qty": 21,
+    "price": 20.7,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
