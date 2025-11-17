@@ -2,8 +2,10 @@ name: Weekly Stock Report
 
 on:
   schedule:
-    # 매주 월요일 KST 15:00 (UTC 06:00)에 실행 - Agent 리포트 생성
-    - cron: '0 6 * * 1'
+    # 매주 금요일(미국시간) 장 마감 후 리포트 생성
+    # UTC 금요일 22:00 = 미국 동부 금요일 17:00-18:00 (장 마감 후) = 한국 토요일 07:00
+    # 금요일 종가를 완벽히 반영한 주간 리포트
+    - cron: '0 22 * * 5'
   workflow_dispatch: # 수동 실행 가능
 
 permissions:

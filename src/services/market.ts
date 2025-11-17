@@ -196,6 +196,52 @@ export function computeIndicators(prices: number[]): IndicatorData {
 }
 
 /**
+ * 부분 기술지표 계산 (데이터가 부족한 경우)
+ * - 20일 이상: EMA20, RSI14만 계산
+ * - 15일 이상: RSI14만 계산
+ * - 그 이하: null 반환
+ */
+export function computeIndicatorsPartial(prices: number[]): Partial<IndicatorData> | null {
+  if (prices.length < 15) {
+    return null; // 최소 데이터 부족
+  }
+
+  const result: Partial<IndicatorData> = {};
+
+  // RSI14 계산 (최소 15일 필요)
+  try {
+    if (prices.length >= 15) {
+      const rsi14 = calculateRSI(prices, 14);
+      result.rsi14 = rsi14[rsi14.length - 1];
+    }
+  } catch (error) {
+    console.warn('RSI14 계산 실패:', error);
+  }
+
+  // EMA20 계산 (최소 20일 필요)
+  try {
+    if (prices.length >= 20) {
+      const ema20 = calculateEMA(prices, 20);
+      result.ema20 = ema20[ema20.length - 1];
+    }
+  } catch (error) {
+    console.warn('EMA20 계산 실패:', error);
+  }
+
+  // EMA50 계산 (50일 이상 필요)
+  try {
+    if (prices.length >= 50) {
+      const ema50 = calculateEMA(prices, 50);
+      result.ema50 = ema50[ema50.length - 1];
+    }
+  } catch (error) {
+    console.warn('EMA50 계산 실패:', error);
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+/**
  * EMA (지수이동평균) 계산
  * EMA_t = α * P_t + (1-α) * EMA_{t-1}
  * α = 2 / (period + 1)
