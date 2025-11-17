@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { db, getHoldings, getCashBalance, saveReportRecord } from '../storage/database';
-import { fetchDailyPrices, computeIndicators } from '../services/market';
+import { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } from '../services/market';
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
 import { generateReportWithGemini } from '../services/gemini';
@@ -21,10 +21,13 @@ dotenv.config();
 
 /**
  * 주간 투자 리포트 자동 생성 파이프라인
- * - 매주 월요일 한국시간 15:00에 GitHub Actions로 자동 실행
- * - 3개 AI Agent (Agent_Claude, Agent_GPT, Agent_Gemini)가 각각 독립적으로 리포트 생성
- * - 미국 시장 개장일에만 실행 (월요일이 휴장이면 다음 개장일)
- * - Manager_Agent가 16:00에 통합 리포트 생성
+ * - 매주 금요일(미국시간) 장 마감 후 GitHub Actions로 자동 실행
+ *   - 미국 동부시간: 금요일 17:00-18:00 (장 마감 후 1-2시간)
+ *   - 한국시간: 토요일 새벽 07:00
+ * - 4개 AI Agent (Agent_Claude, Agent_GPT, Agent_Gemini, Agent_Grok)가 각각 독립적으로 리포트 생성
+ * - 미국 시장 개장일에만 실행 (금요일이 휴장이면 다음 개장일)
+ * - Manager_Agent가 07:30에 통합 리포트 생성
+ * - 장점: 금요일 종가 완벽 반영, 주말에 여유있게 검토, 월요일 매매 전략 수립
  */
 export async function runWeekly(): Promise<void> {
   const today = new Date();
@@ -420,25 +423,59 @@ async function prepareWeeklyReportPayload(params: {
 
 /**
  * 기술지표 계산 (모든 심볼)
+ * - 50일 이상: 전체 지표 계산 (EMA20, EMA50, RSI14)
+ * - 20-49일: 부분 지표 계산 (EMA20, RSI14)
+ * - 15-19일: RSI14만 계산
+ * - 15일 미만: 현재가만 제공
  */
 async function calculateIndicators(pricesData: Record<string, any[]>): Promise<Record<string, any>> {
   const indicators: Record<string, any> = {};
 
   for (const [symbol, prices] of Object.entries(pricesData)) {
     try {
+      const closePrices = prices.map(p => p.close);
+      const currentPrice = closePrices[closePrices.length - 1];
+
       if (prices.length >= 50) {
-        const closePrices = prices.map(p => p.close);
+        // 완전한 기술지표 계산
         const computed = computeIndicators(closePrices);
-        
         indicators[symbol] = {
-          close: closePrices[closePrices.length - 1],
+          close: currentPrice,
           ...computed
         };
+        console.log(`✅ ${symbol}: 전체 기술지표 계산 완료 (${prices.length}일)`);
+      } else if (prices.length >= 15) {
+        // 부분 기술지표 계산
+        const computed = computeIndicatorsPartial(closePrices);
+        if (computed) {
+          indicators[symbol] = {
+            close: currentPrice,
+            ...computed
+          };
+          const availableIndicators = Object.keys(computed).join(', ');
+          console.log(`⚠️ ${symbol}: 부분 기술지표 계산 완료 (${prices.length}일, ${availableIndicators})`);
+        } else {
+          // 지표 계산 실패, 현재가만 제공
+          indicators[symbol] = {
+            close: currentPrice
+          };
+          console.warn(`⚠️ ${symbol}: 현재가만 제공 (${prices.length}일)`);
+        }
       } else {
-        console.warn(`⚠️ ${symbol}: 기술지표 계산을 위한 데이터 부족 (${prices.length}일)`);
+        // 데이터 부족, 현재가만 제공
+        indicators[symbol] = {
+          close: currentPrice
+        };
+        console.warn(`⚠️ ${symbol}: 기술지표 계산 불가, 현재가만 제공 (${prices.length}일)`);
       }
     } catch (error) {
       console.error(`❌ ${symbol} 기술지표 계산 실패:`, error);
+      // 오류 발생 시에도 현재가는 제공
+      if (prices.length > 0) {
+        indicators[symbol] = {
+          close: prices[prices.length - 1].close
+        };
+      }
     }
   }
 

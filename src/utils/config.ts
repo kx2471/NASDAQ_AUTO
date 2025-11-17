@@ -55,6 +55,7 @@ export async function loadSectors(): Promise<Record<string, SectorConfig>> {
 
 /**
  * 기본 섹터 설정 반환
+ * 12개 다양한 섹터로 확장하여 시장 상황에 따라 유망한 기회 포착
  */
 function getDefaultSectors(): Record<string, SectorConfig> {
   return {
@@ -104,6 +105,54 @@ function getDefaultSectors(): Record<string, SectorConfig> {
       keywords: ['defense', 'military', 'security', 'cybersecurity', 'surveillance', 'weapons'],
       industries: ['Aerospace & Defense', 'Security Services', 'Software'],
       market_cap_min: 600000000,
+      max_symbols: 15
+    },
+    semiconductor: {
+      title: 'Semiconductors & Chips',
+      description: '반도체, 칩 제조, 반도체 장비 기업',
+      keywords: ['semiconductor', 'chip', 'wafer', 'fabrication', 'ASML', 'foundry', 'chip design'],
+      industries: ['Semiconductors', 'Technology Hardware', 'Semiconductor Equipment'],
+      market_cap_min: 1000000000,
+      max_symbols: 15
+    },
+    healthcare: {
+      title: 'Healthcare & Medical Devices',
+      description: '의료기기, 헬스케어 서비스, 의료 IT',
+      keywords: ['healthcare', 'medical device', 'health tech', 'diagnostics', 'hospital', 'medical'],
+      industries: ['Healthcare Equipment', 'Healthcare Services', 'Medical Devices'],
+      market_cap_min: 800000000,
+      max_symbols: 18
+    },
+    biotech: {
+      title: 'Biotechnology & Pharma',
+      description: '바이오테크, 제약, 유전자 치료',
+      keywords: ['biotechnology', 'pharmaceutical', 'gene therapy', 'clinical trial', 'drug', 'vaccine'],
+      industries: ['Biotechnology', 'Pharmaceuticals', 'Life Sciences'],
+      market_cap_min: 500000000,
+      max_symbols: 20
+    },
+    fintech: {
+      title: 'Fintech & Digital Finance',
+      description: '핀테크, 블록체인, 디지털 결제',
+      keywords: ['fintech', 'blockchain', 'cryptocurrency', 'digital payment', 'neobank', 'payment'],
+      industries: ['Financial Services', 'Software', 'Internet Services'],
+      market_cap_min: 1000000000,
+      max_symbols: 15
+    },
+    ev: {
+      title: 'Electric Vehicles & Battery',
+      description: '전기차, 배터리, 충전 인프라',
+      keywords: ['electric vehicle', 'EV', 'battery', 'charging station', 'autonomous driving', 'lithium'],
+      industries: ['Automobiles', 'Auto Components', 'Electrical Equipment'],
+      market_cap_min: 800000000,
+      max_symbols: 18
+    },
+    ecommerce: {
+      title: 'E-commerce & Digital Retail',
+      description: '이커머스, 온라인 쇼핑, 디지털 마케팅',
+      keywords: ['e-commerce', 'online retail', 'marketplace', 'digital commerce', 'shopping', 'retail'],
+      industries: ['Internet & Direct Marketing Retail', 'Software', 'Internet Services'],
+      market_cap_min: 1000000000,
       max_symbols: 15
     }
   };
