@@ -888,5 +888,15 @@
     "price": 33.79,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 93,
+    "traded_at": "2025-11-18T02:06:34.555Z",
+    "symbol": "PL",
+    "side": "SELL",
+    "qty": 35,
+    "price": 11.6,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
