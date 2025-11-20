@@ -20,7 +20,7 @@ export async function generateReportWithGemini(reportPayload: any): Promise<stri
   const prompt = await createInvestmentPromptFromPayload(reportPayload);
   
   // 환경변수에서 지정된 모델만 사용
-  const envModel = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+  const envModel = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
   const modelAttempt = { name: envModel, displayName: `Gemini (${envModel})` };
 
   try {
@@ -203,7 +203,7 @@ Gemini API 연결 문제로 상세 분석을 제공할 수 없습니다.
 export async function testGeminiConnection(): Promise<boolean> {
   try {
     const ai = getGeminiClient();
-    const model = ai.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.5-pro' });
+    const model = ai.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-3-pro-preview' });
 
     const result = await model.generateContent('Test connection. Reply with "OK"');
     const response = await result.response;
