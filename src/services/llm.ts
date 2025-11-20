@@ -63,8 +63,8 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     const promptPath = path.join(process.cwd(), 'prompts', 'prompt.md');
     const systemPrompt = await fs.readFile(promptPath, 'utf8');
 
-    // LLM 모델 설정 (기본값을 gpt-5로 변경)
-    const model = process.env.LLM_MODEL || 'gpt-5';
+    // LLM 모델 설정 (기본값을 gpt-5.1로 변경)
+    const model = process.env.LLM_MODEL || 'gpt-5.1';
 
     console.log(`🤖 ${model}을 사용하여 보고서 생성 시작`);
 
@@ -223,9 +223,9 @@ export async function generateManagerReport(payload: any): Promise<string> {
     
     // Manager 전용 프롬프트 사용
     const managerPrompt = payload.manager_prompt;
-    
-    // LLM 모델 설정 (기본값을 gpt-5로 변경)
-    const model = process.env.LLM_MODEL || 'gpt-5';
+
+    // LLM 모델 설정 (기본값을 gpt-5.1로 변경)
+    const model = process.env.LLM_MODEL || 'gpt-5.1';
 
     console.log(`🤖 ${model}을 사용하여 보고서 생성 시작`);
 
