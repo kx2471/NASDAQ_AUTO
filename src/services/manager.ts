@@ -222,23 +222,56 @@ async function getCurrentPerformanceData(): Promise<any> {
       getCachedExchangeRate()
     ]);
 
-    // 보유 종목의 현재가 수집 (Agent와 동일한 방식 사용)
+    // 보유 종목의 실시간 가격 수집
     const { fetchDailyPrices } = await import('./market');
+    const { getLatestPrices, isRealtimePriceEnabled } = await import('./realtime-market');
     const holdingSymbols = holdings.map(h => h.symbol);
     let currentPrices: Record<string, number> = {};
 
     if (holdingSymbols.length > 0) {
-      console.log(`📊 Manager Agent - 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
-      try {
-        const holdingPricesData = await fetchDailyPrices(holdingSymbols);
-        for (const [symbol, prices] of Object.entries(holdingPricesData)) {
-          if (prices && Array.isArray(prices) && prices.length > 0) {
-            currentPrices[symbol] = prices[prices.length - 1].close;
-            console.log(`💰 ${symbol}: $${currentPrices[symbol]}`);
+      console.log(`📊 Manager Agent - 보유 종목 실시간 가격 수집: ${holdingSymbols.join(', ')}`);
+
+      // Alpaca 실시간 가격 조회 시도
+      if (isRealtimePriceEnabled()) {
+        try {
+          console.log('🔄 Manager Agent - Alpaca 실시간 가격 API 사용 중...');
+          const realtimePrices = await getLatestPrices(holdingSymbols);
+
+          for (const [symbol, priceData] of Object.entries(realtimePrices)) {
+            currentPrices[symbol] = priceData.price;
+            console.log(`💰 ${symbol}: $${priceData.price} (${priceData.session})`);
+          }
+        } catch (priceError) {
+          console.warn('⚠️ Alpaca 실시간 가격 조회 실패, Yahoo Finance fallback:', priceError);
+
+          // Yahoo Finance fallback
+          try {
+            const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+            for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+              if (prices && Array.isArray(prices) && prices.length > 0) {
+                currentPrices[symbol] = prices[prices.length - 1].close;
+                console.log(`💰 ${symbol}: $${currentPrices[symbol]} (종가)`);
+              }
+            }
+          } catch (fallbackError) {
+            console.warn('⚠️ 현재가 수집 완전 실패, 빈 데이터 사용:', fallbackError);
           }
         }
-      } catch (priceError) {
-        console.warn('⚠️ 현재가 수집 실패, 빈 데이터 사용:', priceError);
+      } else {
+        console.log('ℹ️ Manager Agent - Alpaca API가 설정되지 않았습니다. Yahoo Finance 사용 중...');
+
+        // Yahoo Finance 사용
+        try {
+          const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+          for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+            if (prices && Array.isArray(prices) && prices.length > 0) {
+              currentPrices[symbol] = prices[prices.length - 1].close;
+              console.log(`💰 ${symbol}: $${currentPrices[symbol]} (종가)`);
+            }
+          }
+        } catch (priceError) {
+          console.warn('⚠️ 현재가 수집 실패, 빈 데이터 사용:', priceError);
+        }
       }
     }
 
@@ -337,7 +370,7 @@ async function prepareManagerPayload(params: {
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
     // Manager Agent 모델 설정 (환경변수 우선)
-    const managerModel = process.env.MANAGER_MODEL || process.env.GROK_MODEL || 'grok-4-fast-reasoning';
+    const managerModel = process.env.MANAGER_MODEL || process.env.GROK_MODEL || 'grok-4-1-fast-reasoning';
     const isGrokModel = managerModel.includes('grok');
 
     // API 키 및 클라이언트 설정
