@@ -188,7 +188,29 @@ export async function getLatestPrices(symbols: string[]): Promise<Record<string,
 
         console.log(`💰 ${symbol}: $${latestTrade.Price} (${getSessionType(timestamp)})`);
       } catch (error: any) {
-        console.error(`❌ ${symbol} 가격 조회 실패:`, error.message);
+        console.warn(`⚠️ ${symbol} Alpaca 조회 실패, Yahoo Finance 시도:`, error.message);
+
+        // Yahoo Finance fallback (개별 종목)
+        try {
+          const { fetchDailyPrices } = await import('./market');
+          const yahooPrices = await fetchDailyPrices([symbol]);
+
+          if (yahooPrices[symbol] && yahooPrices[symbol].length > 0) {
+            const latestPrice = yahooPrices[symbol][yahooPrices[symbol].length - 1];
+            prices[symbol] = {
+              symbol: symbol,
+              price: latestPrice.close,
+              timestamp: new Date(),
+              session: 'CLOSED', // Yahoo는 종가이므로 CLOSED
+              volume: latestPrice.volume
+            };
+            console.log(`💰 ${symbol}: $${latestPrice.close} (Yahoo 종가)`);
+          } else {
+            console.error(`❌ ${symbol} Yahoo Finance도 실패 - 데이터 없음`);
+          }
+        } catch (yahooError: any) {
+          console.error(`❌ ${symbol} Yahoo Finance 실패:`, yahooError.message);
+        }
       }
     }
 
