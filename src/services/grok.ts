@@ -24,7 +24,7 @@ export async function generateReportWithGrok(reportPayload: any): Promise<string
   const prompt = await createInvestmentPromptFromPayload(reportPayload);
 
   // 환경변수에서 지정된 모델만 사용
-  const envModel = process.env.GROK_MODEL || 'grok-beta';
+  const envModel = process.env.GROK_MODEL || 'grok-4-1-fast-reasoning';
   const modelAttempt = { name: envModel, displayName: `Grok (${envModel})` };
 
   try {
@@ -146,7 +146,7 @@ export async function testGrokConnection(): Promise<boolean> {
     const client = getGrokClient();
 
     const response = await client.chat.completions.create({
-      model: process.env.GROK_MODEL || 'grok-beta',
+      model: process.env.GROK_MODEL || 'grok-4-1-fast-reasoning',
       messages: [{
         role: 'user',
         content: 'Test connection. Reply with "OK"'
