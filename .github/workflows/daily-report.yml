@@ -44,6 +44,9 @@ jobs:
         ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
         NEWSAPI_API_KEY: ${{ secrets.NEWSAPI_API_KEY }}
+        ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+        ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        ALPACA_PAPER: true
         LLM_PROVIDER: ${{ secrets.LLM_PROVIDER }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         LLM_MODEL: ${{ secrets.LLM_MODEL }}

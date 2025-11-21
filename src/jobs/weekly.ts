@@ -13,6 +13,7 @@ import { loadSectors } from '../utils/config';
 import { runFullScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
 import { calculateCurrentPerformance, analyzeTargetProgress, savePerformanceHistory, generatePerformanceReport } from '../services/performance';
+import { getLatestPrices, isRealtimePriceEnabled, getCurrentMarketSession } from '../services/realtime-market';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -114,19 +115,59 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       fromDate: getDateDaysAgo(7) // 최근 7일
     });
     
-    // 보유 종목 현재가 수집
-    console.log('💰 보유 종목 현재가 수집 중...');
+    // 보유 종목 현재가 수집 (실시간 가격)
+    console.log('💰 보유 종목 실시간 가격 수집 중...');
     const holdingsForReport = await getHoldings();
     const holdingSymbols = holdingsForReport.map(h => h.symbol);
     let holdingCurrentPrices: Record<string, number> = {};
-    
+    let priceTimestamp: Date | undefined;
+    let tradingSession: string | undefined;
+
     if (holdingSymbols.length > 0) {
       console.log(`📊 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
-      const holdingPricesData = await fetchDailyPrices(holdingSymbols);
-      for (const [symbol, prices] of Object.entries(holdingPricesData)) {
-        if (prices && prices.length > 0) {
-          holdingCurrentPrices[symbol] = prices[prices.length - 1].close;
-          console.log(`💰 ${symbol}: $${holdingCurrentPrices[symbol]}`);
+
+      // Alpaca 실시간 가격 조회 시도
+      if (isRealtimePriceEnabled()) {
+        try {
+          console.log('🔄 Alpaca 실시간 가격 API 사용 중...');
+          const realtimePrices = await getLatestPrices(holdingSymbols);
+
+          for (const [symbol, priceData] of Object.entries(realtimePrices)) {
+            holdingCurrentPrices[symbol] = priceData.price;
+            console.log(`💰 ${symbol}: $${priceData.price} (${priceData.session})`);
+
+            // 타임스탬프와 세션 정보 저장 (첫 번째 종목 기준)
+            if (!priceTimestamp) {
+              priceTimestamp = priceData.timestamp;
+              tradingSession = priceData.session;
+            }
+          }
+
+          const currentSession = getCurrentMarketSession();
+          console.log(`✅ 실시간 가격 조회 완료 - 현재 세션: ${currentSession}`);
+
+        } catch (error) {
+          console.warn('⚠️ Alpaca 실시간 가격 조회 실패, Yahoo Finance fallback:', (error as Error).message);
+
+          // Yahoo Finance fallback
+          const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+          for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+            if (prices && prices.length > 0) {
+              holdingCurrentPrices[symbol] = prices[prices.length - 1].close;
+              console.log(`💰 ${symbol}: $${holdingCurrentPrices[symbol]} (종가)`);
+            }
+          }
+        }
+      } else {
+        console.log('ℹ️ Alpaca API가 설정되지 않았습니다. Yahoo Finance 사용 중...');
+
+        // Yahoo Finance 사용
+        const holdingPricesData = await fetchDailyPrices(holdingSymbols);
+        for (const [symbol, prices] of Object.entries(holdingPricesData)) {
+          if (prices && prices.length > 0) {
+            holdingCurrentPrices[symbol] = prices[prices.length - 1].close;
+            console.log(`💰 ${symbol}: $${holdingCurrentPrices[symbol]} (종가)`);
+          }
         }
       }
     }
@@ -139,7 +180,9 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       indicatorsData,
       newsData,
       screeningResults: allScreeningResults,
-      currentPrices: holdingCurrentPrices
+      currentPrices: holdingCurrentPrices,
+      priceTimestamp,
+      tradingSession
     });
     
     // 공통 데이터 변환 (AI 리포트용)
@@ -317,6 +360,8 @@ async function prepareWeeklyReportPayload(params: {
   newsData: any[];
   screeningResults: any[];
   currentPrices?: Record<string, number>;
+  priceTimestamp?: Date;
+  tradingSession?: string;
 }): Promise<any> {
   const { allSectors, symbols, indicatorsData, newsData, screeningResults = [] } = params;
   
@@ -417,6 +462,8 @@ async function prepareWeeklyReportPayload(params: {
     total_symbols_count: symbols.length,
     screening_results: screeningResults,
     currentPrices: params.currentPrices || {},
+    priceTimestamp: params.priceTimestamp ? params.priceTimestamp.toISOString() : undefined,
+    tradingSession: params.tradingSession,
     report_type: 'weekly' // 주간 리포트 표시
   };
 }
@@ -426,11 +473,13 @@ async function prepareWeeklyReportPayload(params: {
  * - 50일 이상: 전체 지표 계산 (EMA20, EMA50, RSI14)
  * - 20-49일: 부분 지표 계산 (EMA20, RSI14)
  * - 15-19일: RSI14만 계산
- * - 15일 미만: 현재가만 제공
+ * - 15일 미만: Alpaca API로 히스토리 데이터 보완 시도
  */
 async function calculateIndicators(pricesData: Record<string, any[]>): Promise<Record<string, any>> {
   const indicators: Record<string, any> = {};
+  const missingDataSymbols: string[] = []; // 데이터 부족 종목 목록
 
+  // 1차: Yahoo Finance 데이터로 기술지표 계산
   for (const [symbol, prices] of Object.entries(pricesData)) {
     try {
       const closePrices = prices.map(p => p.close);
@@ -459,24 +508,85 @@ async function calculateIndicators(pricesData: Record<string, any[]>): Promise<R
           indicators[symbol] = {
             close: currentPrice
           };
-          console.warn(`⚠️ ${symbol}: 현재가만 제공 (${prices.length}일)`);
+          console.warn(`⚠️ ${symbol}: 현재가만 제공 (${prices.length}일) - Alpaca 보완 시도 예정`);
+          missingDataSymbols.push(symbol);
         }
       } else {
         // 데이터 부족, 현재가만 제공
         indicators[symbol] = {
           close: currentPrice
         };
-        console.warn(`⚠️ ${symbol}: 기술지표 계산 불가, 현재가만 제공 (${prices.length}일)`);
+        console.warn(`⚠️ ${symbol}: 기술지표 계산 불가 (${prices.length}일) - Alpaca 보완 시도 예정`);
+        missingDataSymbols.push(symbol);
       }
     } catch (error) {
       console.error(`❌ ${symbol} 기술지표 계산 실패:`, error);
-      // 오류 발생 시에도 현재가는 제공
+      // 오류 발생 시에도 현재가는 제공하고, 보완 목록에 추가
       if (prices.length > 0) {
         indicators[symbol] = {
           close: prices[prices.length - 1].close
         };
+        missingDataSymbols.push(symbol);
       }
     }
+  }
+
+  // 2차: Alpaca API로 데이터 부족 종목 보완
+  if (missingDataSymbols.length > 0 && isRealtimePriceEnabled()) {
+    console.log(`\n🔄 Alpaca API로 ${missingDataSymbols.length}개 종목 기술지표 보완 시도...`);
+    console.log(`   대상 종목: ${missingDataSymbols.join(', ')}`);
+
+    try {
+      const { getBulkHistoricalPrices } = await import('../services/realtime-market');
+      const alpacaHistoricalData = await getBulkHistoricalPrices(missingDataSymbols, 100);
+
+      for (const symbol of missingDataSymbols) {
+        const alpacaPrices = alpacaHistoricalData[symbol];
+
+        if (alpacaPrices && alpacaPrices.length >= 50) {
+          try {
+            const closePrices = alpacaPrices.map(p => p.close);
+            const currentPrice = closePrices[closePrices.length - 1];
+
+            // 완전한 기술지표 계산
+            const computed = computeIndicators(closePrices);
+            indicators[symbol] = {
+              close: currentPrice,
+              ...computed
+            };
+            console.log(`✅ ${symbol}: Alpaca 데이터로 전체 기술지표 계산 완료 (${alpacaPrices.length}일)`);
+          } catch (error) {
+            console.error(`❌ ${symbol}: Alpaca 데이터로 기술지표 계산 실패`, error);
+          }
+        } else if (alpacaPrices && alpacaPrices.length >= 15) {
+          try {
+            const closePrices = alpacaPrices.map(p => p.close);
+            const currentPrice = closePrices[closePrices.length - 1];
+
+            // 부분 기술지표 계산
+            const computed = computeIndicatorsPartial(closePrices);
+            if (computed) {
+              indicators[symbol] = {
+                close: currentPrice,
+                ...computed
+              };
+              const availableIndicators = Object.keys(computed).join(', ');
+              console.log(`✅ ${symbol}: Alpaca 데이터로 부분 기술지표 계산 완료 (${alpacaPrices.length}일, ${availableIndicators})`);
+            }
+          } catch (error) {
+            console.error(`❌ ${symbol}: Alpaca 데이터로 부분 기술지표 계산 실패`, error);
+          }
+        } else {
+          console.warn(`⚠️ ${symbol}: Alpaca 데이터도 부족 (${alpacaPrices?.length || 0}일)`);
+        }
+      }
+
+      console.log(`✅ Alpaca 보완 완료\n`);
+    } catch (error) {
+      console.error('❌ Alpaca 데이터 보완 실패:', error);
+    }
+  } else if (missingDataSymbols.length > 0) {
+    console.warn(`⚠️ Alpaca API가 설정되지 않아 ${missingDataSymbols.length}개 종목 기술지표 보완 불가`);
   }
 
   return indicators;
