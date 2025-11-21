@@ -175,20 +175,40 @@ export class DynamicStockScreener {
   }
 
   /**
-   * 가격 모멘텀 점수 계산
+   * 가격 모멘텀 점수 계산 (실시간 데이터)
    */
   private async calculateMomentumScore(symbol: string): Promise<number> {
     try {
-      // 최근 가격 데이터 조회
-      const prices = await db.find<any>('prices_daily', 
-        (price: any) => price.symbol === symbol
-      );
+      // ✅ 실시간 가격 데이터 조회
+      const { fetchDailyPrices } = await import('./market');
+      const { getHistoricalPrices, isRealtimePriceEnabled } = await import('./realtime-market');
+
+      let prices: any[] = [];
+
+      // 1차: Yahoo Finance 조회
+      try {
+        const pricesData = await fetchDailyPrices([symbol]);
+        prices = pricesData[symbol] || [];
+      } catch (error) {
+        console.warn(`⚠️ ${symbol} Yahoo Finance 조회 실패`);
+      }
+
+      // 2차: Alpaca fallback (데이터 부족 시)
+      if (prices.length < 20 && isRealtimePriceEnabled()) {
+        try {
+          console.log(`🔄 ${symbol} Alpaca 데이터로 보완 중...`);
+          prices = await getHistoricalPrices(symbol, 100);
+        } catch (error) {
+          console.warn(`⚠️ ${symbol} Alpaca 조회 실패`);
+        }
+      }
 
       if (prices.length < 20) {
+        console.warn(`⚠️ ${symbol} 데이터 부족 (${prices.length}일) - 중립 점수 반환`);
         return 0.5; // 데이터 부족시 중립 점수
       }
 
-      // 최근 20일 정렬
+      // 최근 20일 정렬 (날짜 내림차순)
       const recentPrices = prices
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 20);
@@ -203,117 +223,195 @@ export class DynamicStockScreener {
 
       // 단기 모멘텀 (5일)
       const shortTermMomentum = (latestPrice - price5DaysAgo) / price5DaysAgo;
-      
+
       // 장기 모멘텀 (20일)
       const longTermMomentum = (latestPrice - price20DaysAgo) / price20DaysAgo;
 
       // 모멘텀 점수 계산 (0-1 범위로 정규화)
-      const momentumScore = Math.max(0, Math.min(1, 
+      const momentumScore = Math.max(0, Math.min(1,
         0.5 + (shortTermMomentum * 2) + (longTermMomentum * 1)
       ));
 
+      console.log(`💹 ${symbol} 모멘텀: ${(momentumScore * 100).toFixed(1)}% (5일: ${(shortTermMomentum * 100).toFixed(1)}%, 20일: ${(longTermMomentum * 100).toFixed(1)}%)`);
       return momentumScore;
 
     } catch (error) {
-      console.warn(`모멘텀 계산 실패 (${symbol}):`, error);
+      console.warn(`❌ ${symbol} 모멘텀 계산 실패:`, error);
       return 0.5;
     }
   }
 
   /**
-   * 뉴스 감성 점수 계산
+   * 뉴스 감성 점수 계산 (실시간 뉴스 조회)
    */
   private async calculateNewsSentiment(
-    symbol: string, 
+    symbol: string,
     sectorConfig: SectorConfig
   ): Promise<number> {
     try {
-      // 최근 뉴스 조회 (종목별 + 섹터별)
-      const news = await db.find<any>('news', (newsItem: any) => {
-        const isRecentNews = new Date(newsItem.published_at) > 
-          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 최근 7일
+      // ✅ 실시간 뉴스 조회
+      const { fetchNews } = await import('./news');
 
-        return isRecentNews && (
-          newsItem.symbol === symbol || 
-          sectorConfig.keywords.some(keyword => 
-            newsItem.title?.toLowerCase().includes(keyword.toLowerCase()) ||
-            newsItem.summary?.toLowerCase().includes(keyword.toLowerCase())
-          )
-        );
-      });
+      let allNews: any[] = [];
 
-      if (news.length === 0) {
+      // 종목별 실시간 뉴스 조회 (최근 7일)
+      try {
+        const symbolNews = await fetchNews({
+          symbols: [symbol],
+          limit: 15, // 충분한 뉴스 수집
+          fromDate: this.getDateDaysAgo(7)
+        });
+        allNews = allNews.concat(symbolNews);
+        console.log(`   📰 ${symbol}: ${symbolNews.length}건 수집`);
+      } catch (error) {
+        console.warn(`⚠️ ${symbol} 종목 뉴스 조회 실패:`, error);
+      }
+
+      // 중복 제거 (URL 기준)
+      const uniqueNews = Array.from(
+        new Map(allNews.map(news => [news.url || news.title, news])).values()
+      );
+
+      if (uniqueNews.length === 0) {
+        console.log(`ℹ️ ${symbol} 뉴스 없음 - 중립 점수`);
         return 0; // 뉴스가 없으면 중립
       }
 
       // 가중 평균 감성 점수 (최근 뉴스에 더 높은 가중치)
       let totalSentiment = 0;
       let totalWeight = 0;
+      let positiveCount = 0;
+      let negativeCount = 0;
 
-      for (const newsItem of news) {
+      for (const newsItem of uniqueNews) {
+        const publishedDate = new Date(newsItem.published_at || newsItem.publishedAt);
         const daysAgo = Math.floor(
-          (Date.now() - new Date(newsItem.published_at).getTime()) / 
-          (1000 * 60 * 60 * 24)
+          (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60 * 24)
         );
-        
+
         // 최근 뉴스일수록 높은 가중치
         const weight = Math.max(0.1, 1 / (1 + daysAgo * 0.2));
-        
-        totalSentiment += (newsItem.sentiment || 0) * weight;
+
+        const sentiment = newsItem.sentiment || 0;
+        totalSentiment += sentiment * weight;
         totalWeight += weight;
+
+        if (sentiment > 0.1) positiveCount++;
+        if (sentiment < -0.1) negativeCount++;
       }
 
-      return totalWeight > 0 ? totalSentiment / totalWeight : 0;
+      const avgSentiment = totalWeight > 0 ? totalSentiment / totalWeight : 0;
+
+      console.log(`📰 ${symbol} 뉴스: ${uniqueNews.length}건 (긍정 ${positiveCount}, 부정 ${negativeCount}, 감성 ${avgSentiment.toFixed(2)})`);
+      return avgSentiment;
 
     } catch (error) {
-      console.warn(`뉴스 감성 계산 실패 (${symbol}):`, error);
+      console.warn(`❌ ${symbol} 뉴스 감성 계산 실패:`, error);
       return 0;
     }
   }
 
   /**
-   * 기술적 분석 점수 계산
+   * N일 전 날짜 반환 (YYYY-MM-DD)
+   */
+  private getDateDaysAgo(days: number): string {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * 기술적 분석 점수 계산 (실시간 기술지표)
    */
   private async calculateTechnicalScore(symbol: string): Promise<number> {
     try {
-      // 최신 기술지표 조회
-      const indicators = await db.find<any>('indicators_daily', 
-        (indicator: any) => indicator.symbol === symbol
-      );
+      // ✅ 실시간 가격 데이터로 기술지표 계산
+      const { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } = await import('./market');
+      const { getHistoricalPrices, isRealtimePriceEnabled } = await import('./realtime-market');
 
-      if (indicators.length === 0) {
-        return 0.5; // 지표 데이터 없으면 중립
+      let prices: any[] = [];
+
+      // 1차: Yahoo Finance 조회
+      try {
+        const pricesData = await fetchDailyPrices([symbol]);
+        prices = pricesData[symbol] || [];
+      } catch (error) {
+        console.warn(`⚠️ ${symbol} Yahoo Finance 조회 실패`);
       }
 
-      // 최신 지표 데이터
-      const latestIndicator = indicators
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      // 2차: Alpaca fallback (데이터 부족 시)
+      if (prices.length < 50 && isRealtimePriceEnabled()) {
+        try {
+          console.log(`🔄 ${symbol} Alpaca 기술지표 데이터 보완 중...`);
+          prices = await getHistoricalPrices(symbol, 100);
+        } catch (error) {
+          console.warn(`⚠️ ${symbol} Alpaca 조회 실패`);
+        }
+      }
+
+      if (prices.length < 15) {
+        console.warn(`⚠️ ${symbol} 기술지표 데이터 부족 (${prices.length}일) - 중립 점수`);
+        return 0.5; // 데이터 부족시 중립
+      }
+
+      const closePrices = prices.map(p => p.close);
+      let ema20: number | undefined;
+      let ema50: number | undefined;
+      let rsi14: number | undefined;
+      let currentPrice = closePrices[closePrices.length - 1];
+
+      // 기술지표 계산
+      if (prices.length >= 50) {
+        const indicators = computeIndicators(closePrices);
+        ema20 = indicators.ema20;
+        ema50 = indicators.ema50;
+        rsi14 = indicators.rsi14;
+      } else if (prices.length >= 15) {
+        const indicators = computeIndicatorsPartial(closePrices);
+        ema20 = indicators?.ema20;
+        ema50 = indicators?.ema50;
+        rsi14 = indicators?.rsi14;
+      }
 
       let score = 0.5; // 기본 중립 점수
 
       // EMA 교차 신호
-      if (latestIndicator.ema_20 && latestIndicator.ema_50) {
-        if (latestIndicator.ema_20 > latestIndicator.ema_50) {
+      if (ema20 && ema50) {
+        const emaDiff = (ema20 - ema50) / ema50;
+        if (ema20 > ema50) {
           score += 0.2; // 상승 추세
         } else {
           score -= 0.2; // 하락 추세
         }
-      }
 
-      // RSI 신호
-      if (latestIndicator.rsi_14) {
-        const rsi = latestIndicator.rsi_14;
-        if (rsi < 35) {
-          score += 0.2; // 과매도
-        } else if (rsi > 70) {
-          score -= 0.3; // 과매수
+        // 현재가와 EMA 관계
+        if (currentPrice > ema20 && currentPrice > ema50) {
+          score += 0.1; // 강한 상승
+        } else if (currentPrice < ema20 && currentPrice < ema50) {
+          score -= 0.1; // 강한 하락
         }
       }
 
-      return Math.max(0, Math.min(1, score));
+      // RSI 신호
+      if (rsi14) {
+        if (rsi14 < 30) {
+          score += 0.3; // 강한 과매도 (반등 기회)
+        } else if (rsi14 < 35) {
+          score += 0.2; // 과매도
+        } else if (rsi14 > 70) {
+          score -= 0.3; // 과매수 (조정 가능)
+        } else if (rsi14 > 65) {
+          score -= 0.1; // 약한 과매수
+        }
+      }
+
+      const finalScore = Math.max(0, Math.min(1, score));
+
+      console.log(`📊 ${symbol} 기술: EMA20=${ema20?.toFixed(2)}, EMA50=${ema50?.toFixed(2)}, RSI=${rsi14?.toFixed(1)}, 점수=${(finalScore * 100).toFixed(1)}%`);
+      return finalScore;
 
     } catch (error) {
-      console.warn(`기술적 분석 실패 (${symbol}):`, error);
+      console.warn(`❌ ${symbol} 기술적 분석 실패:`, error);
       return 0.5;
     }
   }
