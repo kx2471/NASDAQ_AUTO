@@ -211,7 +211,7 @@
     "symbol": "CSIQ",
     "name": "Canadian Solar Inc",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -227,7 +227,7 @@
     "symbol": "FMSTW",
     "name": "Foremost Clean Energy Ltd - Warrants (22/08/2028)",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -235,7 +235,7 @@
     "symbol": "FSLR",
     "name": "First Solar Inc",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -259,7 +259,7 @@
     "symbol": "SMXT",
     "name": "SolarMax Technology Inc",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -267,7 +267,7 @@
     "symbol": "SOCA",
     "name": "Solarius Capital Acquisition Corp - Class A",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -275,7 +275,7 @@
     "symbol": "SOCAW",
     "name": "Solarius Capital Acquisition Corp - Warrants(10/07/2030)",
     "exchange": "NASDAQ",
-    "sector": "nuclear",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -627,7 +627,7 @@
     "symbol": "AMD",
     "name": "AMD Corp",
     "exchange": "NASDAQ",
-    "sector": "ai",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   },
@@ -748,6 +748,30 @@
     "name": "FIRST TRUST CLOUD COMPUTING ETF",
     "exchange": "NASDAQ",
     "sector": "computing",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "CETY",
+    "name": "Clean Energy Technologies Inc",
+    "exchange": "NASDAQ",
+    "sector": "CLEAN_ENERGY",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "ICLN",
+    "name": "ISHARES GLOBAL CLEAN ENERGY ETF",
+    "exchange": "NASDAQ",
+    "sector": "CLEAN_ENERGY",
+    "industry": "Unknown",
+    "active": true
+  },
+  {
+    "symbol": "MNTK",
+    "name": "Montauk Renewables Inc",
+    "exchange": "NASDAQ",
+    "sector": "CLEAN_ENERGY",
     "industry": "Unknown",
     "active": true
   }
