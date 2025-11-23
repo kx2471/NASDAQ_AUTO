@@ -988,5 +988,15 @@
     "price": 38.32,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 103,
+    "traded_at": "2025-11-23T02:02:28.231Z",
+    "symbol": "AIQ",
+    "side": "BUY",
+    "qty": 9,
+    "price": 47.18,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
