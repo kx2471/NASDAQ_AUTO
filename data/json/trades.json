@@ -998,5 +998,15 @@
     "price": 47.18,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 104,
+    "traded_at": "2025-11-23T02:02:44.060Z",
+    "symbol": "BAER",
+    "side": "BUY",
+    "qty": 98,
+    "price": 1.76,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
