@@ -1,5 +1,6 @@
 import { generateReport } from './llm';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { getHoldings, getCashBalance } from '../storage/database';
 import { getCachedExchangeRate } from './exchange';
 import { calculateCurrentPerformance, analyzeTargetProgress } from './performance';
@@ -372,23 +373,33 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     // Manager Agent 모델 설정 (환경변수 우선)
     const managerModel = process.env.MANAGER_MODEL || process.env.GROK_MODEL || 'grok-4-1-fast-reasoning';
     const isGrokModel = managerModel.includes('grok');
+    const isClaudeModel = managerModel.includes('claude');
 
-    // API 키 및 클라이언트 설정
-    const apiKey = isGrokModel ? process.env.GROK_API_KEY : process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error(`${isGrokModel ? 'GROK_API_KEY' : 'OPENAI_API_KEY'} 환경변수가 설정되지 않았습니다`);
+    // API 키 및 클라이언트 타입 결정
+    let apiKey: string;
+    let clientType: 'anthropic' | 'openai';
+
+    if (isClaudeModel) {
+      apiKey = process.env.CLAUDE_API_KEY || '';
+      clientType = 'anthropic';
+      if (!apiKey) {
+        throw new Error('CLAUDE_API_KEY 환경변수가 설정되지 않았습니다');
+      }
+    } else if (isGrokModel) {
+      apiKey = process.env.GROK_API_KEY || '';
+      clientType = 'openai';
+      if (!apiKey) {
+        throw new Error('GROK_API_KEY 환경변수가 설정되지 않았습니다');
+      }
+    } else {
+      apiKey = process.env.OPENAI_API_KEY || '';
+      clientType = 'openai';
+      if (!apiKey) {
+        throw new Error('OPENAI_API_KEY 환경변수가 설정되지 않았습니다');
+      }
     }
 
-    // Grok 사용 시 baseURL 변경
-    const clientConfig: any = { apiKey };
-    if (isGrokModel) {
-      clientConfig.baseURL = 'https://api.x.ai/v1';
-    }
-
-    const client = new OpenAI(clientConfig);
-    const model = managerModel;
-
-    console.log(`🤖 Manager Agent - ${model}을 사용하여 리포트 생성 시작`);
+    console.log(`🤖 Manager Agent - ${managerModel}을 사용하여 리포트 생성 시작 (API: ${clientType})`);
 
     // 현재가 정보 추출
     const extractCurrentPrices = () => {
@@ -558,40 +569,83 @@ ${previousReportsSummary}
 4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
 `;
 
-    const messages = [
-      {
-        role: 'system' as const,
-        content: processedPrompt
-      },
-      {
-        role: 'user' as const,
-        content: managerContext
+    // API별 클라이언트 및 호출 방식 분기
+    let content: string;
+
+    if (clientType === 'anthropic') {
+      // Anthropic API 사용 (Claude 모델)
+      const anthropicClient = new Anthropic({ apiKey });
+
+      console.log('📡 Anthropic API 호출 중...');
+      const anthropicResponse = await anthropicClient.messages.create({
+        model: managerModel,
+        max_tokens: 15000,
+        system: processedPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: managerContext
+          }
+        ]
+      });
+
+      console.log('📊 Anthropic 응답 구조 디버깅:', {
+        content_length: anthropicResponse.content?.length || 0,
+        stop_reason: anthropicResponse.stop_reason
+      });
+
+      const textContent = anthropicResponse.content.find(c => c.type === 'text');
+      if (!textContent || textContent.type !== 'text') {
+        throw new Error('Anthropic API로부터 빈 응답을 받았습니다');
       }
-    ];
+      content = textContent.text;
 
-    const response = await client.chat.completions.create({
-      model,
-      messages,
-      max_completion_tokens: 15000
-    });
+    } else {
+      // OpenAI API 사용 (GPT, Grok 모델)
+      const clientConfig: any = { apiKey };
+      if (isGrokModel) {
+        clientConfig.baseURL = 'https://api.x.ai/v1';
+      }
 
-    // 응답 구조 디버깅
-    console.log('📊 OpenAI 응답 구조 디버깅:', {
-      choices_length: response.choices?.length || 0,
-      first_choice: response.choices?.[0] ? {
-        message_exists: !!response.choices[0].message,
-        content_length: response.choices[0].message?.content?.length || 0,
-        finish_reason: response.choices[0].finish_reason
-      } : null
-    });
+      const openaiClient = new OpenAI(clientConfig);
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('OpenAI API로부터 빈 응답을 받았습니다');
+      const messages = [
+        {
+          role: 'system' as const,
+          content: processedPrompt
+        },
+        {
+          role: 'user' as const,
+          content: managerContext
+        }
+      ];
+
+      console.log('📡 OpenAI/Grok API 호출 중...');
+      const openaiResponse = await openaiClient.chat.completions.create({
+        model: managerModel,
+        messages,
+        max_completion_tokens: 15000
+      });
+
+      console.log('📊 OpenAI 응답 구조 디버깅:', {
+        choices_length: openaiResponse.choices?.length || 0,
+        first_choice: openaiResponse.choices?.[0] ? {
+          message_exists: !!openaiResponse.choices[0].message,
+          content_length: openaiResponse.choices[0].message?.content?.length || 0,
+          finish_reason: openaiResponse.choices[0].finish_reason
+        } : null
+      });
+
+      const responseContent = openaiResponse.choices[0]?.message?.content;
+      if (!responseContent) {
+        throw new Error('OpenAI API로부터 빈 응답을 받았습니다');
+      }
+      content = responseContent;
     }
 
     // 리포트 메타데이터 헤더 생성
     const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const modelProvider = clientType === 'anthropic' ? 'Anthropic Claude' : (isGrokModel ? 'xAI Grok' : 'OpenAI GPT');
     const reportHeader = `# 🏢 Manager_Agent 최종 통합 리포트
 
 ---
@@ -599,7 +653,7 @@ ${previousReportsSummary}
 ## 📋 리포트 메타데이터
 
 **생성 일시**: ${currentDate}
-**사용 모델**: ${model} (xAI Grok)
+**사용 모델**: ${managerModel} (${modelProvider})
 
 ### 참조한 Agent 보고서
 
