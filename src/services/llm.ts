@@ -112,14 +112,29 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     });
 
     const report = response.choices?.[0]?.message?.content;
-    
+
     if (!report || report.trim().length === 0) {
       console.error('❌ OpenAI 응답이 비어있음:', JSON.stringify(response, null, 2));
       throw new Error('LLM 응답이 비어있습니다');
     }
 
+    // 리포트 메타데이터 헤더 생성
+    const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const reportHeader = `# 🤖 Agent_GPT 주간 리포트
+
+---
+
+## 📋 리포트 메타데이터
+
+**생성 일시**: ${currentDate}
+**사용 모델**: ${model} (OpenAI GPT)
+
+---
+
+`;
+
     console.log('✅ LLM 보고서 생성 완료');
-    return report;
+    return reportHeader + report;
 
   } catch (error) {
     console.error('❌ LLM 보고서 생성 실패:', error);

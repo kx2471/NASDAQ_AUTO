@@ -35,8 +35,23 @@ export async function generateReportWithGemini(reportPayload: any): Promise<stri
       throw new Error('API에서 응답을 받지 못했습니다');
     }
 
+    // 리포트 메타데이터 헤더 생성
+    const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+    const reportHeader = `# 🤖 Agent_Gemini 주간 리포트
+
+---
+
+## 📋 리포트 메타데이터
+
+**생성 일시**: ${currentDate}
+**사용 모델**: ${envModel} (Google Gemini)
+
+---
+
+`;
+
     console.log(`✅ ${modelAttempt.displayName} 보고서 생성 성공!`);
-    return text;
+    return reportHeader + text;
 
   } catch (error: any) {
     console.error(`❌ ${modelAttempt.displayName} 보고서 생성 실패:`, error.message);
