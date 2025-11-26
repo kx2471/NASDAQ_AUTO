@@ -188,7 +188,12 @@ export async function getLatestPrices(symbols: string[]): Promise<Record<string,
 
         console.log(`💰 ${symbol}: $${latestTrade.Price} (${getSessionType(timestamp)})`);
       } catch (error: any) {
-        console.warn(`⚠️ ${symbol} Alpaca 조회 실패, Yahoo Finance 시도:`, error.message);
+        // 에러 상세 정보 로깅
+        console.warn(`⚠️ ${symbol} Alpaca 조회 실패, Yahoo Finance 시도:`);
+        console.warn(`   에러 타입: ${error.constructor?.name || 'Unknown'}`);
+        console.warn(`   에러 메시지: ${error.message || 'No message'}`);
+        console.warn(`   에러 코드: ${error.code || 'No code'}`);
+        console.warn(`   전체 에러:`, JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
 
         // Yahoo Finance fallback (개별 종목)
         try {
