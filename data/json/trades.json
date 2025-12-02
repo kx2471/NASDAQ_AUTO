@@ -1068,5 +1068,15 @@
     "price": 2.94,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 111,
+    "traded_at": "2025-12-02T13:09:12.440Z",
+    "symbol": "AAL",
+    "side": "SELL",
+    "qty": 30,
+    "price": 14.03,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
