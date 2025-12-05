@@ -3,26 +3,40 @@ const cashEvents = require('../data/json/cash_events.json');
 
 console.log('=== 포트폴리오 가치 계산 ===');
 
-// 현재 보유량 계산
+/**
+ * 평단가 계산 방식: totalCost / buyShares (전체 매수량 기준)
+ * - buyShares: 총 매수한 주식 수 (매도 시 변경 안함)
+ * - totalCost: 총 매수 비용 (매도 시 변경 안함)
+ * - qty: 현재 보유량 (BUY +, SELL -)
+ */
 const holdings = {};
 trades.forEach(trade => {
   if (!holdings[trade.symbol]) {
-    holdings[trade.symbol] = { qty: 0, totalCost: 0 };
+    holdings[trade.symbol] = { qty: 0, buyShares: 0, totalCost: 0 };
   }
-  
+
   if (trade.side === 'BUY') {
     holdings[trade.symbol].qty += trade.qty;
+    holdings[trade.symbol].buyShares += trade.qty;
     holdings[trade.symbol].totalCost += trade.qty * trade.price;
   } else if (trade.side === 'SELL') {
     holdings[trade.symbol].qty -= trade.qty;
+    // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+    if (Math.abs(holdings[trade.symbol].qty) < 0.0001) {
+      holdings[trade.symbol].totalCost = 0;
+      holdings[trade.symbol].buyShares = 0;
+      holdings[trade.symbol].qty = 0;
+    }
   }
 });
 
 console.log('\n📊 현재 보유 종목:');
 let totalHoldingValue = 0;
 Object.entries(holdings).forEach(([symbol, data]) => {
-  if (data.qty > 0) {
-    const avgPrice = data.totalCost / data.qty;
+  // 부동소수점 오차를 고려하여 0.0001주 이상인 경우만 표시
+  if (data.qty >= 0.0001) {
+    // 평단가 = totalCost / buyShares (전체 매수량 기준)
+    const avgPrice = data.buyShares > 0 ? data.totalCost / data.buyShares : 0;
     const currentValue = data.qty * avgPrice; // 매수가격 기준
     totalHoldingValue += currentValue;
     console.log(`${symbol}: ${data.qty.toFixed(6)}주 @ $${avgPrice.toFixed(2)} = $${currentValue.toFixed(2)}`);
