@@ -286,16 +286,21 @@ export async function getHoldings(): Promise<Holding[]> {
 
   for (const trade of trades) {
     const existing = holdingsMap.get(trade.symbol) || { totalShares: 0, totalCost: 0, buyShares: 0 };
-    
+
     if (trade.side === 'BUY') {
       existing.totalShares += trade.qty;
       existing.totalCost += trade.qty * trade.price + trade.fee;
       existing.buyShares += trade.qty;
     } else {
       existing.totalShares -= trade.qty;
-      // 매도시에는 평균 단가 조정하지 않음
+      // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+      if (Math.abs(existing.totalShares) < 0.0001) {
+        existing.totalCost = 0;
+        existing.buyShares = 0;
+        existing.totalShares = 0;
+      }
     }
-    
+
     holdingsMap.set(trade.symbol, existing);
   }
 

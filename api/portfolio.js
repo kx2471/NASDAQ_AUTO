@@ -36,6 +36,11 @@ async function readFileFromGitHub(octokit, filePath) {
 
 /**
  * 거래 내역으로부터 보유 주식 계산
+ *
+ * 평단가 계산 방식: totalCost / buyShares (전체 매수량 기준)
+ * - buyShares: 총 매수한 주식 수 (매도 시 변경 안함)
+ * - totalCost: 총 매수 비용 (매도 시 변경 안함)
+ * - qty: 현재 보유량 (BUY +, SELL -)
  */
 function calculateHoldings(trades) {
   const holdings = {};
@@ -43,25 +48,28 @@ function calculateHoldings(trades) {
   trades.forEach(trade => {
     const symbol = trade.symbol;
     const qty = parseFloat(trade.qty);
+    const price = parseFloat(trade.price);
 
     if (!holdings[symbol]) {
       holdings[symbol] = {
         symbol: symbol,
-        qty: 0,
+        qty: 0,           // 현재 보유량
+        buyShares: 0,     // 총 매수량 (평단가 계산용)
+        totalCost: 0,     // 총 매수 비용
         avgPrice: 0,
-        totalCost: 0,
         trades: []
       };
     }
 
     if (trade.side === 'BUY') {
-      holdings[symbol].totalCost += qty * parseFloat(trade.price);
       holdings[symbol].qty += qty;
+      holdings[symbol].buyShares += qty;
+      holdings[symbol].totalCost += qty * price;
       holdings[symbol].trades.push({
         date: trade.traded_at,
         side: 'BUY',
         qty: qty,
-        price: parseFloat(trade.price)
+        price: price
       });
     } else if (trade.side === 'SELL') {
       holdings[symbol].qty -= qty;
@@ -69,22 +77,20 @@ function calculateHoldings(trades) {
         date: trade.traded_at,
         side: 'SELL',
         qty: qty,
-        price: parseFloat(trade.price)
+        price: price
       });
 
-      // 완전히 매도한 경우 totalCost 비례 감소
-      if (holdings[symbol].qty === 0) {
+      // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+      if (Math.abs(holdings[symbol].qty) < 0.0001) {
         holdings[symbol].totalCost = 0;
-      } else if (holdings[symbol].qty > 0) {
-        // 일부 매도: 평균 단가는 유지
-        const avgPrice = holdings[symbol].totalCost / (holdings[symbol].qty + qty);
-        holdings[symbol].totalCost = avgPrice * holdings[symbol].qty;
+        holdings[symbol].buyShares = 0;
+        holdings[symbol].qty = 0;
       }
     }
 
-    // 평균 단가 계산
-    if (holdings[symbol].qty > 0) {
-      holdings[symbol].avgPrice = holdings[symbol].totalCost / holdings[symbol].qty;
+    // 평균 단가 계산: totalCost / buyShares (전체 매수량 기준)
+    if (holdings[symbol].buyShares > 0) {
+      holdings[symbol].avgPrice = holdings[symbol].totalCost / holdings[symbol].buyShares;
     } else {
       holdings[symbol].avgPrice = 0;
     }
