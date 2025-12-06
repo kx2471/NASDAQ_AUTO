@@ -1128,5 +1128,15 @@
     "price": 51.52,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 117,
+    "traded_at": "2025-12-06T07:34:47.923Z",
+    "symbol": "FTAI",
+    "side": "BUY",
+    "qty": 2,
+    "price": 177.09,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
