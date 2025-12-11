@@ -1158,5 +1158,15 @@
     "price": 42.12,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 120,
+    "traded_at": "2025-12-11T08:50:07.879Z",
+    "symbol": "BEEN",
+    "side": "SELL",
+    "qty": 242,
+    "price": 3.46,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
