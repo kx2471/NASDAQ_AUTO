@@ -21,11 +21,17 @@ trades.forEach(trade => {
     holdings[trade.symbol].totalCost += trade.qty * trade.price;
   } else if (trade.side === 'SELL') {
     holdings[trade.symbol].qty -= trade.qty;
-    // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+    // 이동평균법: 매도 시 totalCost와 buyShares 비례 감소
     if (Math.abs(holdings[trade.symbol].qty) < 0.0001) {
+      // 전량 매도: 리셋
       holdings[trade.symbol].totalCost = 0;
       holdings[trade.symbol].buyShares = 0;
       holdings[trade.symbol].qty = 0;
+    } else if (holdings[trade.symbol].buyShares > 0) {
+      // 부분 매도: 평단가 기준으로 비례 감소
+      const avgCost = holdings[trade.symbol].totalCost / holdings[trade.symbol].buyShares;
+      holdings[trade.symbol].buyShares -= trade.qty;
+      holdings[trade.symbol].totalCost = holdings[trade.symbol].buyShares * avgCost;
     }
   }
 });

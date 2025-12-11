@@ -80,11 +80,17 @@ function calculateHoldings(trades) {
         price: price
       });
 
-      // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+      // 이동평균법: 매도 시 totalCost와 buyShares 비례 감소
       if (Math.abs(holdings[symbol].qty) < 0.0001) {
+        // 전량 매도: 리셋
         holdings[symbol].totalCost = 0;
         holdings[symbol].buyShares = 0;
         holdings[symbol].qty = 0;
+      } else if (holdings[symbol].buyShares > 0) {
+        // 부분 매도: 평단가 기준으로 비례 감소
+        const avgCost = holdings[symbol].totalCost / holdings[symbol].buyShares;
+        holdings[symbol].buyShares -= qty;
+        holdings[symbol].totalCost = holdings[symbol].buyShares * avgCost;
       }
     }
 

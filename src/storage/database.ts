@@ -293,11 +293,17 @@ export async function getHoldings(): Promise<Holding[]> {
       existing.buyShares += trade.qty;
     } else {
       existing.totalShares -= trade.qty;
-      // 보유량이 0이 되면 평단가 리셋 (이동평균법)
+      // 이동평균법: 매도 시 totalCost와 buyShares 비례 감소
       if (Math.abs(existing.totalShares) < 0.0001) {
+        // 전량 매도: 리셋
         existing.totalCost = 0;
         existing.buyShares = 0;
         existing.totalShares = 0;
+      } else if (existing.buyShares > 0) {
+        // 부분 매도: 평단가 기준으로 비례 감소
+        const avgCost = existing.totalCost / existing.buyShares;
+        existing.buyShares -= trade.qty;
+        existing.totalCost = existing.buyShares * avgCost;
       }
     }
 
