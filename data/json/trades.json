@@ -1168,5 +1168,15 @@
     "price": 3.46,
     "fee": 0,
     "note": "SELL 거래"
+  },
+  {
+    "id": 121,
+    "traded_at": "2025-12-11T08:50:54.799Z",
+    "symbol": "ABL",
+    "side": "SELL",
+    "qty": 80,
+    "price": 7.69,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
