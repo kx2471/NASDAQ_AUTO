@@ -1208,5 +1208,15 @@
     "price": 46.38,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 126,
+    "traded_at": "2025-12-12T14:04:09.100Z",
+    "symbol": "BWEN",
+    "side": "SELL",
+    "qty": 28,
+    "price": 3.48,
+    "fee": 0,
+    "note": "SELL 거래"
   }
 ]
