@@ -1198,5 +1198,15 @@
     "price": 164.58,
     "fee": 0,
     "note": "BUY 거래"
+  },
+  {
+    "id": 125,
+    "traded_at": "2025-12-12T14:03:59.690Z",
+    "symbol": "AMKR",
+    "side": "BUY",
+    "qty": 13,
+    "price": 46.38,
+    "fee": 0,
+    "note": "BUY 거래"
   }
 ]
