@@ -259,5 +259,18 @@
     "daily_return_krw": 0,
     "daily_return_percent": 0,
     "target_progress": 28.56
+  },
+  {
+    "date": "2025-12-26",
+    "total_investment_krw": 3025984,
+    "current_value_krw": 2844058,
+    "total_return_krw": -181926,
+    "total_return_percent": -6.01,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": 644058,
+    "total_return_from_initial_percent": 29.28,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 28.44
   }
 ]
