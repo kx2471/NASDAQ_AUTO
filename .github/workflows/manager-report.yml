@@ -1,11 +1,11 @@
 name: Manager Agent Report
 
 on:
-  schedule:
-    # 매주 금요일(미국시간) 장 마감 후 Manager 리포트 생성 - Agent 리포트 30분 후
-    # UTC 금요일 22:30 = 미국 동부 금요일 17:30-18:30 = 한국 토요일 07:30
-    # 금요일 종가를 완벽히 반영한 Manager 통합 리포트
-    - cron: '30 22 * * 5'
+  # schedule:
+  #   # 매주 금요일(미국시간) 장 마감 후 Manager 리포트 생성 - Agent 리포트 30분 후
+  #   # UTC 금요일 22:30 = 미국 동부 금요일 17:30-18:30 = 한국 토요일 07:30
+  #   # 금요일 종가를 완벽히 반영한 Manager 통합 리포트
+  #   - cron: '30 22 * * 5'
   workflow_dispatch: # 수동 실행 가능
     inputs:
       delay_minutes:
