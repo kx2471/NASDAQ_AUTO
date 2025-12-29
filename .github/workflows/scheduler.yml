@@ -1,8 +1,8 @@
 name: Daily Stock Report Scheduler
 
 on:
-  schedule:
-    - cron: '0 7 * * 1'  # 매주 월요일 UTC 07:00 (KST 16:00)
+  # schedule:
+  #   - cron: '0 7 * * 1'  # 매주 월요일 UTC 07:00 (KST 16:00)
   workflow_dispatch:  # 수동 실행 허용
 
 
