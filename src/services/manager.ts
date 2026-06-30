@@ -23,7 +23,6 @@ function getKoreanDateString(): string {
 
 export interface ManagerReportInput {
   agentGptReport: string;
-  agentGeminiReport: string;
   agentClaudeReport: string;
   portfolioData: any;
   performanceData: any;
@@ -78,9 +77,7 @@ export async function generateManagerReport(): Promise<string> {
  */
 async function loadAgentReports(): Promise<{
   gpt: string;
-  gemini: string;
   claude: string;
-  grok: string;
   previousManagerReports: string[];
 }> {
   const agentReportsDir = path.join(process.cwd(), 'data', 'report');
@@ -165,11 +162,9 @@ async function loadAgentReports(): Promise<{
   };
 
   try {
-    const [gptReport, geminiReport, claudeReport, grokReport, previousManagerReports] = await Promise.all([
+    const [gptReport, claudeReport, previousManagerReports] = await Promise.all([
       findLatestReport('gpt', true),      // 필수 Agent
-      findLatestReport('gemini', true),   // 필수 Agent
       findLatestReport('claude', true),   // 필수 Agent
-      findLatestReport('grok', false),    // 선택적 Agent (Grok이 추가된 직후에는 없을 수 있음)
       loadPreviousManagerReports()
     ]);
 
@@ -178,15 +173,13 @@ async function loadAgentReports(): Promise<{
 
     return {
       gpt: gptReport,
-      gemini: geminiReport,
       claude: claudeReport,
-      grok: grokReport,
       previousManagerReports
     };
 
   } catch (error) {
     console.error('❌ 보고서 로드 실패:', error);
-    throw new Error('필수 Agent 보고서들(GPT, Gemini, Claude)을 찾을 수 없습니다. 15:00 Agent 리포트가 먼저 생성되어야 합니다.');
+    throw new Error('필수 Agent 보고서들(GPT, Claude)을 찾을 수 없습니다. 15:00 Agent 리포트가 먼저 생성되어야 합니다.');
   }
 }
 
@@ -310,7 +303,7 @@ async function loadManagerPrompt(): Promise<string> {
     console.error('❌ Manager_Agent 프롬프트 로드 실패:', error);
     
     // 기본 프롬프트 사용
-    return `당신은 Manager_Agent입니다. 3명의 투자 분석가(Agent_GPT, Agent_Gemini, Agent_Claude)의 보고서를 종합하여 최종 투자 의사결정을 내리는 포트폴리오 매니저입니다.
+    return `당신은 Manager_Agent입니다. 2명의 투자 분석가(Agent_GPT, Agent_Claude)의 보고서를 종합하여 최종 투자 의사결정을 내리는 포트폴리오 매니저입니다.
 
 목표: 1년 내 1000만원 달성
 
@@ -329,7 +322,7 @@ async function loadManagerPrompt(): Promise<string> {
  * Manager_Agent용 페이로드 준비
  */
 async function prepareManagerPayload(params: {
-  agentReports: { gpt: string; gemini: string; claude: string; grok: string; previousManagerReports: string[] };
+  agentReports: { gpt: string; claude: string; previousManagerReports: string[] };
   portfolioData: any;
   performanceData: any;
   managerPrompt: string;
@@ -341,9 +334,7 @@ async function prepareManagerPayload(params: {
     manager_prompt: managerPrompt,
     agent_reports: {
       agent_gpt: agentReports.gpt,
-      agent_gemini: agentReports.gemini,
-      agent_claude: agentReports.claude,
-      agent_grok: agentReports.grok
+      agent_claude: agentReports.claude
     },
     previous_manager_reports: agentReports.previousManagerReports,
     portfolio: portfolioData,
@@ -370,9 +361,8 @@ async function prepareManagerPayload(params: {
  */
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
-    // Manager Agent 모델 설정 (환경변수 우선)
-    const managerModel = process.env.MANAGER_MODEL || process.env.GROK_MODEL || 'grok-4-1-fast-reasoning';
-    const isGrokModel = managerModel.includes('grok');
+    // Manager Agent 모델 설정 (환경변수 우선, 기본 Claude Opus 4.8)
+    const managerModel = process.env.MANAGER_MODEL || 'claude-opus-4-8';
     const isClaudeModel = managerModel.includes('claude');
 
     // API 키 및 클라이언트 타입 결정
@@ -384,12 +374,6 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       clientType = 'anthropic';
       if (!apiKey) {
         throw new Error('CLAUDE_API_KEY 환경변수가 설정되지 않았습니다');
-      }
-    } else if (isGrokModel) {
-      apiKey = process.env.GROK_API_KEY || '';
-      clientType = 'openai';
-      if (!apiKey) {
-        throw new Error('GROK_API_KEY 환경변수가 설정되지 않았습니다');
       }
     } else {
       apiKey = process.env.OPENAI_API_KEY || '';
@@ -484,15 +468,13 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     };
 
     const gptData = extractAgentData(payload.agent_reports?.agent_gpt || '', 'GPT');
-    const geminiData = extractAgentData(payload.agent_reports?.agent_gemini || '', 'Gemini');
     const claudeData = extractAgentData(payload.agent_reports?.agent_claude || '', 'Claude');
-    const grokData = extractAgentData(payload.agent_reports?.agent_grok || '', 'Grok');
 
     // 추출 결과 상세 디버깅
     console.log('🔍 Claude 전략 첫 200자:', claudeData.strategy.substring(0, 200));
     console.log('🔍 Claude 추천 첫 200자:', claudeData.recommendations.substring(0, 200));
-    console.log('🔍 Gemini 전략 첫 200자:', geminiData.strategy.substring(0, 200));
-    console.log('🔍 Gemini 추천 첫 200자:', geminiData.recommendations.substring(0, 200));
+    console.log('🔍 GPT 전략 첫 200자:', gptData.strategy.substring(0, 200));
+    console.log('🔍 GPT 추천 첫 200자:', gptData.recommendations.substring(0, 200));
     const currentPrices = extractCurrentPrices();
     const availableCash = payload.portfolio.cash_usd || 0;
 
@@ -523,12 +505,8 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     const processedPrompt = prompt
       .replace(/{gpt_strategy}/g, gptData.strategy)
       .replace(/{claude_strategy}/g, claudeData.strategy)
-      .replace(/{gemini_strategy}/g, geminiData.strategy)
-      .replace(/{grok_strategy}/g, grokData.strategy)
       .replace(/{gpt_recommendations}/g, gptData.recommendations)
       .replace(/{claude_recommendations}/g, claudeData.recommendations)
-      .replace(/{gemini_recommendations}/g, geminiData.recommendations)
-      .replace(/{grok_recommendations}/g, grokData.recommendations)
       .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
       .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
       .replace(/{exchange_rate}/g, exchangeRateValue);
@@ -555,15 +533,13 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
 **각 Agent 핵심 매매 제안 요약**:
 - Agent_GPT: ${gptData.advice}
-- Agent_Gemini: ${geminiData.advice}
 - Agent_Claude: ${claudeData.advice}
-- Agent_Grok: ${grokData.advice}
 
 **과거 Manager 투자 결정 이력** (최근 3개):
 ${previousReportsSummary}
 
 **Manager 핵심 임무**:
-1. 위 4개 Agent(GPT, Gemini, Claude, Grok)의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
+1. 위 2개 Agent(GPT, Claude)의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
 2. 과거 Manager 보고서들의 투자 결정과 그 결과를 참고하여 일관성 있는 전략을 수립하세요.
 3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
 4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
@@ -601,13 +577,8 @@ ${previousReportsSummary}
       content = textContent.text;
 
     } else {
-      // OpenAI API 사용 (GPT, Grok 모델)
-      const clientConfig: any = { apiKey };
-      if (isGrokModel) {
-        clientConfig.baseURL = 'https://api.x.ai/v1';
-      }
-
-      const openaiClient = new OpenAI(clientConfig);
+      // OpenAI API 사용 (GPT 모델)
+      const openaiClient = new OpenAI({ apiKey });
 
       const messages = [
         {
@@ -620,7 +591,7 @@ ${previousReportsSummary}
         }
       ];
 
-      console.log('📡 OpenAI/Grok API 호출 중...');
+      console.log('📡 OpenAI API 호출 중...');
       const openaiResponse = await openaiClient.chat.completions.create({
         model: managerModel,
         messages,
@@ -645,7 +616,7 @@ ${previousReportsSummary}
 
     // 리포트 메타데이터 헤더 생성
     const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    const modelProvider = clientType === 'anthropic' ? 'Anthropic Claude' : (isGrokModel ? 'xAI Grok' : 'OpenAI GPT');
+    const modelProvider = clientType === 'anthropic' ? 'Anthropic Claude' : 'OpenAI GPT';
     const reportHeader = `# 🏢 Manager_Agent 최종 통합 리포트
 
 ---
@@ -658,9 +629,7 @@ ${previousReportsSummary}
 ### 참조한 Agent 보고서
 
 ✅ **Agent_GPT**: ${payload.agent_reports?.agent_gpt ? `${(payload.agent_reports.agent_gpt.length / 1000).toFixed(1)}K 자` : '없음'}
-✅ **Agent_Gemini**: ${payload.agent_reports?.agent_gemini ? `${(payload.agent_reports.agent_gemini.length / 1000).toFixed(1)}K 자` : '없음'}
 ✅ **Agent_Claude**: ${payload.agent_reports?.agent_claude ? `${(payload.agent_reports.agent_claude.length / 1000).toFixed(1)}K 자` : '없음'}
-${payload.agent_reports?.agent_grok ? `✅ **Agent_Grok**: ${(payload.agent_reports.agent_grok.length / 1000).toFixed(1)}K 자` : '⚠️ **Agent_Grok**: 아직 생성되지 않음'}
 
 ### 과거 Manager 보고서
 

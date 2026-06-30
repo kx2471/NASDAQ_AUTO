@@ -4,9 +4,7 @@ import { db, getHoldings, getCashBalance, saveReportRecord } from '../storage/da
 import { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } from '../services/market';
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
-import { generateReportWithGemini } from '../services/gemini';
 import { generateReportWithClaude } from '../services/claude';
-import { generateReportWithGrok } from '../services/grok';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
@@ -25,7 +23,7 @@ dotenv.config();
  * - 매주 금요일(미국시간) 장 마감 후 GitHub Actions로 자동 실행
  *   - 미국 동부시간: 금요일 17:00-18:00 (장 마감 후 1-2시간)
  *   - 한국시간: 토요일 새벽 07:00
- * - 4개 AI Agent (Agent_Claude, Agent_GPT, Agent_Gemini, Agent_Grok)가 각각 독립적으로 리포트 생성
+ * - 2개 AI Agent (Agent_Claude, Agent_GPT)가 각각 독립적으로 리포트 생성
  * - 미국 시장 개장일에만 실행 (금요일이 휴장이면 다음 개장일)
  * - Manager_Agent가 07:30에 통합 리포트 생성
  * - 장점: 금요일 종가 완벽 반영, 주말에 여유있게 검토, 월요일 매매 전략 수립
@@ -71,7 +69,7 @@ export async function runWeekly(): Promise<void> {
 }
 
 /**
- * Agent별 주간 리포트 처리 (Agent_Claude, Agent_GPT, Agent_Gemini)
+ * Agent별 주간 리포트 처리 (Agent_Claude, Agent_GPT)
  */
 export async function processWeeklyAgentReports(sectors: any, screeningResults: any): Promise<void> {
   const startTime = Date.now();
@@ -198,20 +196,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     // Agent_GPT 주간 리포트 생성
     console.log('🤖 Agent_GPT 주간 리포트 생성 중...');
     const agentGptReport = await generateReport(reportPayload);
-    
-    // Agent_Gemini 주간 리포트 생성
-    let agentGeminiReport = '';
-    if (process.env.GEMINI_API_KEY) {
-      console.log('🤖 Agent_Gemini 주간 리포트 생성 중...');
-      try {
-        agentGeminiReport = await generateReportWithGemini(reportPayload);
-        console.log('✅ Agent_Gemini 리포트 생성 완료');
-      } catch (error) {
-        console.error('❌ Agent_Gemini 리포트 생성 실패:', error);
-        agentGeminiReport = '## ⚠️ Agent_Gemini 리포트\n\nGemini API 연결 문제로 리포트를 생성할 수 없습니다.';
-      }
-    }
-    
+
     // Agent_Claude 주간 리포트 생성
     let agentClaudeReport = '';
     if (process.env.CLAUDE_API_KEY) {
@@ -225,42 +210,17 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       }
     }
 
-    // Agent_Grok 주간 리포트 생성
-    let agentGrokReport = '';
-    if (process.env.GROK_API_KEY && process.env.ENABLE_GROK_REPORT === 'true') {
-      console.log('🤖 Agent_Grok 주간 리포트 생성 중...');
-      try {
-        agentGrokReport = await generateReportWithGrok(reportPayload);
-        console.log('✅ Agent_Grok 리포트 생성 완료');
-      } catch (error) {
-        console.error('❌ Agent_Grok 리포트 생성 실패:', error);
-        agentGrokReport = '## ⚠️ Agent_Grok 리포트\n\nGrok API 연결 문제로 리포트를 생성할 수 없습니다.';
-      }
-    }
-
     // 주간 리포트 파일 저장 (Agent별)
     console.log('💾 Agent별 주간 리포트 파일 저장 중...');
     const { mdPath: gptMdPath } = await saveWeeklyReportFiles('agent_gpt', agentGptReport);
-    
-    let geminiMdPath = '';
-    if (agentGeminiReport) {
-      const { mdPath: geminiPath } = await saveWeeklyReportFiles('agent_gemini', agentGeminiReport);
-      geminiMdPath = geminiPath;
-    }
-    
+
     let claudeMdPath = '';
     if (agentClaudeReport) {
       const { mdPath: claudePath } = await saveWeeklyReportFiles('agent_claude', agentClaudeReport);
       claudeMdPath = claudePath;
     }
 
-    let grokMdPath = '';
-    if (agentGrokReport) {
-      const { mdPath: grokPath } = await saveWeeklyReportFiles('agent_grok', agentGrokReport);
-      grokMdPath = grokPath;
-    }
-
-    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT5 → Gemini → Grok
+    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT
     console.log('📧 Agent별 주간 리포트 이메일 발송 중...');
     const currentDate = new Date().toLocaleDateString('ko-KR');
     
@@ -301,44 +261,6 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       console.log('📧 Agent_GPT 이메일 전송 완료');
     } catch (emailError) {
       console.warn('⚠️ Agent_GPT 이메일 전송 실패:', (emailError as Error).message);
-    }
-    
-    // 3. Agent_Gemini 이메일 발송
-    if (agentGeminiReport && geminiMdPath) {
-      try {
-        const geminiEmailHtml = wrapInEmailTemplate(
-          agentGeminiReport.replace(/\n/g, '<br>'),
-          `Agent_Gemini 주간 리포트 (${currentDate})`
-        );
-
-        await sendReportEmail({
-          subject: `🤖 Agent_Gemini 주간 리포트 - ${currentDate}`,
-          html: geminiEmailHtml,
-          mdPath: geminiMdPath
-        });
-        console.log('📧 Agent_Gemini 이메일 전송 완료');
-      } catch (emailError) {
-        console.warn('⚠️ Agent_Gemini 이메일 전송 실패:', (emailError as Error).message);
-      }
-    }
-
-    // 4. Agent_Grok 이메일 발송 (마지막)
-    if (agentGrokReport && grokMdPath) {
-      try {
-        const grokEmailHtml = wrapInEmailTemplate(
-          agentGrokReport.replace(/\n/g, '<br>'),
-          `Agent_Grok 주간 리포트 (${currentDate})`
-        );
-
-        await sendReportEmail({
-          subject: `🤖 Agent_Grok 주간 리포트 - ${currentDate}`,
-          html: grokEmailHtml,
-          mdPath: grokMdPath
-        });
-        console.log('📧 Agent_Grok 이메일 전송 완료');
-      } catch (emailError) {
-        console.warn('⚠️ Agent_Grok 이메일 전송 실패:', (emailError as Error).message);
-      }
     }
 
     console.log('✅ Agent별 주간 리포트 처리 완료 (data/report 폴더에 저장됨)');

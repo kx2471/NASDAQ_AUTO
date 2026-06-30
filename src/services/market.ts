@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { getCandles } from './toss';
 
 /**
  * 시장 데이터 인터페이스
@@ -32,32 +32,19 @@ export interface StockBasicInfo {
 }
 
 /**
- * 일일 가격 데이터 수집
- * 여러 데이터 공급자를 지원 (Alpha Vantage, Finnhub 등)
+ * 일일 가격 데이터 수집 (토스증권 캔들 기반)
+ * @param symbols 종목 심볼 배열
+ * @returns 심볼 → 일봉 가격 데이터 배열
  */
 export async function fetchDailyPrices(symbols: string[]): Promise<Record<string, PriceData[]>> {
   const results: Record<string, PriceData[]> = {};
 
   for (const symbol of symbols) {
     try {
-      // Yahoo Finance API 사용 (무료, 제한 없음)
-      const data = await fetchFromYahooFinance(symbol);
-      results[symbol] = data;
+      results[symbol] = await fetchFromToss(symbol);
     } catch (error) {
       console.error(`❌ ${symbol} 가격 데이터 수집 실패:`, error);
-      // Alpha Vantage 백업으로 시도
-      if (process.env.ALPHAVANTAGE_API_KEY) {
-        try {
-          console.log(`🔄 ${symbol} Alpha Vantage 백업 시도...`);
-          const data = await fetchFromAlphaVantage(symbol);
-          results[symbol] = data;
-        } catch (backupError) {
-          console.error(`❌ ${symbol} 백업 실패:`, backupError);
-          results[symbol] = [];
-        }
-      } else {
-        results[symbol] = [];
-      }
+      results[symbol] = [];
     }
   }
 
@@ -65,114 +52,23 @@ export async function fetchDailyPrices(symbols: string[]): Promise<Record<string
 }
 
 /**
- * Yahoo Finance에서 가격 데이터 수집 (무료, 제한 없음)
+ * 토스증권에서 일봉 가격 데이터 수집
+ * - 토스 캔들(TossCandle)을 시스템 표준 PriceData로 변환
+ * @param symbol 종목 심볼
+ * @returns 날짜 오름차순 일봉 배열 (날짜는 YYYY-MM-DD)
  */
-async function fetchFromYahooFinance(symbol: string): Promise<PriceData[]> {
-  try {
-    // Yahoo Finance v8 API 사용 (공식 API가 아니지만 널리 사용됨)
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-    const params = {
-      range: '100d',
-      interval: '1d'
-    };
+async function fetchFromToss(symbol: string): Promise<PriceData[]> {
+  const candles = await getCandles(symbol, '1d', 100);
 
-    const response = await axios.get(url, { params });
-    const data = response.data;
-
-  if (data.chart?.error) {
-    throw new Error(`Yahoo Finance 오류: ${data.chart.error.description}`);
-  }
-
-  const result = data.chart?.result?.[0];
-  if (!result) {
-    throw new Error('Yahoo Finance에서 데이터를 찾을 수 없습니다');
-  }
-
-  const timestamps = result.timestamp;
-  const quotes = result.indicators?.quote?.[0];
-  
-  if (!timestamps || !quotes) {
-    throw new Error('시계열 데이터 형식이 올바르지 않습니다');
-  }
-
-  // 데이터 변환
-  const priceData: PriceData[] = [];
-  for (let i = 0; i < timestamps.length; i++) {
-    if (quotes.open[i] && quotes.high[i] && quotes.low[i] && quotes.close[i]) {
-      priceData.push({
-        date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
-        open: quotes.open[i],
-        high: quotes.high[i],
-        low: quotes.low[i],
-        close: quotes.close[i],
-        volume: quotes.volume[i] || 0
-      });
-    }
-  }
-
-  // 날짜 오름차순 정렬
-  priceData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  return priceData;
-    
-  } catch (error: any) {
-    // 404 오류는 심볼이 존재하지 않음을 의미
-    if (error.response?.status === 404) {
-      console.warn(`⚠️ ${symbol}: Yahoo Finance에서 찾을 수 없는 심볼입니다`);
-      return [];
-    }
-    
-    // 기타 네트워크 오류는 재시도 가능하므로 에러 던지기
-    throw new Error(`Yahoo Finance API 오류 (${symbol}): ${error.message}`);
-  }
-}
-
-/**
- * Alpha Vantage에서 가격 데이터 수집
- */
-async function fetchFromAlphaVantage(symbol: string): Promise<PriceData[]> {
-  const url = 'https://www.alphavantage.co/query';
-  const params = {
-    function: 'TIME_SERIES_DAILY',
-    symbol: symbol,
-    apikey: process.env.ALPHAVANTAGE_API_KEY,
-    outputsize: 'compact' // 최근 100일
-  };
-
-  const response = await axios.get(url, { params });
-  const data = response.data;
-
-  if (data['Error Message']) {
-    throw new Error(`Alpha Vantage 오류: ${data['Error Message']}`);
-  }
-
-  if (data['Note']) {
-    throw new Error('API 호출 한도 초과');
-  }
-
-  const timeSeries = data['Time Series (Daily)'];
-  if (!timeSeries) {
-    throw new Error('시계열 데이터를 찾을 수 없습니다');
-  }
-
-  // 데이터 변환
-  const priceData: PriceData[] = [];
-  for (const [date, values] of Object.entries(timeSeries)) {
-    const dayData = values as any;
-    priceData.push({
-      date,
-      open: parseFloat(dayData['1. open']),
-      high: parseFloat(dayData['2. high']),
-      low: parseFloat(dayData['3. low']),
-      close: parseFloat(dayData['4. close']),
-      volume: parseInt(dayData['5. volume'])
-    });
-  }
-
-  // 날짜 오름차순 정렬
-  priceData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  return priceData;
+  // TossCandle → PriceData (date는 YYYY-MM-DD로 정규화)
+  return candles.map(c => ({
+    date: c.date.split('T')[0],
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume
+  }));
 }
 
 /**
@@ -376,7 +272,7 @@ export async function filterHighQualityStocks(symbols: string[]): Promise<string
   for (const symbol of symbols) {
     try {
       // 가격 데이터 조회
-      const priceData = await fetchFromYahooFinance(symbol);
+      const priceData = await fetchFromToss(symbol);
       
       // 데이터 품질 검증
       const quality = await validateStockDataQuality(symbol, priceData);

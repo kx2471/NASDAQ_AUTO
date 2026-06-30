@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import * as toss from '../services/toss';
 
 // Supabase 서비스 (조건부 import)
 let supabaseService: any = null;
@@ -271,6 +272,21 @@ export interface Report {
  * 포트폴리오 계산 함수들 (JSON 또는 Supabase)
  */
 export async function getHoldings(): Promise<Holding[]> {
+  // 토스 실계좌 = 포트폴리오 정답(source of truth)
+  if (toss.isTossEnabled()) {
+    try {
+      const tossHoldings = await toss.getHoldings();
+      // TossHolding → 시스템 표준 Holding 매핑
+      return tossHoldings.map(h => ({
+        symbol: h.symbol,
+        shares: h.shares,
+        avg_cost: h.avg_cost
+      }));
+    } catch (error) {
+      console.warn('⚠️ 토스 보유종목 조회 실패, 로컬 장부로 대체:', error);
+    }
+  }
+
   // Supabase 사용 시
   if (supabaseService) {
     try {
@@ -329,6 +345,15 @@ export async function getHoldings(): Promise<Holding[]> {
  * 현금 잔액 계산 (JSON 또는 Supabase)
  */
 export async function getCashBalance(): Promise<number> {
+  // 토스 실계좌 = 현금(매수 가능 금액)의 정답(source of truth)
+  if (toss.isTossEnabled()) {
+    try {
+      return await toss.getBuyingPower('USD');
+    } catch (error) {
+      console.warn('⚠️ 토스 매수가능금액 조회 실패, 로컬 장부로 대체:', error);
+    }
+  }
+
   // Supabase 사용 시
   if (supabaseService) {
     try {

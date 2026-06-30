@@ -4,7 +4,6 @@ import { db, getHoldings, getCashBalance, saveReportRecord } from '../storage/da
 import { fetchDailyPrices, computeIndicators } from '../services/market';
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
-import { generateReportWithGemini } from '../services/gemini';
 import { generateReportWithClaude } from '../services/claude';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
@@ -21,7 +20,7 @@ import path from 'path';
 /**
  * 데일리 투자 리포트 자동 생성 파이프라인
  * - 매일 한국시간 16:00에 GitHub Actions로 자동 실행
- * - 3개 AI (GPT-5, Gemini 2.5 Flash, Claude Opus 4.1)가 각각 독립적으로 리포트 생성
+ * - 2개 AI (GPT, Claude Opus 4.8)가 각각 독립적으로 리포트 생성
  * - 미국 시장 개장일에만 실행
  */
 export async function runDaily(): Promise<void> {
@@ -392,7 +391,7 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     generated_at: new Date().toISOString(),
     type: 'UNIFIED',
     status: 'FAILED',
-    ai_model: process.env.LLM_MODEL || 'gpt-5',
+    ai_model: process.env.LLM_MODEL || 'gpt-5.5',
     symbols_analyzed: 0,
     processing_time_ms: 0,
     file_path: undefined,
@@ -480,21 +479,7 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     // GPT-5 통합 리포트 생성
     console.log('🤖 GPT-5 통합 리포트 생성 중...');
     const gptReport = await generateReport(reportPayload);
-    
-    // Gemini Pro 통합 리포트 생성 (항상 실행)
-    let geminiReport = '';
-    if (process.env.GEMINI_API_KEY) {
-      console.log('🤖 Gemini Pro 통합 리포트 생성 중...');
-      try {
-        // TODO: daily.ts는 Manager Agent로 별도 처리 필요
-        geminiReport = '## ⚠️ Gemini Pro 리포트\n\n임시로 비활성화됨 - weekly.ts 우선 적용 중';
-        console.log('✅ Gemini Pro 리포트 생성 완료');
-      } catch (error) {
-        console.error('❌ Gemini Pro 리포트 생성 실패:', error);
-        geminiReport = '## ⚠️ Gemini Pro 리포트\n\nGemini API 연결 문제로 리포트를 생성할 수 없습니다.';
-      }
-    }
-    
+
     // Claude 통합 리포트 생성
     let claudeReport = '';
     if (process.env.CLAUDE_API_KEY) {
@@ -512,13 +497,7 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
     // 통합 리포트 파일 저장
     console.log('💾 통합 리포트 파일 저장 중...');
     const { mdPath: gptMdPath, htmlPath: gptHtmlPath } = await saveReportFiles('unified_gpt5', gptReport);
-    
-    let geminiMdPath = '';
-    if (geminiReport) {
-      const { mdPath: geminiPath } = await saveReportFiles('unified_gemini', geminiReport);
-      geminiMdPath = geminiPath;
-    }
-    
+
     let claudeMdPath = '';
     if (claudeReport) {
       const { mdPath: claudePath } = await saveReportFiles('unified_claude', claudeReport);
@@ -542,26 +521,6 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
       console.log('📧 GPT-5 이메일 전송 완료');
     } catch (emailError) {
       console.warn('⚠️ GPT-5 이메일 전송 실패:', (emailError as Error).message);
-    }
-    
-    // Gemini Pro 이메일 발송 (활성화된 경우)
-    if (geminiReport && geminiMdPath) {
-      console.log('📧 Gemini Pro 통합 리포트 이메일 발송 중...');
-      const geminiEmailHtml = wrapInEmailTemplate(
-        geminiReport.replace(/\n/g, '<br>'), 
-        `Gemini Pro 통합 데일리 리포트 (${new Date().toLocaleDateString('ko-KR')})`
-      );
-      
-      try {
-        await sendReportEmail({
-          subject: `🤖 Gemini Pro 통합 데일리 리포트 - ${new Date().toLocaleDateString('ko-KR')}`,
-          html: geminiEmailHtml,
-          mdPath: geminiMdPath
-        });
-        console.log('📧 Gemini Pro 이메일 전송 완료');
-      } catch (emailError) {
-        console.warn('⚠️ Gemini Pro 이메일 전송 실패:', (emailError as Error).message);
-      }
     }
     
     // Claude 이메일 발송 (활성화된 경우) - 개선된 전달성

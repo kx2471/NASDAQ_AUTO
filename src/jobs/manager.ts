@@ -18,7 +18,7 @@ function getKoreanDateString(): string {
 /**
  * Manager_Agent 통합 리포트 생성 파이프라인
  * - 매주 월요일 한국시간 16:00에 GitHub Actions로 자동 실행
- * - Agent_GPT, Agent_Gemini, Agent_Claude의 15:00 리포트를 종합
+ * - Agent_GPT, Agent_Claude의 15:00 리포트를 종합
  * - GPT-5 기반 Manager_Agent가 최종 통합 의사결정 생성
  * - 구체적이고 실행 가능한 매매 지시사항 제공
  */
@@ -87,9 +87,6 @@ async function validateAgentReportsExist(): Promise<void> {
     const gptReports = files.filter(file =>
       file.includes('weekly_agent_gpt.md')
     );
-    const geminiReports = files.filter(file =>
-      file.includes('weekly_agent_gemini.md')
-    );
     const claudeReports = files.filter(file =>
       file.includes('weekly_agent_claude.md')
     );
@@ -101,12 +98,6 @@ async function validateAgentReportsExist(): Promise<void> {
       throw new Error(errorMsg);
     }
 
-    if (geminiReports.length === 0) {
-      const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: *_weekly_agent_gemini.md`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-
     if (claudeReports.length === 0) {
       const errorMsg = `❌ 필수 Agent 리포트를 찾을 수 없습니다: *_weekly_agent_claude.md`;
       console.error(errorMsg);
@@ -115,12 +106,10 @@ async function validateAgentReportsExist(): Promise<void> {
 
     // 각 Agent의 최신 리포트 확인
     const latestGptReport = gptReports.sort().reverse()[0];
-    const latestGeminiReport = geminiReports.sort().reverse()[0];
     const latestClaudeReport = claudeReports.sort().reverse()[0];
 
     console.log(`✅ Agent 리포트 확인:`);
     console.log(`  - GPT: ${latestGptReport}`);
-    console.log(`  - Gemini: ${latestGeminiReport}`);
     console.log(`  - Claude: ${latestClaudeReport}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes('필수 Agent 리포트')) {

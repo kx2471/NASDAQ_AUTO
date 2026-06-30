@@ -22,16 +22,16 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
   const prompt = await createInvestmentPromptFromPayload(reportPayload);
   
   // 환경변수에서 지정된 모델만 사용
-  const envModel = process.env.CLAUDE_MODEL || 'claude-opus-4-1-20250805';
+  const envModel = process.env.CLAUDE_MODEL || 'claude-opus-4-8';
   const modelAttempt = { name: envModel, displayName: `Claude (${envModel})` };
 
   try {
     console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 중...`);
 
+    // Opus 4.8은 temperature/top_p/budget_tokens를 거부(400)하므로 전달하지 않음
     const response = await anthropic.messages.create({
       model: modelAttempt.name,
       max_tokens: 8192,
-      temperature: 0.7,
       messages: [{
         role: 'user',
         content: prompt
@@ -229,7 +229,7 @@ export async function testClaudeConnection(): Promise<boolean> {
     const anthropic = getClaudeClient();
     
     const response = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-opus-4-1-20250805',
+      model: process.env.CLAUDE_MODEL || 'claude-opus-4-8',
       max_tokens: 100,
       messages: [{
         role: 'user',

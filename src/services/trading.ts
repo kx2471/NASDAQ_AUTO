@@ -1,199 +1,210 @@
-import { getHoldings, Holding } from '../storage/database';
+import { db, Trade } from '../storage/database';
+import {
+  createOrder,
+  getPrices,
+  getBuyingPower,
+  getSellableQuantity,
+  isDryRun,
+  isTossEnabled,
+  OrderType
+} from './toss';
 
-export interface SellOrder {
+/**
+ * 자동매매 주문 실행 계층 (토스증권 기반)
+ *
+ * - 모든 주문은 가드레일(한도/매수가능/매도가능 검증)을 통과해야 한다.
+ * - 멱등키(clientOrderId)로 중복 주문을 방지한다.
+ * - TOSS_DRY_RUN(기본 true)이면 실제 전송 없이 주문안만 로깅한다.
+ *   실거래로 전환하려면 .env에서 TOSS_DRY_RUN=false 로 설정한다.
+ * - 실제 체결된 주문만 trades.json에 감사 기록으로 남긴다 (포트폴리오 정답은 토스 실계좌).
+ */
+
+/** 매매 주문 입력 */
+export interface TradeOrder {
   symbol: string;
-  qty: number;
-  price?: number; // 시장가 매도 시 undefined
+  side: 'BUY' | 'SELL';
+  qty?: number;          // 수량기반 주문
+  amount?: number;       // 금액기반 주문 (소수점 매수, USD)
+  orderType?: OrderType; // 기본 'MARKET'
+  price?: number;        // orderType이 'LIMIT'일 때 필수
   note?: string;
 }
 
-export interface SellResult {
+/** 매매 주문 결과 */
+export interface TradeResult {
   success: boolean;
-  executedPrice: number;
-  executedQty: number;
-  proceeds: number; // 매도 대금
+  dryRun: boolean;
+  orderId?: string;
+  clientOrderId?: string;
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  qty?: number;
+  amount?: number;
+  price?: number;
+  estimatedNotional?: number; // 추정 주문 금액 (USD)
   error?: string;
 }
 
 /**
- * 매도 주문 실행
- * @param order 매도 주문 정보
- * @param currentPrice 현재 시장가 (price가 없을 때 사용)
- * @returns 매도 결과
+ * 종목당 최대 주문 금액(USD) 가드레일 조회
+ * - TOSS_MAX_ORDER_USD 미설정 시 기본값 1000 USD
  */
-export async function executeSellOrder(order: SellOrder, currentPrice?: number): Promise<SellResult> {
+function getMaxOrderUsd(): number {
+  return parseFloat(process.env.TOSS_MAX_ORDER_USD || '') || 1000;
+}
+
+/**
+ * 멱등키 생성 (symbol-side-분단위 시간 버킷)
+ * - 같은 분 안의 동일 종목/방향 재요청을 토스가 동일 주문으로 처리 (중복 방지)
+ */
+function buildClientOrderId(symbol: string, side: 'BUY' | 'SELL'): string {
+  const minuteBucket = Math.floor(Date.now() / 60000);
+  return `auto-${symbol}-${side}-${minuteBucket}`.slice(0, 36);
+}
+
+/**
+ * 실패 결과 생성 헬퍼
+ */
+function fail(order: TradeOrder, error: string): TradeResult {
+  return {
+    success: false,
+    dryRun: isDryRun(),
+    symbol: order.symbol,
+    side: order.side,
+    qty: order.qty,
+    amount: order.amount,
+    price: order.price,
+    error
+  };
+}
+
+/**
+ * 주문 실행 (매수/매도 공통)
+ * - 가드레일 검증 → (실거래면) 토스 주문 전송 → 감사 기록
+ * @param order 매매 주문
+ * @returns 매매 결과
+ */
+export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
   try {
-    // 1. 현재 보유량 확인
-    const holdings = await getHoldings();
-    const holding = holdings.find((h: Holding) => h.symbol === order.symbol);
-    
-    if (!holding) {
-      return {
-        success: false,
-        executedPrice: 0,
-        executedQty: 0,
-        proceeds: 0,
-        error: `${order.symbol} 보유하지 않음`
-      };
+    if (!isTossEnabled()) {
+      return fail(order, '토스 API가 설정되지 않았습니다 (.env TOSS_API_KEY/TOSS_SECRET_KEY).');
     }
-    
-    if (holding.shares < order.qty) {
-      return {
-        success: false,
-        executedPrice: 0,
-        executedQty: 0,
-        proceeds: 0,
-        error: `보유량(${holding.shares})이 매도량(${order.qty})보다 적음`
-      };
+
+    const orderType: OrderType = order.orderType || 'MARKET';
+
+    // 1. 입력 검증
+    if (order.qty === undefined && order.amount === undefined) {
+      return fail(order, 'qty 또는 amount 중 하나는 필수입니다.');
     }
-    
-    // 2. 매도가 결정 (지정가 또는 현재가)
-    const sellPrice = order.price || currentPrice;
-    if (!sellPrice) {
-      return {
-        success: false,
-        executedPrice: 0,
-        executedQty: 0,
-        proceeds: 0,
-        error: '매도가격이 지정되지 않음'
-      };
+    if (order.qty !== undefined && order.qty <= 0) {
+      return fail(order, '수량은 0보다 커야 합니다.');
     }
-    
-    // 3. 매도 거래 기록 생성
-    const proceeds = order.qty * sellPrice;
-    const tradeRecord = {
+    if (order.amount !== undefined && order.amount <= 0) {
+      return fail(order, '금액은 0보다 커야 합니다.');
+    }
+    if (orderType === 'LIMIT' && (order.price === undefined || order.price <= 0)) {
+      return fail(order, 'LIMIT 주문은 price가 필요합니다.');
+    }
+
+    // 2. 추정 주문 금액 계산 (가드레일용)
+    let estimatedNotional: number;
+    if (order.amount !== undefined) {
+      estimatedNotional = order.amount;
+    } else if (order.price !== undefined) {
+      estimatedNotional = order.qty! * order.price;
+    } else {
+      // 시장가 + 수량 → 현재가로 추정
+      const priceMap = await getPrices([order.symbol]);
+      const last = priceMap[order.symbol];
+      if (!last) {
+        return fail(order, `${order.symbol} 현재가를 조회할 수 없어 주문 금액을 추정할 수 없습니다.`);
+      }
+      estimatedNotional = order.qty! * last;
+    }
+
+    // 3. 가드레일: 종목당 최대 주문 금액
+    const maxOrderUsd = getMaxOrderUsd();
+    if (estimatedNotional > maxOrderUsd) {
+      return fail(order, `주문 금액 $${estimatedNotional.toFixed(2)}이 한도 $${maxOrderUsd}를 초과합니다.`);
+    }
+
+    // 4. 가드레일: 매수 가능 금액 / 매도 가능 수량
+    if (order.side === 'BUY') {
+      const buyingPower = await getBuyingPower('USD');
+      if (estimatedNotional > buyingPower) {
+        return fail(order, `매수 금액 $${estimatedNotional.toFixed(2)}이 매수가능금액 $${buyingPower.toFixed(2)}을 초과합니다.`);
+      }
+    } else {
+      // 매도: 수량기반만 검증 (금액기반 매도는 미지원)
+      if (order.qty === undefined) {
+        return fail(order, '매도는 수량(qty) 기반만 지원합니다.');
+      }
+      const sellable = await getSellableQuantity(order.symbol);
+      if (order.qty > sellable) {
+        return fail(order, `매도 수량 ${order.qty}이 매도가능수량 ${sellable}을 초과합니다.`);
+      }
+    }
+
+    // 5. 주문 전송 (dry-run이면 내부에서 로깅만)
+    const clientOrderId = buildClientOrderId(order.symbol, order.side);
+    const result = await createOrder({
       symbol: order.symbol,
-      side: 'SELL' as const,
-      shares: order.qty,
-      price: sellPrice,
-      fee: 0, // 수수료는 나중에 추가 가능
-      executed_at: new Date().toISOString(),
-      note: order.note || `${order.qty}주 매도`
-    };
-    
-    // 4. 데이터베이스에 거래 기록 저장
-    // await saveTrade(tradeRecord); // TODO: Implement saveTrade function
-    
-    console.log(`✅ ${order.symbol} ${order.qty}주 매도 완료: $${sellPrice.toFixed(2)} × ${order.qty} = $${proceeds.toFixed(2)}`);
-    
+      side: order.side,
+      orderType,
+      quantity: order.qty,
+      orderAmount: order.amount,
+      price: orderType === 'LIMIT' ? order.price : undefined,
+      clientOrderId
+    });
+
+    // 6. 실제 체결된 주문만 감사 기록 (dry-run은 기록하지 않음)
+    if (!result.dryRun && order.qty !== undefined && order.price !== undefined) {
+      const trade: Omit<Trade, 'id'> = {
+        traded_at: new Date().toISOString(),
+        symbol: order.symbol,
+        side: order.side,
+        qty: order.qty,
+        price: order.price,
+        fee: 0,
+        note: order.note || `자동매매 (${result.orderId})`
+      };
+      await db.insert('trades', trade);
+    }
+
+    const tag = result.dryRun ? '🧪 [DRY-RUN]' : '✅';
+    console.log(`${tag} ${order.symbol} ${order.side} 주문 처리 완료 (추정 $${estimatedNotional.toFixed(2)})`);
+
     return {
       success: true,
-      executedPrice: sellPrice,
-      executedQty: order.qty,
-      proceeds: proceeds
+      dryRun: result.dryRun,
+      orderId: result.orderId,
+      clientOrderId: result.clientOrderId ?? clientOrderId,
+      symbol: order.symbol,
+      side: order.side,
+      qty: order.qty,
+      amount: order.amount,
+      price: order.price,
+      estimatedNotional
     };
-    
+
   } catch (error) {
-    console.error('❌ 매도 주문 실행 실패:', error);
-    return {
-      success: false,
-      executedPrice: 0,
-      executedQty: 0,
-      proceeds: 0,
-      error: error instanceof Error ? error.message : '알 수 없는 오류'
-    };
+    console.error('❌ 주문 실행 실패:', error);
+    return fail(order, error instanceof Error ? error.message : '알 수 없는 오류');
   }
 }
 
 /**
- * 전량 매도
- * @param symbol 종목 심볼
- * @param currentPrice 현재 시장가
- * @param note 메모
- * @returns 매도 결과
+ * 매수 주문 (편의 함수)
+ * @param order side를 제외한 매수 주문 정보
  */
-export async function sellAll(symbol: string, currentPrice: number, note?: string): Promise<SellResult> {
-  const holdings = await getHoldings();
-  const holding = holdings.find((h: Holding) => h.symbol === symbol);
-  
-  if (!holding || holding.shares <= 0) {
-    return {
-      success: false,
-      executedPrice: 0,
-      executedQty: 0,
-      proceeds: 0,
-      error: `${symbol} 보유하지 않음`
-    };
-  }
-  
-  return executeSellOrder({
-    symbol,
-    qty: holding.shares,
-    price: currentPrice,
-    note: note || `${symbol} 전량 매도`
-  });
+export async function executeBuy(order: Omit<TradeOrder, 'side'>): Promise<TradeResult> {
+  return executeOrder({ ...order, side: 'BUY' });
 }
 
 /**
- * 비율로 매도 (예: 50% 매도)
- * @param symbol 종목 심볼
- * @param percentage 매도 비율 (0-100)
- * @param currentPrice 현재 시장가
- * @param note 메모
- * @returns 매도 결과
+ * 매도 주문 (편의 함수)
+ * @param order side를 제외한 매도 주문 정보
  */
-export async function sellByPercentage(
-  symbol: string, 
-  percentage: number, 
-  currentPrice: number, 
-  note?: string
-): Promise<SellResult> {
-  if (percentage <= 0 || percentage > 100) {
-    return {
-      success: false,
-      executedPrice: 0,
-      executedQty: 0,
-      proceeds: 0,
-      error: '매도 비율은 0-100% 사이여야 함'
-    };
-  }
-  
-  const holdings = await getHoldings();
-  const holding = holdings.find((h: Holding) => h.symbol === symbol);
-  
-  if (!holding || holding.shares <= 0) {
-    return {
-      success: false,
-      executedPrice: 0,
-      executedQty: 0,
-      proceeds: 0,
-      error: `${symbol} 보유하지 않음`
-    };
-  }
-  
-  const sellQty = holding.shares * (percentage / 100);
-  
-  return executeSellOrder({
-    symbol,
-    qty: sellQty,
-    price: currentPrice,
-    note: note || `${symbol} ${percentage}% 매도`
-  });
-}
-
-/**
- * 매도 주문 검증 (실행하지 않고 검증만)
- * @param order 매도 주문
- * @returns 검증 결과
- */
-export async function validateSellOrder(order: SellOrder): Promise<{valid: boolean, message: string}> {
-  const holdings = await getHoldings();
-  const holding = holdings.find((h: Holding) => h.symbol === order.symbol);
-  
-  if (!holding) {
-    return { valid: false, message: `${order.symbol} 보유하지 않음` };
-  }
-  
-  if (holding.shares < order.qty) {
-    return { 
-      valid: false, 
-      message: `보유량(${holding.shares})이 매도량(${order.qty})보다 적음` 
-    };
-  }
-  
-  if (order.qty <= 0) {
-    return { valid: false, message: '매도량은 0보다 커야 함' };
-  }
-  
-  return { valid: true, message: '매도 가능' };
+export async function executeSell(order: Omit<TradeOrder, 'side'>): Promise<TradeResult> {
+  return executeOrder({ ...order, side: 'SELL' });
 }
