@@ -71,6 +71,10 @@ interface TokenCache {
 
 let tokenCache: TokenCache | null = null;
 let accountSeqCache: string | null = null;
+// 동시 토큰 발급 경합 방지: 토스는 새 토큰 발급 시 기존 토큰을 무효화하므로,
+// 병렬 호출이 각자 발급하면 먼저 받은 쪽이 401(invalid-token)로 실패한다.
+let tokenInFlight: Promise<string> | null = null;
+let accountSeqInFlight: Promise<string> | null = null;
 
 /**
  * 토스 API 자격증명 확인
@@ -86,13 +90,26 @@ export function isTossEnabled(): boolean {
  * @returns 유효한 액세스 토큰 문자열
  */
 export async function getAccessToken(): Promise<string> {
-  const now = Date.now();
-
   // 캐시가 유효하면 재사용
-  if (tokenCache && now < tokenCache.expiresAt) {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) {
     return tokenCache.accessToken;
   }
 
+  // 이미 발급이 진행 중이면 그 결과를 공유 (single-flight)
+  if (tokenInFlight) {
+    return tokenInFlight;
+  }
+
+  tokenInFlight = issueAccessToken().finally(() => { tokenInFlight = null; });
+  return tokenInFlight;
+}
+
+/**
+ * 실제 토큰 발급 요청 (getAccessToken 내부 전용)
+ * @returns 새로 발급된 액세스 토큰
+ */
+async function issueAccessToken(): Promise<string> {
+  const now = Date.now();
   const clientId = process.env.TOSS_API_KEY;
   const clientSecret = process.env.TOSS_SECRET_KEY;
   if (!clientId || !clientSecret) {
@@ -141,20 +158,29 @@ export async function getAccountSeq(): Promise<string> {
     return accountSeqCache;
   }
 
-  const accounts = await tossRequest<Array<{ accountNo: string; accountSeq: number; accountType: string }>>(
-    'get',
-    '/api/v1/accounts'
-  );
-
-  // 현재 BROKERAGE 계좌만 지원됨
-  const brokerage = accounts.find(a => a.accountType === 'BROKERAGE') || accounts[0];
-  if (!brokerage) {
-    throw new Error('토스 계좌를 찾을 수 없습니다. /accounts 응답이 비어 있습니다.');
+  // 병렬 호출이 /accounts를 중복 조회하지 않도록 single-flight (429 예방)
+  if (accountSeqInFlight) {
+    return accountSeqInFlight;
   }
 
-  accountSeqCache = String(brokerage.accountSeq);
-  console.log(`✅ 토스 계좌 확인: ${brokerage.accountNo} (seq=${accountSeqCache})`);
-  return accountSeqCache;
+  accountSeqInFlight = (async () => {
+    const accounts = await tossRequest<Array<{ accountNo: string; accountSeq: number; accountType: string }>>(
+      'get',
+      '/api/v1/accounts'
+    );
+
+    // 현재 BROKERAGE 계좌만 지원됨
+    const brokerage = accounts.find(a => a.accountType === 'BROKERAGE') || accounts[0];
+    if (!brokerage) {
+      throw new Error('토스 계좌를 찾을 수 없습니다. /accounts 응답이 비어 있습니다.');
+    }
+
+    accountSeqCache = String(brokerage.accountSeq);
+    console.log(`✅ 토스 계좌 확인: ${brokerage.accountNo} (seq=${accountSeqCache})`);
+    return accountSeqCache;
+  })().finally(() => { accountSeqInFlight = null; });
+
+  return accountSeqInFlight;
 }
 
 // =============================================================
@@ -181,18 +207,6 @@ export async function tossRequest<T>(
   path: string,
   opts: TossRequestOptions = {}
 ): Promise<T> {
-  const token = await getAccessToken();
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`
-  };
-  if (opts.withAccount) {
-    headers['X-Tossinvest-Account'] = await getAccountSeq();
-  }
-  if (opts.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-  }
-
   // undefined 쿼리 값 제거
   const params: Record<string, string | number | boolean> = {};
   if (opts.query) {
@@ -201,19 +215,31 @@ export async function tossRequest<T>(
     }
   }
 
-  const config: AxiosRequestConfig = {
-    method,
-    url: `${TOSS_BASE_URL}${path}`,
-    headers,
-    params,
-    data: opts.body
-  };
-
   // 레이트리밋(429) / 일시적 서버오류(5xx)에 대해 지수 백오프 재시도
   const maxAttempts = 4;
   let lastError: any;
+  let authRetried = false; // 401 토큰 재발급 재시도는 1회만
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // 헤더는 매 시도마다 구성 (401 재발급 시 새 토큰 반영을 위해 루프 안에서)
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${await getAccessToken()}`
+    };
+    if (opts.withAccount) {
+      headers['X-Tossinvest-Account'] = await getAccountSeq();
+    }
+    if (opts.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const config: AxiosRequestConfig = {
+      method,
+      url: `${TOSS_BASE_URL}${path}`,
+      headers,
+      params,
+      data: opts.body
+    };
+
     try {
       const res = await axios.request(config);
       // 토스 응답은 { result: ... } 래퍼
@@ -221,6 +247,15 @@ export async function tossRequest<T>(
     } catch (error: any) {
       lastError = error;
       const status = error.response?.status;
+
+      // 401: 다른 프로세스가 새 토큰을 발급해 기존 토큰이 무효화된 경우 — 캐시 비우고 1회 재발급
+      if (status === 401 && !authRetried) {
+        authRetried = true;
+        tokenCache = null;
+        console.warn(`🔁 토스 토큰 무효화 감지(401) [${method.toUpperCase()} ${path}] — 재발급 후 재시도`);
+        continue;
+      }
+
       const retryable = status === 429 || (status >= 500 && status < 600);
 
       if (retryable && attempt < maxAttempts) {
@@ -253,17 +288,77 @@ export async function tossRequest<T>(
 export async function getPrices(symbols: string[]): Promise<Record<string, number>> {
   if (symbols.length === 0) return {};
 
-  const result = await tossRequest<Array<{ symbol: string; lastPrice: string }>>(
-    'get',
-    '/api/v1/prices',
-    { query: { symbols: symbols.join(',') } }
-  );
-
   const map: Record<string, number> = {};
-  for (const item of result) {
-    map[item.symbol] = parseFloat(item.lastPrice);
+
+  // API 한도: 콜당 최대 200종목 — 초과 시 청크 분할
+  for (let i = 0; i < symbols.length; i += 200) {
+    const chunk = symbols.slice(i, i + 200);
+    const result = await tossRequest<Array<{ symbol: string; lastPrice: string }>>(
+      'get',
+      '/api/v1/prices',
+      { query: { symbols: chunk.join(',') } }
+    );
+
+    for (const item of result) {
+      map[item.symbol] = parseFloat(item.lastPrice);
+    }
   }
   return map;
+}
+
+/** 종목 기본 정보 (숫자 정규화) */
+export interface TossStockInfo {
+  symbol: string;
+  name: string;            // 종목명 (한글)
+  englishName: string;
+  market: string;          // 상장 시장 세그먼트
+  securityType: string;    // 종목 유형
+  isCommonShare: boolean;  // 보통주 여부 (ETF/우선주/워런트 등은 false)
+  status: string;          // 상장 상태
+  currency: string;
+  delistDate: string | null;      // 상장폐지일 (활성 종목은 null)
+  sharesOutstanding: number;      // 발행주식수
+}
+
+/**
+ * 종목 기본 정보 일괄 조회 (/api/v1/stocks, 콜당 최대 200종목)
+ * - 상장 상태·보통주 여부·통화 등 유니버스 검증용 참조 데이터
+ * @param symbols 조회할 심볼 배열 (개수 제한 없음 — 내부에서 200개씩 분할)
+ * @returns 조회된 종목 정보 배열 (토스에 없는 심볼은 응답에서 빠짐)
+ */
+export async function getStockInfos(symbols: string[]): Promise<TossStockInfo[]> {
+  if (symbols.length === 0) return [];
+
+  const infos: TossStockInfo[] = [];
+
+  for (let i = 0; i < symbols.length; i += 200) {
+    const chunk = symbols.slice(i, i + 200);
+    const result = await tossRequest<Array<{
+      symbol: string; name: string; englishName: string; market: string;
+      securityType: string; isCommonShare: boolean; status: string;
+      currency: string; delistDate: string | null; sharesOutstanding: string;
+    }>>(
+      'get',
+      '/api/v1/stocks',
+      { query: { symbols: chunk.join(',') } }
+    );
+
+    for (const item of result) {
+      infos.push({
+        symbol: item.symbol,
+        name: item.name,
+        englishName: item.englishName,
+        market: item.market,
+        securityType: item.securityType,
+        isCommonShare: item.isCommonShare,
+        status: item.status,
+        currency: item.currency,
+        delistDate: item.delistDate,
+        sharesOutstanding: parseFloat(item.sharesOutstanding) || 0
+      });
+    }
+  }
+  return infos;
 }
 
 /**
@@ -315,6 +410,76 @@ export async function getExchangeRate(base: string, quote: string): Promise<numb
   );
   // 매매기준율(midRate)을 평가 기준으로 사용
   return parseFloat(result.midRate || result.rate);
+}
+
+// =============================================================
+// 미국 장 운영 캘린더 / 세션
+// =============================================================
+
+/** 세션 시간 구간 (epoch ms) */
+export interface UsMarketSession {
+  start: number;
+  end: number;
+}
+
+/** 미국 영업일 정보 (정규장 중심) */
+export interface UsMarketDayInfo {
+  date: string;                       // 영업일 (미국 현지 기준, YYYY-MM-DD)
+  regular: UsMarketSession | null;    // 정규장 구간 (휴장이면 null)
+}
+
+interface UsCalendarCache {
+  fetchedAt: number;
+  today: UsMarketDayInfo;
+  next: UsMarketDayInfo;
+}
+
+let usCalendarCache: UsCalendarCache | null = null;
+const US_CALENDAR_TTL_MS = 10 * 60 * 1000; // 10분 캐시 (스케줄러가 매분 조회해도 콜 낭비 없도록)
+
+/** 캘린더 응답의 세션 파싱 (null 허용) */
+function parseSession(session: { startTime: string; endTime: string } | null): UsMarketSession | null {
+  if (!session) return null;
+  return {
+    start: new Date(session.startTime).getTime(),
+    end: new Date(session.endTime).getTime()
+  };
+}
+
+/**
+ * 미국 장 운영 캘린더 조회 (/api/v1/market-calendar/US, 10분 캐시)
+ * - 응답은 KST 기준 ISO 시각 — epoch ms로 정규화
+ * @returns 오늘(현재 미국 영업일)과 다음 영업일의 정규장 구간
+ */
+export async function getUsMarketCalendar(): Promise<{ today: UsMarketDayInfo; next: UsMarketDayInfo }> {
+  if (usCalendarCache && Date.now() - usCalendarCache.fetchedAt < US_CALENDAR_TTL_MS) {
+    return { today: usCalendarCache.today, next: usCalendarCache.next };
+  }
+
+  const result = await tossRequest<{
+    today: { date: string; regularMarket: { startTime: string; endTime: string } | null };
+    nextBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
+  }>('get', '/api/v1/market-calendar/US');
+
+  usCalendarCache = {
+    fetchedAt: Date.now(),
+    today: { date: result.today.date, regular: parseSession(result.today.regularMarket) },
+    next: { date: result.nextBusinessDay.date, regular: parseSession(result.nextBusinessDay.regularMarket) }
+  };
+
+  return { today: usCalendarCache.today, next: usCalendarCache.next };
+}
+
+/**
+ * 지금이 미국 정규장 시간인지 확인
+ * - 프리마켓/애프터마켓/휴장은 모두 false — "정규장 전용 거래" 정책의 기준 함수
+ * @returns 정규장 개장 중이면 true
+ */
+export async function isUsRegularSessionOpen(): Promise<boolean> {
+  const { today } = await getUsMarketCalendar();
+  if (!today.regular) return false;
+  const now = Date.now();
+  return now >= today.regular.start && now < today.regular.end;
 }
 
 // =============================================================

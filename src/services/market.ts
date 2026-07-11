@@ -19,19 +19,6 @@ export interface IndicatorData {
 }
 
 /**
- * 주식 기본 정보 인터페이스
- */
-export interface StockBasicInfo {
-  symbol: string;
-  marketCap?: number;
-  avgVolume?: number;
-  peRatio?: number;
-  dividendYield?: number;
-  isActive: boolean;
-  hasMinimumData: boolean;
-}
-
-/**
  * 일일 가격 데이터 수집 (토스증권 캔들 기반)
  * @param symbols 종목 심볼 배열
  * @returns 심볼 → 일봉 가격 데이터 배열
@@ -207,86 +194,5 @@ function calculateRSI(prices: number[], period: number = 14): number[] {
   return rsi;
 }
 
-/**
- * 주식 데이터 품질 검증
- */
-export async function validateStockDataQuality(symbol: string, priceData: PriceData[]): Promise<StockBasicInfo> {
-  const result: StockBasicInfo = {
-    symbol,
-    isActive: true,
-    hasMinimumData: false
-  };
-
-  // 1. 최소 데이터 길이 검증 (기술지표 계산용)
-  if (priceData.length >= 50) {
-    result.hasMinimumData = true;
-  }
-
-  // 2. 최근 거래량 분석
-  if (priceData.length > 0) {
-    const recentData = priceData.slice(-20); // 최근 20일
-    const avgVolume = recentData.reduce((sum, data) => sum + data.volume, 0) / recentData.length;
-    
-    // 최소 거래량 조건 (일일 평균 10만주 이상)
-    if (avgVolume < 100000) {
-      result.isActive = false;
-    }
-    
-    result.avgVolume = avgVolume;
-  }
-
-  // 3. 가격 안정성 검증
-  if (priceData.length > 0) {
-    const recentPrices = priceData.slice(-5).map(d => d.close);
-    const avgPrice = recentPrices.reduce((sum, price) => sum + price, 0) / recentPrices.length;
-    
-    // 최소 주가 조건 ($1 이상)
-    if (avgPrice < 1.0) {
-      result.isActive = false;
-    }
-
-    // 시가총액 추정 (간단히 최근가격 * 대략적인 발행주식수로 계산)
-    if (result.avgVolume && avgPrice > 0) {
-      // 매우 간단한 시가총액 추정: 평균 거래량 * 100 * 현재가
-      const estimatedShares = (result.avgVolume || 0) * 100;
-      result.marketCap = estimatedShares * avgPrice;
-      
-      // 최소 시가총액 조건 ($50M 이상)
-      if (result.marketCap < 50_000_000) {
-        result.isActive = false;
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * 종목 리스트에서 품질이 낮은 종목 필터링
- */
-export async function filterHighQualityStocks(symbols: string[]): Promise<string[]> {
-  const validSymbols: string[] = [];
-  
-  console.log(`🔍 ${symbols.length}개 종목 데이터 품질 검증 중...`);
-  
-  for (const symbol of symbols) {
-    try {
-      // 가격 데이터 조회
-      const priceData = await fetchFromToss(symbol);
-      
-      // 데이터 품질 검증
-      const quality = await validateStockDataQuality(symbol, priceData);
-      
-      if (quality.isActive && quality.hasMinimumData) {
-        validSymbols.push(symbol);
-      } else {
-        console.log(`⚠️ ${symbol}: 품질 기준 미달 (활성: ${quality.isActive}, 데이터: ${quality.hasMinimumData})`);
-      }
-    } catch (error) {
-      console.log(`❌ ${symbol}: 데이터 조회 실패`);
-    }
-  }
-  
-  console.log(`✅ ${validSymbols.length}개 고품질 종목 선별 완료`);
-  return validSymbols;
-}
+// (참고) 과거 섹터 기반 스크리닝의 품질 검증(validateStockDataQuality/filterHighQualityStocks)은
+// 전시장 퍼널 스크리닝(screening.runMarketWideScreening)의 시총·유동성 필터로 대체되어 제거됨.

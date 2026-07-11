@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { generateManagerReport, saveManagerReport } from '../services/manager';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
+import { parseManagerDecision, saveDecision } from '../services/decision';
+import { reconcileWithToss, applyDecisionToPositions } from '../storage/positions';
 
 // 환경변수 로드
 dotenv.config();
@@ -17,7 +19,7 @@ function getKoreanDateString(): string {
 
 /**
  * Manager_Agent 통합 리포트 생성 파이프라인
- * - 매주 월요일 한국시간 16:00에 GitHub Actions로 자동 실행
+ * - 나스닥 개장일마다 로컬 스케줄러(scheduler.ts)가 에이전트 리포트 직후 실행
  * - Agent_GPT, Agent_Claude의 15:00 리포트를 종합
  * - GPT-5 기반 Manager_Agent가 최종 통합 의사결정 생성
  * - 구체적이고 실행 가능한 매매 지시사항 제공
@@ -45,7 +47,7 @@ export async function runManager(): Promise<void> {
     console.log('💾 Manager_Agent 최종 리포트 저장 중...');
     const reportPath = await saveManagerReport(managerReport);
 
-    // 5. Manager_Agent 이메일 발송 (16:00)
+    // 5. Manager_Agent 이메일 발송 — 개장 전 도착이 목표이므로 집행(개장 대기)보다 먼저
     console.log('📧 Manager_Agent 최종 리포트 이메일 발송 중...');
     try {
       await sendManagerEmail(managerReport, reportPath);
@@ -53,6 +55,48 @@ export async function runManager(): Promise<void> {
     } catch (emailError) {
       console.error('⚠️ Manager_Agent 이메일 발송 실패 (보고서는 정상 저장됨):', emailError);
       // 이메일 실패해도 파이프라인은 계속 진행
+    }
+
+    // 6. 기계 판독용 결정 파싱 + 포지션 동기화 (자동매매 입력)
+    //  - 토스 보유종목(진실)과 positions.json(의도)을 먼저 동기화
+    //  - Manager 결정의 SL/TP/보유계획/근거를 보유 포지션에 반영
+    try {
+      const reportId = getKoreanDateString();
+      await reconcileWithToss();
+      const decision = parseManagerDecision(managerReport, reportId);
+      if (decision) {
+        await saveDecision(decision);
+        await applyDecisionToPositions(decision);
+        const counts = decision.actions.reduce((acc: Record<string, number>, a) => {
+          acc[a.action] = (acc[a.action] || 0) + 1; return acc;
+        }, {});
+        console.log(`✅ 결정 파싱 완료: BUY ${counts.BUY || 0} / SELL ${counts.SELL || 0} / HOLD ${counts.HOLD || 0}`);
+
+        // 7. 결정 집행 (Phase 3): 정규장 개장을 기다렸다가 매도→매수 순으로 주문
+        //  - AUTO_EXECUTE_DECISION=false로 끌 수 있음 (기본 켜짐)
+        //  - TOSS_DRY_RUN=true면 주문안 로깅까지만 (실전송 없음)
+        if (process.env.AUTO_EXECUTE_DECISION !== 'false') {
+          const { waitForRegularSession, executeDecision } = await import('../services/executor');
+          const sessionOpen = await waitForRegularSession(90);
+          if (sessionOpen) {
+            const summary = await executeDecision(decision);
+            // 실주문 체결이 있었으면 포지션을 실계좌 기준으로 재동기화
+            if (summary.executed.some(r => !r.dryRun)) {
+              await reconcileWithToss();
+              await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
+            }
+          } else {
+            console.warn('⚠️ 정규장이 90분 내에 열리지 않아 결정 집행을 건너뜁니다 (휴장일 가능성).');
+          }
+        } else {
+          console.log('ℹ️ AUTO_EXECUTE_DECISION=false — 결정 기록만 하고 집행하지 않습니다.');
+        }
+      } else {
+        console.warn('⚠️ 구조화 결정을 파싱하지 못해 포지션 계획 갱신을 건너뜁니다 (리포트 JSON 블록 확인 필요).');
+      }
+    } catch (decisionError) {
+      console.error('⚠️ 결정 파싱/포지션 동기화/집행 실패 (리포트는 정상 저장됨):', decisionError);
+      // 결정 처리 실패해도 파이프라인은 계속 진행
     }
 
     console.log('🎉 Manager_Agent 통합 리포트 파이프라인 완료');
@@ -172,7 +216,7 @@ async function sendErrorEmail(error: Error): Promise<void> {
 
 ## 대응 방안
 1. 15:00 Agent 리포트 생성 상태 확인
-2. GitHub Actions 로그 확인
+2. 로컬 서버 로그 확인
 3. 수동으로 Agent 리포트 재실행
 4. Manager_Agent 수동 실행
 

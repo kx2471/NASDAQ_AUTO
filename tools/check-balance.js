@@ -1,38 +1,38 @@
-const trades = require('../data/json/trades.json');
-const cashEvents = require('../data/json/cash_events.json');
+// 토스 실계좌 잔고·보유 확인 도구
+// 사용법: npm run build && node tools/check-balance.js
+// (잔고의 정답은 토스 실계좌 — 과거의 cash_events.json 재생 방식은 폐기됨)
+import dotenv from 'dotenv';
+dotenv.config();
 
-console.log('=== 거래 내역 분석 ===');
-let balance = 0;
+async function checkBalance() {
+  try {
+    const { getCashBalance, getHoldings } = await import('../dist/storage/database.js');
+    const { getCachedExchangeRate } = await import('../dist/services/exchange.js');
 
-// 초기 입금
-cashEvents.forEach(event => {
-  console.log(`입금: $${event.amount}`);
-  balance += event.amount;
-});
+    const [cash, holdings, rate] = await Promise.all([
+      getCashBalance(),
+      getHoldings(),
+      getCachedExchangeRate()
+    ]);
 
-console.log(`초기 잔고: $${balance.toFixed(2)}`);
+    console.log('💰 토스 실계좌 현황');
+    console.log('─'.repeat(40));
+    console.log(`현금(매수가능 USD): $${cash.toFixed(2)} (₩${Math.round(cash * rate.usd_to_krw).toLocaleString()})`);
+    console.log(`환율: ${rate.usd_to_krw} 원/달러`);
+    console.log('─'.repeat(40));
 
-// 거래 내역
-trades.forEach(trade => {
-  if (trade.side === 'BUY') {
-    const cost = trade.qty * trade.price;
-    balance -= cost;
-    console.log(`매수 ${trade.symbol}: ${trade.qty}주 x $${trade.price} = -$${cost.toFixed(2)} (잔고: $${balance.toFixed(2)})`);
-  } else if (trade.side === 'SELL') {
-    const proceeds = trade.qty * trade.price;
-    balance += proceeds;
-    console.log(`매도 ${trade.symbol}: ${trade.qty}주 x $${trade.price} = +$${proceeds.toFixed(2)} (잔고: $${balance.toFixed(2)})`);
+    if (holdings.length === 0) {
+      console.log('보유종목 없음');
+    } else {
+      for (const h of holdings) {
+        const cur = h.currency || 'USD';
+        console.log(`${h.symbol.padEnd(8)} ${h.shares}주 @ ${cur === 'KRW' ? '₩' : '$'}${h.avg_cost.toLocaleString()} (${cur})`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ 조회 실패:', error.message);
+    process.exit(1);
   }
-});
+}
 
-console.log(`\n최종 현금 잔고: $${balance.toFixed(2)}`);
-
-// 동적 환율 계산 (API로 가져오거나 설정에서 읽어오기)
-const exchangeRate = process.env.USD_KRW_RATE || 1391.7; // 기본값으로 현재 환율 사용
-const krwBalance = balance * exchangeRate;
-console.log(`원화 환산: ₩${Math.round(krwBalance).toLocaleString()} (환율: ${exchangeRate})`);
-
-// 270만원 달러 환산
-const targetKrw = 2700000;
-const targetUsd = targetKrw / exchangeRate;
-console.log(`\n₩270만원 = $${targetUsd.toFixed(2)} (환율: ${exchangeRate})`);
+checkBalance();

@@ -84,3 +84,8 @@ DB_Mig.md
 # Temporary files
 temp/
 tmp/
+# 런타임 상태/캐시 (커밋 금지 — 재생성됨)
+data/json/universe.json
+data/json/positions.json
+data/json/decisions.json
+data/json/*.backup-*.json

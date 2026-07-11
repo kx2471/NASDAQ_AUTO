@@ -1,7 +1,5 @@
-import { db, Symbol } from '../storage/database';
-import { SectorConfig } from '../utils/config';
-import { StockDiscoveryEngine, DiscoveredStock } from './discovery';
-import { filterHighQualityStocks } from './market';
+import { getUniverse, UniverseStock } from './universe';
+import { getPrices, getCandles, TossCandle } from './toss';
 
 /**
  * 종목 스크리닝 결과 인터페이스
@@ -22,113 +20,26 @@ export interface ScreeningResult {
 }
 
 /**
- * 동적 종목 스크리닝 엔진
- * 발견된 종목들을 분석하여 투자 추천 생성
+ * 종목 스크리닝 엔진
+ * 선별된 후보 종목을 정밀 분석하여 투자 추천 생성
  */
 export class DynamicStockScreener {
-  private discoveryEngine: StockDiscoveryEngine;
-
-  constructor() {
-    this.discoveryEngine = new StockDiscoveryEngine();
-  }
 
   /**
-   * 섹터별 종목 스크리닝 실행
+   * 개별 종목 정밀 분석 (100일 기술지표 + 뉴스 감성 + 모멘텀)
+   * @param stock       분석 대상 (symbol/name)
+   * @param sectorCode  결과에 표기할 시장/섹터 라벨
    */
-  async screenSector(
-    sectorCode: string,
-    sectorConfig: SectorConfig
-  ): Promise<ScreeningResult[]> {
-    console.log(`📊 ${sectorConfig.title} 섹터 스크리닝 시작...`);
-
-    try {
-      // 1. 기존 저장된 종목들 조회
-      let sectorStocks = await this.getExistingSectorStocks(sectorCode);
-
-      // 2. 저장된 종목이 부족하거나 오래된 경우 새로 발견
-      if (sectorStocks.length < Math.min(10, sectorConfig.max_symbols)) {
-        console.log(`🔍 ${sectorCode}: 새로운 종목 발견 시작 (현재 ${sectorStocks.length}개)`);
-        
-        const discoveredStocks = await this.discoveryEngine.discoverStocksForSector(
-          sectorCode, 
-          sectorConfig
-        );
-        
-        await this.discoveryEngine.saveDiscoveredStocks(discoveredStocks);
-        sectorStocks = await this.getExistingSectorStocks(sectorCode);
-      }
-
-      // 3. 품질 필터링 적용 - 활성 종목만 선별
-      const activeStocks = sectorStocks.filter(stock => stock.active);
-      console.log(`📊 ${sectorCode}: 활성 종목 ${activeStocks.length}개 / 전체 ${sectorStocks.length}개`);
-      
-      // 4. 높은 품질의 종목들만 추가 검증
-      const symbolsToVerify = activeStocks.map(stock => stock.symbol);
-      let verifiedSymbols: string[] = [];
-      
-      if (symbolsToVerify.length > 0) {
-        console.log(`🔍 ${sectorCode}: ${symbolsToVerify.length}개 종목 품질 재검증 중...`);
-        verifiedSymbols = await filterHighQualityStocks(symbolsToVerify);
-        console.log(`✅ ${sectorCode}: ${verifiedSymbols.length}개 고품질 종목 확인`);
-      }
-      
-      // 5. 검증된 종목들만 분석 대상으로 선정
-      const qualifiedStocks = activeStocks.filter(stock => 
-        verifiedSymbols.includes(stock.symbol)
-      );
-      
-      // 6. 각 종목에 대한 상세 분석
-      const screeningResults: ScreeningResult[] = [];
-      
-      for (const stock of qualifiedStocks.slice(0, sectorConfig.max_symbols)) {
-        try {
-          const result = await this.analyzeStock(stock, sectorCode, sectorConfig);
-          if (result) {
-            screeningResults.push(result);
-          }
-        } catch (error) {
-          console.warn(`⚠️ ${stock.symbol} 분석 실패:`, error);
-        }
-      }
-
-      // 7. 결과 정렬 및 필터링
-      const filteredResults = screeningResults
-        .filter(result => result.overall_score >= 0.3) // 최소 점수 필터
-        .sort((a, b) => b.overall_score - a.overall_score);
-
-      console.log(`✅ ${sectorConfig.title} 스크리닝 완료: ${filteredResults.length}개 종목 (품질 필터링 적용)`);
-      return filteredResults;
-
-    } catch (error) {
-      console.error(`❌ ${sectorCode} 스크리닝 실패:`, error);
-      return [];
-    }
-  }
-
-  /**
-   * 섹터의 기존 종목들 조회
-   */
-  private async getExistingSectorStocks(sectorCode: string): Promise<Symbol[]> {
-    const allSymbols = await db.find<Symbol>('symbols');
-    return allSymbols.filter(symbol => 
-      symbol.sector === sectorCode && symbol.active
-    );
-  }
-
-  /**
-   * 개별 종목 분석
-   */
-  private async analyzeStock(
-    stock: Symbol,
-    sectorCode: string,
-    sectorConfig: SectorConfig
+  async analyzeStock(
+    stock: { symbol: string; name: string },
+    sectorCode: string
   ): Promise<ScreeningResult | null> {
     try {
       // 1. 가격 모멘텀 분석
       const momentumScore = await this.calculateMomentumScore(stock.symbol);
 
       // 2. 뉴스 감성 분석
-      const newsSentiment = await this.calculateNewsSentiment(stock.symbol, sectorConfig);
+      const newsSentiment = await this.calculateNewsSentiment(stock.symbol);
 
       // 3. 기술적 분석 점수
       const technicalScore = await this.calculateTechnicalScore(stock.symbol);
@@ -179,28 +90,15 @@ export class DynamicStockScreener {
    */
   private async calculateMomentumScore(symbol: string): Promise<number> {
     try {
-      // ✅ 실시간 가격 데이터 조회
+      // ✅ 토스 일봉 데이터 조회 (fetchDailyPrices와 getHistoricalPrices는 동일 소스이므로 폴백 불필요)
       const { fetchDailyPrices } = await import('./market');
-      const { getHistoricalPrices, isRealtimePriceEnabled } = await import('./realtime-market');
 
       let prices: any[] = [];
-
-      // 1차: Yahoo Finance 조회
       try {
         const pricesData = await fetchDailyPrices([symbol]);
         prices = pricesData[symbol] || [];
       } catch (error) {
-        console.warn(`⚠️ ${symbol} Yahoo Finance 조회 실패`);
-      }
-
-      // 2차: Alpaca fallback (데이터 부족 시)
-      if (prices.length < 20 && isRealtimePriceEnabled()) {
-        try {
-          console.log(`🔄 ${symbol} Alpaca 데이터로 보완 중...`);
-          prices = await getHistoricalPrices(symbol, 100);
-        } catch (error) {
-          console.warn(`⚠️ ${symbol} Alpaca 조회 실패`);
-        }
+        console.warn(`⚠️ ${symbol} 토스 일봉 조회 실패`);
       }
 
       if (prices.length < 20) {
@@ -244,10 +142,7 @@ export class DynamicStockScreener {
   /**
    * 뉴스 감성 점수 계산 (실시간 뉴스 조회)
    */
-  private async calculateNewsSentiment(
-    symbol: string,
-    sectorConfig: SectorConfig
-  ): Promise<number> {
+  private async calculateNewsSentiment(symbol: string): Promise<number> {
     try {
       // ✅ 실시간 뉴스 조회
       const { fetchNews } = await import('./news');
@@ -325,28 +220,15 @@ export class DynamicStockScreener {
    */
   private async calculateTechnicalScore(symbol: string): Promise<number> {
     try {
-      // ✅ 실시간 가격 데이터로 기술지표 계산
+      // ✅ 토스 일봉 데이터로 기술지표 계산 (동일 소스이므로 2차 폴백 불필요)
       const { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } = await import('./market');
-      const { getHistoricalPrices, isRealtimePriceEnabled } = await import('./realtime-market');
 
       let prices: any[] = [];
-
-      // 1차: Yahoo Finance 조회
       try {
         const pricesData = await fetchDailyPrices([symbol]);
         prices = pricesData[symbol] || [];
       } catch (error) {
-        console.warn(`⚠️ ${symbol} Yahoo Finance 조회 실패`);
-      }
-
-      // 2차: Alpaca fallback (데이터 부족 시)
-      if (prices.length < 50 && isRealtimePriceEnabled()) {
-        try {
-          console.log(`🔄 ${symbol} Alpaca 기술지표 데이터 보완 중...`);
-          prices = await getHistoricalPrices(symbol, 100);
-        } catch (error) {
-          console.warn(`⚠️ ${symbol} Alpaca 조회 실패`);
-        }
+        console.warn(`⚠️ ${symbol} 토스 일봉 조회 실패`);
       }
 
       if (prices.length < 15) {
@@ -451,8 +333,13 @@ export class DynamicStockScreener {
     newsSentiment: number,
     technicalScore: number
   ): 'BUY' | 'HOLD' | 'SELL' {
-    // 강한 매수 신호
-    if (overallScore >= 0.7 && momentumScore >= 0.6 && newsSentiment >= 0.1) {
+    // 강한 매수 신호 — 뉴스는 부정적이지만 않으면 허용 (뉴스 없음=중립 0이 BUY를 막지 않도록)
+    if (overallScore >= 0.7 && momentumScore >= 0.6 && newsSentiment >= 0) {
+      return 'BUY';
+    }
+
+    // 준매수 신호 — 종합점수와 기술적 신호가 모두 강하면 모멘텀 기준 완화
+    if (overallScore >= 0.65 && technicalScore >= 0.7 && newsSentiment >= 0) {
       return 'BUY';
     }
 
@@ -512,32 +399,164 @@ export class DynamicStockScreener {
   }
 }
 
+// =============================================================
+// 전시장 퍼널 스크리닝
+// =============================================================
+
+/** 2단계 모멘텀 스캔 결과 (정밀 분석 후보) */
+interface QuickScanResult {
+  symbol: string;
+  name: string;
+  market: string;
+  mom5: number;           // 5일 수익률
+  mom20: number;          // 20일 수익률
+  avgDollarVolume: number; // 20일 평균 거래대금 (USD)
+  nearHigh: number;       // 20일 고점 대비 현재가 비율 (0~1)
+  quickScore: number;     // 후보 순위용 점수
+}
+
 /**
- * 전체 섹터 스크리닝 실행
+ * 동시성 제한 병렬 실행 (레이트리밋 고려)
+ * @param items 처리 대상 배열
+ * @param limit 동시 실행 개수
+ * @param fn    각 항목 처리 함수 (실패 시 null 반환 권장)
  */
-export async function runFullScreening(
-  sectors: Record<string, SectorConfig>
-): Promise<Record<string, ScreeningResult[]>> {
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * 30일 캔들로 빠른 모멘텀/유동성 스캔
+ * @returns 통과 시 스캔 결과, 데이터 부족/유동성 미달 시 null
+ */
+async function quickScan(stock: UniverseStock, minDollarVolume: number): Promise<QuickScanResult | null> {
+  try {
+    const candles: TossCandle[] = await getCandles(stock.symbol, '1d', 30);
+    if (candles.length < 21) return null;
+
+    const closes = candles.map(c => c.close);
+    const last = closes[closes.length - 1];
+    const close5 = closes[closes.length - 6];
+    const close20 = closes[closes.length - 21];
+    if (!last || !close5 || !close20) return null;
+
+    const mom5 = (last - close5) / close5;
+    const mom20 = (last - close20) / close20;
+
+    // 최근 20일 평균 거래대금 — 유동성 미달 종목은 소액으로도 슬리피지가 커서 제외
+    const recent20 = candles.slice(-20);
+    const avgDollarVolume = recent20.reduce((s, c) => s + c.volume * c.close, 0) / recent20.length;
+    if (avgDollarVolume < minDollarVolume) return null;
+
+    const high20 = Math.max(...recent20.map(c => c.high));
+    const nearHigh = high20 > 0 ? last / high20 : 0;
+
+    // 후보 순위 점수: 중기 모멘텀 위주 + 단기 가속 + 고점 근접(추세 지속) 가산
+    const quickScore = mom20 * 0.6 + mom5 * 0.4 + (nearHigh - 0.9) * 0.5;
+
+    return {
+      symbol: stock.symbol,
+      name: stock.name,
+      market: stock.market,
+      mom5,
+      mom20,
+      avgDollarVolume,
+      nearHigh,
+      quickScore
+    };
+  } catch {
+    return null; // 캔들 조회 실패(404 등) — 조용히 제외
+  }
+}
+
+/**
+ * 미국 전시장 퍼널 스크리닝
+ *
+ * 섹터를 미리 정하지 않고 시장 전체에서 후보를 좁혀 들어간다:
+ *  1) 유니버스: 토스 거래가능 미국 보통주 전체 (주 1회 캐시)
+ *  2) 시세 일괄조회(200개/콜) → 가격·시총 필터
+ *  3) 30일 캔들 모멘텀/유동성 스캔 → 상위 후보 선별
+ *  4) 정밀 분석(100일 기술지표 + 뉴스 감성) → 고득점 종목만 추천
+ *
+ * 환경변수 (기본값):
+ *  - SCREEN_MIN_PRICE_USD (3)       : 최소 주가 — 페니스톡 제외
+ *  - SCREEN_MIN_MARKET_CAP_USD (5억): 최소 시총
+ *  - SCREEN_MIN_DOLLAR_VOLUME (500만): 최소 20일 평균 거래대금
+ *  - SCREEN_SCAN_LIMIT (1000)       : 캔들 스캔 대상 수 (시총 상위순)
+ *  - SCREEN_FINALISTS (40)          : 정밀 분석 대상 수
+ *  - SCREEN_TOP_PICKS (15)          : 최종 추천 상한
+ *
+ * @returns 기존 소비부 호환 형태 { US_MARKET: ScreeningResult[] } (종합점수 내림차순)
+ */
+export async function runMarketWideScreening(): Promise<Record<string, ScreeningResult[]>> {
+  const minPrice = parseFloat(process.env.SCREEN_MIN_PRICE_USD || '') || 3;
+  const minMarketCap = parseFloat(process.env.SCREEN_MIN_MARKET_CAP_USD || '') || 500_000_000;
+  const minDollarVolume = parseFloat(process.env.SCREEN_MIN_DOLLAR_VOLUME || '') || 5_000_000;
+  const scanLimit = parseInt(process.env.SCREEN_SCAN_LIMIT || '', 10) || 1000;
+  const finalistCount = parseInt(process.env.SCREEN_FINALISTS || '', 10) || 40;
+  const topPicks = parseInt(process.env.SCREEN_TOP_PICKS || '', 10) || 15;
+
+  // ---- 1단계: 유니버스 ----
+  const universe = await getUniverse();
+  console.log(`\n🔎 [1/4] 유니버스: ${universe.length}개 종목`);
+
+  // ---- 2단계: 시세 일괄조회 → 가격·시총 필터 ----
+  const priceMap = await getPrices(universe.map(u => u.symbol));
+  const candidates = universe
+    .map(u => ({ ...u, price: priceMap[u.symbol] || 0 }))
+    .filter(u => u.price >= minPrice && u.price * u.sharesOutstanding >= minMarketCap)
+    .sort((a, b) => b.price * b.sharesOutstanding - a.price * a.sharesOutstanding)
+    .slice(0, scanLimit);
+  console.log(`🔎 [2/4] 가격 ≥ $${minPrice}·시총 ≥ $${(minMarketCap / 1e6).toFixed(0)}M 필터: ${candidates.length}개 (스캔 상한 ${scanLimit})`);
+
+  // ---- 3단계: 30일 캔들 모멘텀/유동성 스캔 (동시성 4) ----
+  const scanned = await mapWithConcurrency(candidates, 4, c => quickScan(c, minDollarVolume));
+  const ranked = scanned
+    .filter((r): r is QuickScanResult => r !== null && r.mom20 > 0) // 중기 상승 추세만
+    .sort((a, b) => b.quickScore - a.quickScore);
+  const finalists = ranked.slice(0, finalistCount);
+  console.log(`🔎 [3/4] 모멘텀 스캔: ${ranked.length}개 상승추세 확인 → 정밀 분석 대상 ${finalists.length}개`);
+  finalists.slice(0, 10).forEach((f, i) =>
+    console.log(`   ${i + 1}. ${f.symbol} (20일 ${(f.mom20 * 100).toFixed(1)}%, 5일 ${(f.mom5 * 100).toFixed(1)}%, 거래대금 $${(f.avgDollarVolume / 1e6).toFixed(1)}M)`)
+  );
+
+  // ---- 4단계: 정밀 분석 (기존 분석기 재사용) ----
   const screener = new DynamicStockScreener();
-  const results: Record<string, ScreeningResult[]> = {};
+  const results: ScreeningResult[] = [];
 
-  for (const [sectorCode, sectorConfig] of Object.entries(sectors)) {
+  for (const finalist of finalists) {
     try {
-      console.log(`\n🔄 ${sectorConfig.title} 섹터 스크리닝 시작...`);
-      
-      const sectorResults = await screener.screenSector(sectorCode, sectorConfig);
-      results[sectorCode] = sectorResults;
-
-      console.log(`📊 ${sectorConfig.title}: ${sectorResults.length}개 종목 분석 완료`);
-      
-      // API 호출 제한 준수
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
+      const result = await screener.analyzeStock(
+        { symbol: finalist.symbol, name: finalist.name },
+        finalist.market
+      );
+      if (result) results.push(result);
     } catch (error) {
-      console.error(`❌ ${sectorCode} 스크리닝 실패:`, error);
-      results[sectorCode] = [];
+      console.warn(`⚠️ ${finalist.symbol} 정밀 분석 실패:`, error);
     }
   }
 
-  return results;
+  // 진짜 오를 것 같은 종목만: 종합점수 상위 + 최소 점수 기준
+  const final = results
+    .filter(r => r.overall_score >= 0.55)
+    .sort((a, b) => b.overall_score - a.overall_score)
+    .slice(0, topPicks);
+
+  console.log(`🔎 [4/4] 정밀 분석 완료: ${results.length}개 중 최종 추천 ${final.length}개 (점수 ≥ 0.55)`);
+  return { US_MARKET: final };
 }

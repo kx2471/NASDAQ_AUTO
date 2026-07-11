@@ -21,13 +21,6 @@ function getKoreanDateString(): string {
  * 3개 Agent의 보고서를 종합하여 최종 통합 의사결정 제공
  */
 
-export interface ManagerReportInput {
-  agentGptReport: string;
-  agentClaudeReport: string;
-  portfolioData: any;
-  performanceData: any;
-}
-
 /**
  * Manager_Agent 통합 리포트 생성
  */
@@ -225,10 +218,10 @@ async function getCurrentPerformanceData(): Promise<any> {
     if (holdingSymbols.length > 0) {
       console.log(`📊 Manager Agent - 보유 종목 실시간 가격 수집: ${holdingSymbols.join(', ')}`);
 
-      // Alpaca 실시간 가격 조회 시도
+      // 토스 실시간 가격 조회 시도
       if (isRealtimePriceEnabled()) {
         try {
-          console.log('🔄 Manager Agent - Alpaca 실시간 가격 API 사용 중...');
+          console.log('🔄 Manager Agent - 토스 실시간 가격 API 사용 중...');
           const realtimePrices = await getLatestPrices(holdingSymbols);
 
           for (const [symbol, priceData] of Object.entries(realtimePrices)) {
@@ -236,9 +229,9 @@ async function getCurrentPerformanceData(): Promise<any> {
             console.log(`💰 ${symbol}: $${priceData.price} (${priceData.session})`);
           }
         } catch (priceError) {
-          console.warn('⚠️ Alpaca 실시간 가격 조회 실패, Yahoo Finance fallback:', priceError);
+          console.warn('⚠️ 토스 실시간 가격 조회 실패, 일봉 종가 fallback:', priceError);
 
-          // Yahoo Finance fallback
+          // 일봉 종가 fallback
           try {
             const holdingPricesData = await fetchDailyPrices(holdingSymbols);
             for (const [symbol, prices] of Object.entries(holdingPricesData)) {
@@ -252,9 +245,9 @@ async function getCurrentPerformanceData(): Promise<any> {
           }
         }
       } else {
-        console.log('ℹ️ Manager Agent - Alpaca API가 설정되지 않았습니다. Yahoo Finance 사용 중...');
+        console.log('ℹ️ Manager Agent - 토스 API가 설정되지 않았습니다. 일봉 종가 사용 중...');
 
-        // Yahoo Finance 사용
+        // 일봉 종가 사용
         try {
           const holdingPricesData = await fetchDailyPrices(holdingSymbols);
           for (const [symbol, prices] of Object.entries(holdingPricesData)) {
@@ -385,22 +378,19 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 
     console.log(`🤖 Manager Agent - ${managerModel}을 사용하여 리포트 생성 시작 (API: ${clientType})`);
 
-    // 현재가 정보 추출
-    const extractCurrentPrices = () => {
-      const claudeReport = payload.agent_reports?.agent_claude || '';
-      const priceExtraction = {
-        BABA: claudeReport.match(/\| BABA.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
-        GOOGL: claudeReport.match(/\| GOOGL.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
-        NVDA: claudeReport.match(/\| NVDA.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1],
-        COIN: claudeReport.match(/\| COIN.*?\|.*?\|.*?\|\s*(\d+\.\d+)/)?.[1]
-      };
+    // 현재가 정보 수집 (실보유 종목 기준 토스 실시간 조회 — 하드코딩·리포트 스크래핑 금지)
+    const extractCurrentPrices = async (): Promise<Record<string, number>> => {
+      try {
+        const holdings: Array<{ symbol: string }> = payload.portfolio?.holdings || [];
+        const symbols = holdings.map(h => h.symbol);
+        if (symbols.length === 0) return {};
 
-      const validPrices: Record<string, number> = {};
-      Object.entries(priceExtraction).forEach(([symbol, price]) => {
-        if (price) validPrices[symbol] = parseFloat(price);
-      });
-
-      return validPrices;
+        const { getPrices } = await import('./toss');
+        return await getPrices(symbols);
+      } catch (error) {
+        console.warn('⚠️ 현재가 수집 실패, 빈 데이터로 진행:', error);
+        return {};
+      }
     };
 
     // 각 Agent의 전략과 추천 종목을 구체적으로 추출
@@ -475,7 +465,7 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     console.log('🔍 Claude 추천 첫 200자:', claudeData.recommendations.substring(0, 200));
     console.log('🔍 GPT 전략 첫 200자:', gptData.strategy.substring(0, 200));
     console.log('🔍 GPT 추천 첫 200자:', gptData.recommendations.substring(0, 200));
-    const currentPrices = extractCurrentPrices();
+    const currentPrices = await extractCurrentPrices();
     const availableCash = payload.portfolio.cash_usd || 0;
 
     // 새로운 프롬프트 변수에 맞게 템플릿 치환
@@ -553,9 +543,11 @@ ${previousReportsSummary}
       const anthropicClient = new Anthropic({ apiKey });
 
       console.log('📡 Anthropic API 호출 중...');
+      // 분량: 프롬프트에서 3,000토큰 이내로 지시. 캡은 여유를 둔 안전망 —
+      // 리포트 맨 끝의 결정 JSON이 잘리면 자동매매 입력이 사라지므로 타이트하게 조이지 않는다.
       const anthropicResponse = await anthropicClient.messages.create({
         model: managerModel,
-        max_tokens: 15000,
+        max_tokens: 8000,
         system: processedPrompt,
         messages: [
           {

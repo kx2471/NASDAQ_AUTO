@@ -8,7 +8,7 @@ import { generateReportWithClaude } from '../services/claude';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
-import { runFullScreening } from '../services/screening';
+import { runMarketWideScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
 import { calculateCurrentPerformance, analyzeTargetProgress, savePerformanceHistory, generatePerformanceReport } from '../services/performance';
 import { getLatestPrices, isRealtimePriceEnabled, getCurrentMarketSession } from '../services/realtime-market';
@@ -19,14 +19,11 @@ import path from 'path';
 dotenv.config();
 
 /**
- * 주간 투자 리포트 자동 생성 파이프라인
- * - 매주 금요일(미국시간) 장 마감 후 GitHub Actions로 자동 실행
- *   - 미국 동부시간: 금요일 17:00-18:00 (장 마감 후 1-2시간)
- *   - 한국시간: 토요일 새벽 07:00
+ * 에이전트 투자 리포트 생성 파이프라인
+ * - 나스닥 개장일마다 정규장 시작 전 로컬 스케줄러(scheduler.ts)가 실행
  * - 2개 AI Agent (Agent_Claude, Agent_GPT)가 각각 독립적으로 리포트 생성
- * - 미국 시장 개장일에만 실행 (금요일이 휴장이면 다음 개장일)
- * - Manager_Agent가 07:30에 통합 리포트 생성
- * - 장점: 금요일 종가 완벽 반영, 주말에 여유있게 검토, 월요일 매매 전략 수립
+ * - 이어서 Manager_Agent(jobs/manager.ts)가 통합 리포트 생성 + 결정 집행
+ * - 미국 시장 개장일에만 실행 (휴장이면 건너뜀)
  */
 export async function runWeekly(): Promise<void> {
   const today = new Date();
@@ -44,9 +41,9 @@ export async function runWeekly(): Promise<void> {
     const sectors = await loadSectors();
     console.log(`📋 ${Object.keys(sectors).length}개 섹터 로드됨 (AI, Computing, Nuclear, Technology, Aerospace, Defense)`);
 
-    // 3. 전체 섹터 스크리닝 실행 (주간 더 상세한 분석)
-    console.log('\n🔍 주간 상세 종목 스크리닝 시작...');
-    const screeningResults = await runFullScreening(sectors);
+    // 3. 미국 전시장 퍼널 스크리닝 (유니버스 → 시총/유동성 → 모멘텀 → 정밀분석)
+    console.log('\n🔍 전시장 종목 스크리닝 시작...');
+    const screeningResults = await runMarketWideScreening();
 
     // 4. Agent별 리포트 생성 (15:00)
     console.log('\n📊 Agent별 주간 리포트 생성 시작...');
@@ -124,10 +121,10 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     if (holdingSymbols.length > 0) {
       console.log(`📊 보유 종목 현재가 수집: ${holdingSymbols.join(', ')}`);
 
-      // Alpaca 실시간 가격 조회 시도
+      // 토스 실시간 가격 조회 시도
       if (isRealtimePriceEnabled()) {
         try {
-          console.log('🔄 Alpaca 실시간 가격 API 사용 중...');
+          console.log('🔄 토스 실시간 가격 API 사용 중...');
           const realtimePrices = await getLatestPrices(holdingSymbols);
 
           for (const [symbol, priceData] of Object.entries(realtimePrices)) {
@@ -145,9 +142,9 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
           console.log(`✅ 실시간 가격 조회 완료 - 현재 세션: ${currentSession}`);
 
         } catch (error) {
-          console.warn('⚠️ Alpaca 실시간 가격 조회 실패, Yahoo Finance fallback:', (error as Error).message);
+          console.warn('⚠️ 토스 실시간 가격 조회 실패, 일봉 종가 fallback:', (error as Error).message);
 
-          // Yahoo Finance fallback
+          // 일봉 종가 fallback
           const holdingPricesData = await fetchDailyPrices(holdingSymbols);
           for (const [symbol, prices] of Object.entries(holdingPricesData)) {
             if (prices && prices.length > 0) {
@@ -157,9 +154,9 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
           }
         }
       } else {
-        console.log('ℹ️ Alpaca API가 설정되지 않았습니다. Yahoo Finance 사용 중...');
+        console.log('ℹ️ 토스 API가 설정되지 않았습니다. 일봉 종가 사용 중...');
 
-        // Yahoo Finance 사용
+        // 일봉 종가 사용
         const holdingPricesData = await fetchDailyPrices(holdingSymbols);
         for (const [symbol, prices] of Object.entries(holdingPricesData)) {
           if (prices && prices.length > 0) {
@@ -395,13 +392,13 @@ async function prepareWeeklyReportPayload(params: {
  * - 50일 이상: 전체 지표 계산 (EMA20, EMA50, RSI14)
  * - 20-49일: 부분 지표 계산 (EMA20, RSI14)
  * - 15-19일: RSI14만 계산
- * - 15일 미만: Alpaca API로 히스토리 데이터 보완 시도
+ * - 15일 미만: 현재가만 제공 (토스 일봉이 유일한 소스이므로 추가 보완 불가)
  */
 async function calculateIndicators(pricesData: Record<string, any[]>): Promise<Record<string, any>> {
   const indicators: Record<string, any> = {};
-  const missingDataSymbols: string[] = []; // 데이터 부족 종목 목록
+  const missingDataSymbols: string[] = []; // 데이터 부족 종목 목록 (로깅용)
 
-  // 1차: Yahoo Finance 데이터로 기술지표 계산
+  // 토스 일봉 데이터로 기술지표 계산
   for (const [symbol, prices] of Object.entries(pricesData)) {
     try {
       const closePrices = prices.map(p => p.close);
@@ -430,7 +427,7 @@ async function calculateIndicators(pricesData: Record<string, any[]>): Promise<R
           indicators[symbol] = {
             close: currentPrice
           };
-          console.warn(`⚠️ ${symbol}: 현재가만 제공 (${prices.length}일) - Alpaca 보완 시도 예정`);
+          console.warn(`⚠️ ${symbol}: 현재가만 제공 (${prices.length}일)`);
           missingDataSymbols.push(symbol);
         }
       } else {
@@ -438,7 +435,7 @@ async function calculateIndicators(pricesData: Record<string, any[]>): Promise<R
         indicators[symbol] = {
           close: currentPrice
         };
-        console.warn(`⚠️ ${symbol}: 기술지표 계산 불가 (${prices.length}일) - Alpaca 보완 시도 예정`);
+        console.warn(`⚠️ ${symbol}: 기술지표 계산 불가 (${prices.length}일)`);
         missingDataSymbols.push(symbol);
       }
     } catch (error) {
@@ -453,62 +450,9 @@ async function calculateIndicators(pricesData: Record<string, any[]>): Promise<R
     }
   }
 
-  // 2차: Alpaca API로 데이터 부족 종목 보완
-  if (missingDataSymbols.length > 0 && isRealtimePriceEnabled()) {
-    console.log(`\n🔄 Alpaca API로 ${missingDataSymbols.length}개 종목 기술지표 보완 시도...`);
-    console.log(`   대상 종목: ${missingDataSymbols.join(', ')}`);
-
-    try {
-      const { getBulkHistoricalPrices } = await import('../services/realtime-market');
-      const alpacaHistoricalData = await getBulkHistoricalPrices(missingDataSymbols, 100);
-
-      for (const symbol of missingDataSymbols) {
-        const alpacaPrices = alpacaHistoricalData[symbol];
-
-        if (alpacaPrices && alpacaPrices.length >= 50) {
-          try {
-            const closePrices = alpacaPrices.map(p => p.close);
-            const currentPrice = closePrices[closePrices.length - 1];
-
-            // 완전한 기술지표 계산
-            const computed = computeIndicators(closePrices);
-            indicators[symbol] = {
-              close: currentPrice,
-              ...computed
-            };
-            console.log(`✅ ${symbol}: Alpaca 데이터로 전체 기술지표 계산 완료 (${alpacaPrices.length}일)`);
-          } catch (error) {
-            console.error(`❌ ${symbol}: Alpaca 데이터로 기술지표 계산 실패`, error);
-          }
-        } else if (alpacaPrices && alpacaPrices.length >= 15) {
-          try {
-            const closePrices = alpacaPrices.map(p => p.close);
-            const currentPrice = closePrices[closePrices.length - 1];
-
-            // 부분 기술지표 계산
-            const computed = computeIndicatorsPartial(closePrices);
-            if (computed) {
-              indicators[symbol] = {
-                close: currentPrice,
-                ...computed
-              };
-              const availableIndicators = Object.keys(computed).join(', ');
-              console.log(`✅ ${symbol}: Alpaca 데이터로 부분 기술지표 계산 완료 (${alpacaPrices.length}일, ${availableIndicators})`);
-            }
-          } catch (error) {
-            console.error(`❌ ${symbol}: Alpaca 데이터로 부분 기술지표 계산 실패`, error);
-          }
-        } else {
-          console.warn(`⚠️ ${symbol}: Alpaca 데이터도 부족 (${alpacaPrices?.length || 0}일)`);
-        }
-      }
-
-      console.log(`✅ Alpaca 보완 완료\n`);
-    } catch (error) {
-      console.error('❌ Alpaca 데이터 보완 실패:', error);
-    }
-  } else if (missingDataSymbols.length > 0) {
-    console.warn(`⚠️ Alpaca API가 설정되지 않아 ${missingDataSymbols.length}개 종목 기술지표 보완 불가`);
+  // 데이터 부족 종목 요약 (토스 일봉이 유일한 소스이므로 재조회해도 동일 — 보완 폴백 제거됨)
+  if (missingDataSymbols.length > 0) {
+    console.warn(`⚠️ 기술지표 데이터 부족 종목 ${missingDataSymbols.length}개: ${missingDataSymbols.join(', ')} (신규 상장 등 히스토리 부족)`);
   }
 
   return indicators;

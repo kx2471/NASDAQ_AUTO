@@ -8,7 +8,7 @@ import { generateReportWithClaude } from '../services/claude';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
-import { runFullScreening } from '../services/screening';
+import { runMarketWideScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
 
 // 환경변수 로드
@@ -39,9 +39,9 @@ export async function runDaily(): Promise<void> {
     const sectors = await loadSectors();
     console.log(`📋 ${Object.keys(sectors).length}개 섹터 로드됨`);
 
-    // 전체 섹터 스크리닝 실행 (동적 종목 발견 + 분석)
-    console.log('\n🔍 동적 종목 스크리닝 시작...');
-    const screeningResults = await runFullScreening(sectors);
+    // 미국 전시장 퍼널 스크리닝 (유니버스 → 시총/유동성 → 모멘텀 → 정밀분석)
+    console.log('\n🔍 전시장 종목 스크리닝 시작...');
+    const screeningResults = await runMarketWideScreening();
 
     // 통합 리포트 생성 (모든 섹터 데이터 종합)
     console.log('\n📊 통합 리포트 생성 시작...');

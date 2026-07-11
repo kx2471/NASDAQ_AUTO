@@ -6,6 +6,7 @@ import {
   getSellableQuantity,
   isDryRun,
   isTossEnabled,
+  isUsRegularSessionOpen,
   OrderType
 } from './toss';
 
@@ -54,6 +55,46 @@ function getMaxOrderUsd(): number {
 }
 
 /**
+ * 24시간 누적 매수 총액(USD) 한도 조회
+ * - TOSS_MAX_DAILY_BUY_USD 미설정 시 기본값 2000 USD
+ * - 버그·환각으로 소액 주문이 연쇄 집행되는 것을 막는 집계 가드레일
+ */
+function getMaxDailyBuyUsd(): number {
+  return parseFloat(process.env.TOSS_MAX_DAILY_BUY_USD || '') || 2000;
+}
+
+/**
+ * LIMIT 가격이 현재가에서 벗어날 수 있는 최대 비율(%) 조회
+ * - TOSS_MAX_PRICE_DEVIATION_PCT 미설정 시 기본값 20%
+ * - LLM이 환각으로 엉뚱한 지정가를 내는 것을 차단
+ */
+function getMaxPriceDeviationPct(): number {
+  return parseFloat(process.env.TOSS_MAX_PRICE_DEVIATION_PCT || '') || 20;
+}
+
+/**
+ * 미국 티커 형식 검증
+ * - 이 시스템은 미국 주식 전용. KRX 심볼(6자리 숫자)과 비정상 문자열을 거부한다.
+ * @param symbol 종목 심볼
+ */
+function isUsTicker(symbol: string): boolean {
+  if (/^\d{6}$/.test(symbol)) return false; // KRX 심볼 (예: 005930)
+  return /^[A-Z][A-Z0-9.\-]{0,9}$/.test(symbol);
+}
+
+/**
+ * 최근 24시간 실집행 매수 총액(USD) 계산 (trades.json 기준)
+ * - dry-run 주문은 기록되지 않으므로 한도를 소모하지 않는다.
+ */
+async function getRecentBuyNotional(): Promise<number> {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const trades = await db.find<Trade>('trades', t =>
+    t.side === 'BUY' && new Date(t.traded_at).getTime() >= cutoff
+  );
+  return trades.reduce((sum, t) => sum + t.qty * t.price, 0);
+}
+
+/**
  * 멱등키 생성 (symbol-side-분단위 시간 버킷)
  * - 같은 분 안의 동일 종목/방향 재요청을 토스가 동일 주문으로 처리 (중복 방지)
  */
@@ -91,8 +132,12 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
     }
 
     const orderType: OrderType = order.orderType || 'MARKET';
+    order.symbol = order.symbol.toUpperCase();
 
     // 1. 입력 검증
+    if (!isUsTicker(order.symbol)) {
+      return fail(order, `${order.symbol}은(는) 미국 티커가 아닙니다 (이 시스템은 미국 주식 전용, KRX 심볼 거부).`);
+    }
     if (order.qty === undefined && order.amount === undefined) {
       return fail(order, 'qty 또는 amount 중 하나는 필수입니다.');
     }
@@ -106,7 +151,32 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
       return fail(order, 'LIMIT 주문은 price가 필요합니다.');
     }
 
-    // 2. 추정 주문 금액 계산 (가드레일용)
+    // 1-1. 정규장 전용 정책: 프리마켓/애프터마켓/휴장 시간에는 주문 금지
+    //      (TOSS_ENFORCE_REGULAR_SESSION=false로만 해제 가능 — 테스트용)
+    if (process.env.TOSS_ENFORCE_REGULAR_SESSION !== 'false') {
+      const sessionOpen = await isUsRegularSessionOpen();
+      if (!sessionOpen) {
+        return fail(order, '미국 정규장 시간이 아닙니다 — 정규장(KST 22:30~05:00 무렵)에만 주문합니다.');
+      }
+    }
+
+    // 2. 현재가 조회 (주문 금액 추정 + 지정가 괴리 검증 + 감사 기록에 사용)
+    const priceMap = await getPrices([order.symbol]);
+    const lastPrice: number | undefined = priceMap[order.symbol];
+
+    // 2-1. 가드레일: LIMIT 가격이 현재가에서 과도하게 벗어나면 거부 (LLM 환각 가격 차단)
+    if (orderType === 'LIMIT' && order.price !== undefined) {
+      if (lastPrice === undefined) {
+        return fail(order, `${order.symbol} 현재가를 조회할 수 없어 지정가 검증이 불가합니다.`);
+      }
+      const deviationPct = Math.abs(order.price - lastPrice) / lastPrice * 100;
+      const maxDeviation = getMaxPriceDeviationPct();
+      if (deviationPct > maxDeviation) {
+        return fail(order, `지정가 $${order.price}이 현재가 $${lastPrice}에서 ${deviationPct.toFixed(1)}% 벗어남 (허용 ${maxDeviation}%).`);
+      }
+    }
+
+    // 2-2. 추정 주문 금액 계산 (가드레일용)
     let estimatedNotional: number;
     if (order.amount !== undefined) {
       estimatedNotional = order.amount;
@@ -114,12 +184,10 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
       estimatedNotional = order.qty! * order.price;
     } else {
       // 시장가 + 수량 → 현재가로 추정
-      const priceMap = await getPrices([order.symbol]);
-      const last = priceMap[order.symbol];
-      if (!last) {
+      if (lastPrice === undefined) {
         return fail(order, `${order.symbol} 현재가를 조회할 수 없어 주문 금액을 추정할 수 없습니다.`);
       }
-      estimatedNotional = order.qty! * last;
+      estimatedNotional = order.qty! * lastPrice;
     }
 
     // 3. 가드레일: 종목당 최대 주문 금액
@@ -128,11 +196,16 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
       return fail(order, `주문 금액 $${estimatedNotional.toFixed(2)}이 한도 $${maxOrderUsd}를 초과합니다.`);
     }
 
-    // 4. 가드레일: 매수 가능 금액 / 매도 가능 수량
+    // 4. 가드레일: 매수 가능 금액 / 24시간 누적 매수 한도 / 매도 가능 수량
     if (order.side === 'BUY') {
       const buyingPower = await getBuyingPower('USD');
       if (estimatedNotional > buyingPower) {
         return fail(order, `매수 금액 $${estimatedNotional.toFixed(2)}이 매수가능금액 $${buyingPower.toFixed(2)}을 초과합니다.`);
+      }
+      const recentBuys = await getRecentBuyNotional();
+      const maxDaily = getMaxDailyBuyUsd();
+      if (recentBuys + estimatedNotional > maxDaily) {
+        return fail(order, `24시간 누적 매수 $${(recentBuys + estimatedNotional).toFixed(2)}이 한도 $${maxDaily}를 초과합니다 (기집행 $${recentBuys.toFixed(2)}).`);
       }
     } else {
       // 매도: 수량기반만 검증 (금액기반 매도는 미지원)
@@ -157,18 +230,27 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
       clientOrderId
     });
 
-    // 6. 실제 체결된 주문만 감사 기록 (dry-run은 기록하지 않음)
-    if (!result.dryRun && order.qty !== undefined && order.price !== undefined) {
-      const trade: Omit<Trade, 'id'> = {
-        traded_at: new Date().toISOString(),
-        symbol: order.symbol,
-        side: order.side,
-        qty: order.qty,
-        price: order.price,
-        fee: 0,
-        note: order.note || `자동매매 (${result.orderId})`
-      };
-      await db.insert('trades', trade);
+    // 6. 실제 접수된 주문만 감사 기록 (dry-run은 기록하지 않음)
+    //  - LIMIT: 지정가로 기록 / MARKET·금액기반: 현재가 기반 추정치로 기록
+    //  - 실제 체결가·수량은 토스 주문내역(/orders)이 정답이며, 여기는 감사용 근사치
+    if (!result.dryRun) {
+      const auditPrice = order.price ?? lastPrice;
+      const auditQty = order.qty ?? (auditPrice ? (order.amount! / auditPrice) : undefined);
+      if (auditPrice !== undefined && auditQty !== undefined) {
+        const isEstimate = order.price === undefined || order.qty === undefined;
+        const trade: Omit<Trade, 'id'> = {
+          traded_at: new Date().toISOString(),
+          symbol: order.symbol,
+          side: order.side,
+          qty: auditQty,
+          price: auditPrice,
+          fee: 0,
+          note: `${order.note || '자동매매'} (${result.orderId})${isEstimate ? ' [추정가 기록 — 실체결은 토스 주문내역 참조]' : ''}`
+        };
+        await db.insert('trades', trade);
+      } else {
+        console.warn(`⚠️ ${order.symbol} 감사 기록 생략 — 가격/수량 추정 불가 (orderId=${result.orderId}). 토스 주문내역으로 확인 필요.`);
+      }
     }
 
     const tag = result.dryRun ? '🧪 [DRY-RUN]' : '✅';

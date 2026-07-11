@@ -253,6 +253,7 @@ export interface Holding {
   symbol: string;
   shares: number;
   avg_cost: number;
+  currency?: string; // 거래 통화 (토스 조회 시 채워짐, 예: 'USD'/'KRW'. 미지정=USD 가정)
 }
 
 export interface Report {
@@ -269,123 +270,38 @@ export interface Report {
 }
 
 /**
- * 포트폴리오 계산 함수들 (JSON 또는 Supabase)
+ * 보유종목 조회 — 토스 실계좌 전용 (source of truth)
+ * - 로컬 장부(JSON 재생) 폴백 제거: 낡은 잔고로 리포트/매매가 진행되는 것을 막기 위해
+ *   토스 조회 실패 시 조용히 대체하지 않고 명시적으로 실패한다.
  */
 export async function getHoldings(): Promise<Holding[]> {
-  // 토스 실계좌 = 포트폴리오 정답(source of truth)
-  if (toss.isTossEnabled()) {
-    try {
-      const tossHoldings = await toss.getHoldings();
-      // TossHolding → 시스템 표준 Holding 매핑
-      return tossHoldings.map(h => ({
-        symbol: h.symbol,
-        shares: h.shares,
-        avg_cost: h.avg_cost
-      }));
-    } catch (error) {
-      console.warn('⚠️ 토스 보유종목 조회 실패, 로컬 장부로 대체:', error);
-    }
+  if (!toss.isTossEnabled()) {
+    throw new Error('토스 API 미설정 (TOSS_API_KEY/TOSS_SECRET_KEY 필요) — 보유종목은 토스 실계좌에서만 조회합니다.');
   }
 
-  // Supabase 사용 시
-  if (supabaseService) {
-    try {
-      return await supabaseService.getHoldings();
-    } catch (error) {
-      console.warn('⚠️ Supabase에서 보유 종목 조회 실패, JSON으로 대체:', error);
-    }
+  const tossHoldings = await toss.getHoldings();
+  // TossHolding → 시스템 표준 Holding 매핑 (통화 보존 — KRW 종목을 USD로 오해하지 않도록)
+  const nonUsd = tossHoldings.filter(h => h.currency !== 'USD');
+  if (nonUsd.length > 0) {
+    console.warn(`⚠️ USD가 아닌 보유종목 ${nonUsd.length}개 감지 (${nonUsd.map(h => `${h.symbol}:${h.currency}`).join(', ')}) — 평가/매매 시 통화 확인 필요`);
   }
-
-  // JSON 파일 사용 (기본값 또는 fallback)
-  const trades = await db.find<Trade>('trades');
-  const holdingsMap = new Map<string, { totalShares: number; totalCost: number; buyShares: number }>();
-
-  for (const trade of trades) {
-    const existing = holdingsMap.get(trade.symbol) || { totalShares: 0, totalCost: 0, buyShares: 0 };
-
-    if (trade.side === 'BUY') {
-      existing.totalShares += trade.qty;
-      existing.totalCost += trade.qty * trade.price + trade.fee;
-      existing.buyShares += trade.qty;
-    } else {
-      existing.totalShares -= trade.qty;
-      // 이동평균법: 매도 시 totalCost와 buyShares 비례 감소
-      if (Math.abs(existing.totalShares) < 0.0001) {
-        // 전량 매도: 리셋
-        existing.totalCost = 0;
-        existing.buyShares = 0;
-        existing.totalShares = 0;
-      } else if (existing.buyShares > 0) {
-        // 부분 매도: 평단가 기준으로 비례 감소
-        const avgCost = existing.totalCost / existing.buyShares;
-        existing.buyShares -= trade.qty;
-        existing.totalCost = existing.buyShares * avgCost;
-      }
-    }
-
-    holdingsMap.set(trade.symbol, existing);
-  }
-
-  const holdings: Holding[] = [];
-  for (const [symbol, data] of holdingsMap) {
-    // 부동소수점 오차를 고려하여 0.0001주 이상인 경우만 보유 종목으로 간주
-    if (data.totalShares >= 0.0001) {
-      holdings.push({
-        symbol,
-        shares: data.totalShares,
-        avg_cost: data.buyShares > 0 ? data.totalCost / data.buyShares : 0
-      });
-    }
-  }
-
-  return holdings;
+  return tossHoldings.map(h => ({
+    symbol: h.symbol,
+    shares: h.shares,
+    avg_cost: h.avg_cost,
+    currency: h.currency
+  }));
 }
 
 /**
- * 현금 잔액 계산 (JSON 또는 Supabase)
+ * 현금 잔액(매수 가능 USD) 조회 — 토스 실계좌 전용 (source of truth)
+ * - cash_events.json 재생 폴백 제거: 잔고는 항상 토스 실시간 값만 사용한다.
  */
 export async function getCashBalance(): Promise<number> {
-  // 토스 실계좌 = 현금(매수 가능 금액)의 정답(source of truth)
-  if (toss.isTossEnabled()) {
-    try {
-      return await toss.getBuyingPower('USD');
-    } catch (error) {
-      console.warn('⚠️ 토스 매수가능금액 조회 실패, 로컬 장부로 대체:', error);
-    }
+  if (!toss.isTossEnabled()) {
+    throw new Error('토스 API 미설정 (TOSS_API_KEY/TOSS_SECRET_KEY 필요) — 현금 잔고는 토스 실계좌에서만 조회합니다.');
   }
-
-  // Supabase 사용 시
-  if (supabaseService) {
-    try {
-      return await supabaseService.getCashBalance();
-    } catch (error) {
-      console.warn('⚠️ Supabase에서 현금 잔액 조회 실패, JSON으로 대체:', error);
-    }
-  }
-
-  // JSON 파일 사용 (기본값 또는 fallback)
-  const [cashEvents, trades] = await Promise.all([
-    db.find<CashEvent>('cash_events'),
-    db.find<Trade>('trades')
-  ]);
-
-  // 입출금 합계
-  let cashFlow = 0;
-  for (const event of cashEvents) {
-    cashFlow += event.type === 'DEPOSIT' ? event.amount : -event.amount;
-  }
-
-  // 거래로 인한 현금 변동
-  let tradingCash = 0;
-  for (const trade of trades) {
-    if (trade.side === 'BUY') {
-      tradingCash -= (trade.qty * trade.price + trade.fee);
-    } else {
-      tradingCash += (trade.qty * trade.price - trade.fee);
-    }
-  }
-
-  return cashFlow + tradingCash;
+  return await toss.getBuyingPower('USD');
 }
 
 /**

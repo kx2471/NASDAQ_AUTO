@@ -35,7 +35,7 @@ export interface TargetAnalysis {
  * 현재 포트폴리오 성과 계산
  */
 export function calculateCurrentPerformance(
-  holdings: Array<{ symbol: string; shares: number; avg_cost: number }>,
+  holdings: Array<{ symbol: string; shares: number; avg_cost: number; currency?: string }>,
   currentPrices: Record<string, number>,
   exchangeRate: number,
   previousValue?: number,
@@ -44,24 +44,25 @@ export function calculateCurrentPerformance(
 
   const currentDate = new Date().toISOString().split('T')[0];
 
-  // 총 투자금 계산 (USD) - 실제 투자에 사용된 금액
-  const totalInvestmentUSD = holdings.reduce((sum, holding) =>
-    sum + (holding.shares * holding.avg_cost), 0
+  // 종목별 원화 환산: KRW 종목은 가격이 이미 원화이므로 환율을 곱하지 않는다
+  // (미지정 시 USD 가정 — 토스 조회 시 currency가 채워짐)
+  const toKrw = (holding: { shares: number; currency?: string }, price: number): number =>
+    holding.currency === 'KRW' ? holding.shares * price : holding.shares * price * exchangeRate;
+
+  // 총 투자금 (KRW)
+  const totalInvestmentKRW = holdings.reduce((sum, holding) =>
+    sum + toKrw(holding, holding.avg_cost), 0
   );
 
-  // 현재 평가액 계산 (USD)
-  const currentValueUSD = holdings.reduce((sum, holding) => {
+  // 현재 평가액 (KRW)
+  const currentValueKRW = holdings.reduce((sum, holding) => {
     const currentPrice = currentPrices[holding.symbol] || holding.avg_cost;
-    return sum + (holding.shares * currentPrice);
+    return sum + toKrw(holding, currentPrice);
   }, 0);
 
-  // KRW 변환
-  const totalInvestmentKRW = totalInvestmentUSD * exchangeRate;
-  const currentValueKRW = currentValueUSD * exchangeRate;
-  
-  // 수익 계산 (투자원금 기준)
+  // 수익 계산 (투자원금 기준, 원금 0이면 0%)
   const totalReturnKRW = currentValueKRW - totalInvestmentKRW;
-  const totalReturnPercent = (totalReturnKRW / totalInvestmentKRW) * 100;
+  const totalReturnPercent = totalInvestmentKRW > 0 ? (totalReturnKRW / totalInvestmentKRW) * 100 : 0;
 
   // 초기 자금 기준 전체 수익률 계산
   const totalReturnFromInitialKRW = currentValueKRW - initialCapitalKRW;
@@ -182,8 +183,9 @@ export function generatePerformanceReport(
   performance: PerformanceData,
   targetAnalysis: TargetAnalysis
 ): string {
-  const progressBar = '█'.repeat(Math.floor(targetAnalysis.progress_percent / 5)) + 
-                     '░'.repeat(20 - Math.floor(targetAnalysis.progress_percent / 5));
+  // 진행률을 0~100%로 클램프해 음수/초과 시 repeat()가 터지지 않도록 방어
+  const filledCount = Math.max(0, Math.min(20, Math.floor(targetAnalysis.progress_percent / 5)));
+  const progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
   
   return `
 ## 🎯 1000만원 목표 진행 현황

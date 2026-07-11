@@ -4,204 +4,112 @@
 
 ## 프로젝트 개요
 
-**Nasdaq AutoTrader** - AI 기반 주식 자동 분석 및 리포트 시스템입니다.
+**Nasdaq AutoTrader** — 토스증권 Open API 기반 AI 자동매매 시스템.
 
-### 핵심 기능
-- **Multi-Agent 시스템**: GPT-5, Gemini, Claude, Grok 4개 AI Agent + Manager Agent
-- **주간 리포트**: 매주 월요일 오후 3시 자동 발송
-- **매매 관리**: 간편한 매수/매도 입력 및 추적
-- **포트폴리오 추적**: 실시간 현금/보유종목 관리
-- **웹 대시보드**: 포트폴리오 현황 시각화
+나스닥 개장일마다 미국 전시장(~5,800종목)을 스크리닝하고, AI 2개(Claude·GPT)가 독립 분석 리포트를 쓰면 Manager AI가 통합해 매매를 결정한다. 로컬 상시 서버가 정규장에서 결정을 집행하고, 장중에는 손절·익절 조건을 실시간 감시한다.
 
-## 현재 상태 (2025-09-15)
+## 하루 사이클 (개장일마다, 스케줄러 자동)
 
-### 기술 스택
-- **Backend**: Node.js + TypeScript
-- **Database**: JSON 파일 기반 (Supabase 비활성화 상태)
-- **AI Models**: OpenAI GPT-5, Google Gemini, Anthropic Claude
-- **Email**: Resend API
-- **Deployment**: 로컬 개발 환경
-
-### 프로젝트 구조
 ```
-├── src/
-│   ├── jobs/           # 스케줄링 작업 (주간 리포트)
-│   ├── services/       # 핵심 서비스 (LLM, 매매, 이메일)
-│   ├── storage/        # 데이터 관리
-│   └── server/         # 웹 서버
-├── tools/              # 매매 관리 도구
-│   ├── add-trade.js    # 간편 매매 입력
-│   ├── check-balance.js # 현금 잔고 확인
-│   └── test-manager-only.js # Manager Agent 테스트
-├── docs/               # 문서
-│   ├── TRADING-GUIDE.md # 매매 시스템 가이드
-│   └── DANGER-ZONE.md  # 안전 지침
-├── prompts/            # AI 프롬프트
-│   ├── prompt.md       # Agent 프롬프트
-│   └── promptManagerSimple.md # Manager Agent 프롬프트
-└── data/
-    ├── json/           # 거래/현금 데이터
-    └── report/         # 생성된 리포트
+정규장 40분 전 (REPORT_LEAD_MINUTES)
+ ① 전시장 퍼널 스크리닝: 유니버스(주1회 캐시) → 시총·가격 필터
+    → 30일 모멘텀 스캔 → 정밀분석 → 최종 추천 ~15개
+ ② 에이전트 리포트: Agent_Claude + Agent_GPT 독립 분석 → 이메일
+ ③ Manager 통합: 리포트 이메일 (개장 ~10분 전 도착)
+    + 기계 판독용 JSON 결정 (BUY/SELL/HOLD + 손절·익절가)
+ ④ 결정 집행: 정규장 개장 대기 → SELL 먼저, BUY 나중 (가드레일 통과분만)
+ ⑤ 장중 감시 (매분): 손절가 도달→전량 매도 / TP1→절반 / TP2→잔량
 ```
 
-### 현재 포트폴리오 (2025-09-15 기준)
-- **현금**: $90.01 (₩125,273)
-- **보유종목**: BABA(1주), GOOGL(4.87주), NVDA(1.5주), COIN(1주)
-- **총 가치**: 약 ₩295만원
+## 아키텍처 원칙
+
+1. **토스 실계좌 = 진실(source of truth)**: 현금·보유수량·평단가는 항상 토스 실시간 조회. 폴백 없음 — 조회 실패 시 낡은 값으로 진행하지 않고 명시적으로 실패한다.
+2. **앱 JSON = 의도와 기록**: 토스가 모르는 것만 앱이 보관한다.
+   - `positions.json` — 손절·익절가, 진입 시점, 매수 근거 (매 사이클 토스와 reconcile)
+   - `decisions.json` — Manager 결정의 불변 이력
+   - `trades.json` — 주문 감사 기록 (24h 매수한도 계산·진입시각 유도에 사용, dry-run은 기록 안 함)
+   - `universe.json` — 토스 거래가능 미국 보통주 캐시 (주 1회 갱신)
+3. **결정과 집행의 분리**: Manager는 JSON으로 의도만 선언, 집행기는 가드레일을 통과한 주문만 전송. LLM 환각은 가드레일이 막는다.
+4. **정규장 전용**: 프리마켓/애프터마켓 주문 금지 — 주문 최후 관문(executeOrder)에서 강제.
+
+## 모듈 지도
+
+| 파일 | 역할 |
+|---|---|
+| `services/toss.ts` | **모든 토스 호출의 단일 관문.** 토큰 single-flight, 401/429 자가회복, 시세·캔들·환율·보유·주문·US캘린더. 문자열↔숫자 변환은 이 파일 경계에서만 |
+| `services/universe.ts` | 나스닥 공식 디렉토리(무키) + 토스 `/stocks` 검증 → 유니버스 캐시 |
+| `services/screening.ts` | 전시장 4단계 퍼널 + 종목 정밀분석 (`runMarketWideScreening`) |
+| `services/manager.ts` | Manager 통합 리포트 생성 (실계좌 데이터 주입) |
+| `services/decision.ts` | 리포트 → JSON 결정 파싱 → decisions.json |
+| `services/executor.ts` | 결정 → 주문 변환, 개장 대기, SELL→BUY 순서 |
+| `services/trading.ts` | **주문 최후 관문 — 가드레일 전부 여기** (정규장·한도·잔고·티커 검증, dry-run 게이트) |
+| `jobs/scheduler.ts` | 매분 틱: 토스 캘린더로 개장일 판정 → 리포트 트리거 + 장중 감시 호출 |
+| `jobs/watcher.ts` | 장중 SL/TP 실시간 판정·매도 (`judge`는 순수 함수 — 테스트 가능) |
+| `jobs/weekly.ts` / `jobs/manager.ts` | 에이전트 리포트 / Manager 파이프라인 (스케줄러가 순차 호출) |
+| `storage/positions.ts` | 포지션(보유+계획) 저장소, 토스 reconcile |
+| `storage/database.ts` | JSON 파일 DB + 토스 위임 (getHoldings/getCashBalance는 토스 전용) |
 
 ## 개발 환경
 
-### 필수 환경 변수
+### 실행 명령어
+```bash
+npm run build     # tsc 빌드 (필수 — 실행은 dist/ 기준)
+npm start         # 상시 서버: 웹 + 스케줄러 (운영은 이거 하나)
+npm run report    # 리포트 파이프라인 수동 1회 (테스트용)
+npm run typecheck # 타입 체크
+```
+
+⚠️ `npm run dev`(tsx)는 node_modules가 Windows에서 설치된 상태면 macOS에서 실패한다. `npm run build` 후 dist를 실행할 것.
+
+### 필수 환경 변수 (.env)
 ```env
-# LLM APIs
-OPENAI_API_KEY=sk-proj-...
-GEMINI_API_KEY=AIzaSy...
-CLAUDE_API_KEY=sk-ant-...
-GROK_API_KEY=xai-...
+# 토스증권 Open API (시세·계좌·주문 전부)
+TOSS_API_KEY=tsck_live_...
+TOSS_SECRET_KEY=tssk_live_...
 
-# Email
-RESEND_API_KEY=re_...
-MAIL_TO=your-email@gmail.com
+# 자동매매 안전장치
+TOSS_DRY_RUN=true                # false = 실주문! 사용자 명시 승인 후에만 변경
+TOSS_MAX_ORDER_USD=1000          # 종목당 주문 한도
+TOSS_MAX_DAILY_BUY_USD=2000      # 24시간 누적 매수 한도
+TOSS_MAX_PRICE_DEVIATION_PCT=20  # LIMIT 가격 괴리 허용치
 
-# Database (현재 비활성화)
-ENABLE_SUPABASE_MIGRATION=false
+# LLM (역할별 분리)
+CLAUDE_MODEL=...    # Agent_Claude 리포트용
+LLM_MODEL=...       # Agent_GPT 리포트용
+MANAGER_MODEL=claude-opus-4-8  # 결정권자 — 최상위 모델 유지
+
+# 스케줄 (선택)
+REPORT_LEAD_MINUTES=40   # 정규장 시작 몇 분 전 파이프라인 시작
+ENABLE_SCHEDULER=true    # false면 서버만 구동
+AUTO_EXECUTE_DECISION=true  # false면 결정 기록만, 집행 안 함
+
+# 기타: OPENAI_API_KEY, CLAUDE_API_KEY, RESEND_API_KEY, MAIL_TO,
+#       NEWSAPI_API_KEY, USD_KRW_RATE(환율 폴백), SCREEN_* (스크리닝 노브)
 ```
 
-### 개발 명령어
-```bash
-# 개발 서버 실행
-npm run dev
+## 안전 수칙 (절대 준수)
 
-# 빌드
-npm run build
-
-# 프로덕션 실행
-npm start
-
-# 타입 체크
-npm run typecheck
-
-# 린트
-npm run lint
-```
-
-## 매매 시스템 사용법
-
-### 간편 매매 명령어
-```bash
-# 매수
-node add-trade.js BUY AAPL 5 180.50 "메모"
-
-# 매도
-node add-trade.js SELL NVDA 1 185.00 "익절"
-
-# 현금 잔고 확인
-node check-balance.js
-
-# 포트폴리오 가치 계산
-node calculate-portfolio-value.js
-```
-
-### Manager Agent 테스트
-```bash
-# 통합 리포트 생성 및 이메일 발송
-node test-manager-only.js
-```
-
-## 아키텍처 특징
-
-### Multi-Agent 시스템
-1. **Agent_Claude**: 기술적 분석 중심
-2. **Agent_GPT**: 종합적 시장 분석 (GPT-5 사용)
-3. **Agent_Gemini**: 뉴스 및 센티먼트 분석
-4. **Agent_Grok**: 독창적인 시장 인사이트 (xAI Grok 사용)
-5. **Manager_Agent**: 4개 Agent 보고서 통합 및 최종 매매 결정
-
-### 데이터 관리
-- **현금 잔고**: `data/json/cash_events.json` - 입출금 기록
-- **거래 내역**: `data/json/trades.json` - 모든 매수/매도 기록
-- **독립 관리**: 현금과 보유종목이 별도로 추적됨
-
-### 안전 장치
-- **매도량 검증**: 보유량 초과 매도 방지
-- **하드코딩 방지**: `DANGER-ZONE.md` 안전 지침
-- **데이터 백업**: JSON 파일 기반 안전한 운영
+1. **`TOSS_DRY_RUN=false` 전환은 사용자가 명시적으로 지시할 때만.** 어떤 리팩토링·테스트에서도 임의로 켜지 않는다.
+2. **하드코딩 금지**: 수량·가격·심볼을 코드에 박지 않는다. 항상 토스 API 또는 사용자 입력에서 가져온다 (`docs/DANGER-ZONE.md`).
+3. **trades.json은 감사 기록**: 직접 수정 금지, 수정이 불가피하면 백업 먼저. 잔고 계산에는 더 이상 사용되지 않는다 (잔고 = 토스 실시간).
+4. **통화 구분**: 보유종목에 KRW 종목이 섞일 수 있다. `currency` 필드를 무시하고 USD로 가정하는 계산을 새로 만들지 말 것 (환율 이중적용 사고 이력 있음).
+5. **가드레일 우회 금지**: 주문은 반드시 `trading.executeOrder`를 거친다. `toss.createOrder` 직접 호출 금지.
+6. **LLM 검증 시 모델 임의 변경 금지**, 실사용 토큰 수는 사용자에게 보고.
 
 ## 코딩 규칙
 
-### TypeScript 스타일
-- 모든 함수와 메서드에는 **한글 주석** 작성
-- 함수의 목적, 매개변수, 반환값 명확히 설명
-- interface 정의 시 용도별 분리
+- 모든 함수·메서드에 **한글 주석** (목적, 매개변수, 반환값)
+- 토스 API의 수량/가격은 전부 **문자열** — 숫자 변환은 `toss.ts` 안에서만
+- 주문·잔고 관련 신규 코드는 dry-run으로 실검증 후 반영
+- 리포트 생성 실패가 이메일·집행을 막지 않도록 단계별 try/catch 격리 유지
 
-### 파일 구조
-- **services/**: 비즈니스 로직
-- **storage/**: 데이터 접근 계층
-- **jobs/**: 스케줄링 작업
-- **server/**: API 엔드포인트
+## 문제 발생 시
 
-## 문서화 규칙
-
-### 필수 문서들
-- `TRADING-GUIDE.md`: 매매 시스템 완전 가이드
-- `DANGER-ZONE.md`: 데이터 안전 지침
-- `README.md`: 프로젝트 개요 및 설정
-
-### 새 기능 추가 시
-1. **기능 구현** 후 관련 문서 업데이트
-2. **테스트 스크립트** 작성
-3. **README.md**에 사용법 추가
-4. **안전성 검토** 후 DANGER-ZONE.md 업데이트
-
-## 주요 변경 이력
-
-### 2025-09-15: 완전한 매매 시스템 구축
-- ✅ Multi-Agent 시스템 구현 (GPT-5, Gemini, Claude, Grok + Manager)
-- ✅ 매매 입력 자동화 (`add-trade.js`)
-- ✅ 현금 잔고 추적 시스템
-- ✅ 데이터 무결성 보호 (하드코딩 방지)
-- ✅ 주간 리포트 이메일 발송 (월요일 3PM)
-- ✅ Grok Agent 추가 (xAI Grok-beta 모델)
-
-### 주요 수정사항
-- **이메일 발송 순서**: Claude → GPT-5 → Gemini → Grok
-- **Manager Agent 구조 개선**: 4개 Agent 보고서 통합 분석
-- **토큰 한도 최적화**: GPT-5 15,000 토큰
-- **Supabase 비활성화**: JSON 기반 안전한 운영
-- **Grok 통합**: xAI API 연동 및 독립적인 시장 분석
-
-## 주의사항
-
-### 데이터 안전
-1. **매매 데이터 수정 금지**: 직접 JSON 편집 시 백업 필수
-2. **하드코딩 금지**: 수량/가격은 사용자 입력 또는 API에서 가져오기
-3. **검증 후 실행**: 모든 스크립트는 테스트 환경에서 검증 후 적용
-
-### LLM 사용 시
-1. **모델 변경 금지**: 검증 중 API나 모델 임의 변경 안 함
-2. **토큰 수 보고**: 실제 사용 토큰 수 사용자에게 알림
-3. **환경 일관성**: 동일 조건에서만 검증 수행
-
-### 시스템 운영
-1. **Manager Agent 우선**: 매매 결정은 Manager Agent 추천 기반
-2. **현금 한도 준수**: 가용 현금 범위 내에서만 매수
-3. **정기 백업**: 중요 거래 전 데이터 백업
-
-## 문제 발생 시 대응
-
-### 데이터 오류
-1. **즉시 작업 중단**
-2. **백업 파일로 복원**
-3. **DANGER-ZONE.md** 참고하여 원인 분석
-4. **안전장치 강화** 후 재적용
-
-### 매매 오류
-1. **add-trade.js** 검증 기능 활용
-2. **check-balance.js**로 결과 확인
-3. **Manager Agent** 재실행으로 상태 동기화
+- **토스 401 (invalid-token)**: 다른 프로세스가 토큰을 재발급하면 기존 토큰이 무효화됨 — `toss.ts`가 1회 자동 재발급하므로 반복되면 동시 실행 프로세스를 확인
+- **429**: 지수 백오프 내장 (4회). 반복되면 스캔 동시성(`mapWithConcurrency` limit)을 낮출 것
+- **결정 JSON 파싱 실패**: 리포트는 저장됨. `promptManagerSimple.md`의 "기계 판독용" 섹션과 실제 출력을 대조
+- **데이터 오류**: 즉시 중단 → 백업 복원 → `docs/DANGER-ZONE.md` 참고
 
 ---
 
-**최종 업데이트**: 2025-09-15  
-**현재 버전**: 완전한 매매 시스템 v1.0  
-**개발 환경**: Windows + Node.js + TypeScript
+**최종 갱신**: 2026-07-11 · **버전**: 토스 자동매매 v2.0 (전시장 스크리닝 + 정규장 자동집행 + SL/TP 실시간 감시)

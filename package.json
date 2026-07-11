@@ -8,6 +8,7 @@
     "build": "tsc",
     "vercel-build": "tsc",
     "start": "node --no-deprecation dist/index.js",
+    "report": "node --no-deprecation -e \"require('./dist/jobs/scheduler.js').runReportPipeline()\"",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "migrate": "node --no-deprecation scripts/migrate-to-supabase.js"
