@@ -207,5 +207,70 @@
     "daily_return_krw": 0,
     "daily_return_percent": 0,
     "target_progress": 28.06
+  },
+  {
+    "date": "2025-12-11",
+    "total_investment_krw": 894438,
+    "current_value_krw": 927295,
+    "total_return_krw": 32858,
+    "total_return_percent": 3.67,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": -1272705,
+    "total_return_from_initial_percent": -57.85,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 9.27
+  },
+  {
+    "date": "2025-12-12",
+    "total_investment_krw": 3079429,
+    "current_value_krw": 3013279,
+    "total_return_krw": -66150,
+    "total_return_percent": -2.15,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": 813279,
+    "total_return_from_initial_percent": 36.97,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 30.13
+  },
+  {
+    "date": "2025-12-16",
+    "total_investment_krw": 3076708,
+    "current_value_krw": 2944612,
+    "total_return_krw": -132096,
+    "total_return_percent": -4.29,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": 744612,
+    "total_return_from_initial_percent": 33.85,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 29.45
+  },
+  {
+    "date": "2025-12-19",
+    "total_investment_krw": 3088368,
+    "current_value_krw": 2855631,
+    "total_return_krw": -232737,
+    "total_return_percent": -7.54,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": 655631,
+    "total_return_from_initial_percent": 29.8,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 28.56
+  },
+  {
+    "date": "2025-12-26",
+    "total_investment_krw": 3025984,
+    "current_value_krw": 2844058,
+    "total_return_krw": -181926,
+    "total_return_percent": -6.01,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": 644058,
+    "total_return_from_initial_percent": 29.28,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 28.44
   }
 ]
