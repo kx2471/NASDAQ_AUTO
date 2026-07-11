@@ -36,6 +36,24 @@ export class JsonDatabase {
     }
   }
 
+  // 파일별 쓰기 직렬화 락 — watcher(SL/TP 매도)와 executor(결정 집행)가
+  // 같은 분에 겹칠 때 trades/positions의 read-modify-write 유실을 방지
+  private locks = new Map<string, Promise<unknown>>();
+
+  /**
+   * 파일 단위 임계 구역 실행 — 같은 파일에 대한 fn들을 순차 실행
+   * @param filename 대상 파일 (확장자 제외)
+   * @param fn       임계 구역 (read-modify-write 묶음)
+   * @returns fn의 반환값
+   */
+  async withLock<T>(filename: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(filename) || Promise.resolve();
+    // 앞선 작업의 성공/실패와 무관하게 순서만 보장
+    const run = prev.then(fn, fn);
+    this.locks.set(filename, run.catch(() => undefined));
+    return run;
+  }
+
   /**
    * JSON 파일에서 데이터 읽기
    */
@@ -68,45 +86,49 @@ export class JsonDatabase {
   }
 
   /**
-   * 데이터 추가 (INSERT)
+   * 데이터 추가 (INSERT) — 파일 락으로 동시 삽입 유실 방지
    */
   async insert<T extends { id?: string | number; [key: string]: any }>(filename: string, item: T): Promise<T> {
-    const data = await this.read<T>(filename);
-    
-    // ID 자동 생성 (숫자형)
-    if (!item.id) {
-      const maxId = data.length > 0 
-        ? Math.max(...data.map(d => typeof d.id === 'number' ? d.id : 0)) 
-        : 0;
-      (item as any).id = maxId + 1;
-    }
+    return this.withLock(filename, async () => {
+      const data = await this.read<T>(filename);
 
-    data.push(item);
-    await this.write(filename, data);
-    return item;
+      // ID 자동 생성 (숫자형)
+      if (!item.id) {
+        const maxId = data.length > 0
+          ? Math.max(...data.map(d => typeof d.id === 'number' ? d.id : 0))
+          : 0;
+        (item as any).id = maxId + 1;
+      }
+
+      data.push(item);
+      await this.write(filename, data);
+      return item;
+    });
   }
 
   /**
-   * 데이터 업데이트 (UPSERT)
+   * 데이터 업데이트 (UPSERT) — 파일 락으로 동시 갱신 유실 방지
    */
   async upsert<T extends { [key: string]: any }>(
-    filename: string, 
-    item: T, 
+    filename: string,
+    item: T,
     keyField: string = 'id'
   ): Promise<T> {
-    const data = await this.read<T>(filename);
-    const existingIndex = data.findIndex(d => d[keyField] === item[keyField]);
+    return this.withLock(filename, async () => {
+      const data = await this.read<T>(filename);
+      const existingIndex = data.findIndex(d => d[keyField] === item[keyField]);
 
-    if (existingIndex >= 0) {
-      // 기존 데이터 업데이트
-      data[existingIndex] = { ...data[existingIndex], ...item };
-    } else {
-      // 새 데이터 추가
-      data.push(item);
-    }
+      if (existingIndex >= 0) {
+        // 기존 데이터 업데이트
+        data[existingIndex] = { ...data[existingIndex], ...item };
+      } else {
+        // 새 데이터 추가
+        data.push(item);
+      }
 
-    await this.write(filename, data);
-    return item;
+      await this.write(filename, data);
+      return item;
+    });
   }
 
   /**

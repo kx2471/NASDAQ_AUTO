@@ -265,7 +265,10 @@ async function getCurrentPerformanceData(): Promise<any> {
     const performance = calculateCurrentPerformance(
       holdings,
       currentPrices,
-      exchangeRate.usd_to_krw
+      exchangeRate.usd_to_krw,
+      undefined,
+      undefined,
+      cashBalance // 현금 포함 총자산 기준
     );
 
     const targetAnalysis = analyzeTargetProgress(performance);

@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { generateManagerReport, saveManagerReport } from '../services/manager';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
-import { parseManagerDecision, saveDecision } from '../services/decision';
+import { parseManagerDecision, saveDecision, isDecisionExecuted, markDecisionExecuted } from '../services/decision';
 import { reconcileWithToss, applyDecisionToPositions } from '../storage/positions';
 
 // 환경변수 로드
@@ -76,17 +76,24 @@ export async function runManager(): Promise<void> {
         //  - AUTO_EXECUTE_DECISION=false로 끌 수 있음 (기본 켜짐)
         //  - TOSS_DRY_RUN=true면 주문안 로깅까지만 (실전송 없음)
         if (process.env.AUTO_EXECUTE_DECISION !== 'false') {
-          const { waitForRegularSession, executeDecision } = await import('../services/executor');
-          const sessionOpen = await waitForRegularSession(90);
-          if (sessionOpen) {
-            const summary = await executeDecision(decision);
-            // 실주문 체결이 있었으면 포지션을 실계좌 기준으로 재동기화
-            if (summary.executed.some(r => !r.dryRun)) {
-              await reconcileWithToss();
-              await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
-            }
+          // 이중 집행 방지: 같은 report_id로 이미 실주문이 나갔으면 재집행 금지
+          // (수동 npm run report 재실행, 파이프라인 재시도 등)
+          if (await isDecisionExecuted(reportId)) {
+            console.warn(`⚠️ report ${reportId} 결정은 이미 실집행됨 — 이중 매매 방지를 위해 집행을 건너뜁니다.`);
           } else {
-            console.warn('⚠️ 정규장이 90분 내에 열리지 않아 결정 집행을 건너뜁니다 (휴장일 가능성).');
+            const { waitForRegularSession, executeDecision } = await import('../services/executor');
+            const sessionOpen = await waitForRegularSession(90);
+            if (sessionOpen) {
+              const summary = await executeDecision(decision);
+              // 실주문 체결이 있었으면 집행 마킹 + 포지션 재동기화 (dry-run은 마킹 안 함 — 테스트 반복 허용)
+              if (summary.executed.some(r => !r.dryRun)) {
+                await markDecisionExecuted(reportId);
+                await reconcileWithToss();
+                await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
+              }
+            } else {
+              console.warn('⚠️ 정규장이 90분 내에 열리지 않아 결정 집행을 건너뜁니다 (휴장일 가능성).');
+            }
           }
         } else {
           console.log('ℹ️ AUTO_EXECUTE_DECISION=false — 결정 기록만 하고 집행하지 않습니다.');

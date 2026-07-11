@@ -20,7 +20,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 대시보드는 인증 없이 접근 가능
+// 대시보드는 인증 없이 접근 가능 (localhost 전용 운영 전제)
+app.get('/', (req, res) => res.redirect('/dashboard'));
 app.use('/dashboard', dashboardRoutes);
 app.use('/database-viewer', databaseViewerRoutes);
 
@@ -164,13 +165,11 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Vercel serverless functions를 위한 export
 export default app;
 
-// 로컬 개발 환경에서만 서버 시작
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Stock Report System 서버가 포트 ${PORT}에서 실행 중입니다`);
-    console.log(`📊 API 문서: http://localhost:${PORT}/v1/health`);
-  });
-}
+// 로컬 상시 서버 — 기본 127.0.0.1 바인딩 (대시보드가 무인증이므로 LAN 노출 차단)
+// 같은 네트워크의 다른 기기에서 봐야 하면 HOST=0.0.0.0 으로 명시적으로 개방
+const HOST = process.env.HOST || '127.0.0.1';
+app.listen(Number(PORT), HOST, () => {
+  console.log(`🚀 Nasdaq AutoTrader 서버 실행 중 — 대시보드: http://localhost:${PORT}/dashboard (bind: ${HOST})`);
+});

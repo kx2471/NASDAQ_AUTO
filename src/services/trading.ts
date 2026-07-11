@@ -141,11 +141,27 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
     if (order.qty === undefined && order.amount === undefined) {
       return fail(order, 'qty 또는 amount 중 하나는 필수입니다.');
     }
+    // 토스 스펙: quantity와 orderAmount는 정확히 하나만 (동시 지정 시 400)
+    if (order.qty !== undefined && order.amount !== undefined) {
+      return fail(order, 'qty와 amount는 동시에 지정할 수 없습니다 (토스 스펙: 정확히 하나만).');
+    }
     if (order.qty !== undefined && order.qty <= 0) {
       return fail(order, '수량은 0보다 커야 합니다.');
     }
     if (order.amount !== undefined && order.amount <= 0) {
       return fail(order, '금액은 0보다 커야 합니다.');
+    }
+    // 토스 스펙: 금액(orderAmount) 주문은 US MARKET 전용 — LIMIT과 조합 시 400
+    if (order.amount !== undefined && orderType !== 'MARKET') {
+      return fail(order, '금액(amount) 주문은 MARKET 전용입니다 (토스 스펙: LIMIT 불가).');
+    }
+    // 토스 스펙: 소수점 수량은 미국 주식 MARKET 매도에만 허용 (그 외 정수만)
+    if (order.qty !== undefined && !Number.isInteger(order.qty)) {
+      if (!(order.side === 'SELL' && orderType === 'MARKET')) {
+        return fail(order, `소수점 수량(${order.qty})은 시장가 매도에만 허용됩니다. 매수는 amount(금액) 주문을 사용하세요.`);
+      }
+      // 소수점 6자리 초과 시 400 — 미리 절사
+      order.qty = Math.floor(order.qty * 1e6) / 1e6;
     }
     if (orderType === 'LIMIT' && (order.price === undefined || order.price <= 0)) {
       return fail(order, 'LIMIT 주문은 price가 필요합니다.');

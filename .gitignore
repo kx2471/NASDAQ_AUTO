@@ -89,3 +89,7 @@ data/json/universe.json
 data/json/positions.json
 data/json/decisions.json
 data/json/*.backup-*.json
+data/json/scheduler_state.json
+# 테스트 스위트는 추적 (위 *test*.js 패턴의 예외)
+!tests/
+!tests/**

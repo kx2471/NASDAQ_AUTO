@@ -40,12 +40,20 @@ export async function waitForRegularSession(maxWaitMinutes: number = 90): Promis
  * - amount(금액 주문, 소수점 매수) 우선, 없으면 qty 사용
  */
 async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
+  // 금액(amount) 주문은 토스 스펙상 MARKET 전용 — LLM이 LIMIT+amount 조합을 내면
+  // 주문을 거부(기회 상실)하는 대신 금액 의도를 우선해 MARKET으로 보정한다
+  const useAmount = item.amount !== undefined;
+  const orderType = useAmount ? 'MARKET' : (item.order_type || 'MARKET');
+  if (useAmount && item.order_type === 'LIMIT') {
+    console.warn(`⚠️ ${item.symbol}: LIMIT+금액 주문은 토스 미지원 — MARKET 금액 주문으로 보정`);
+  }
+
   return executeBuy({
     symbol: item.symbol,
-    qty: item.amount === undefined ? item.qty : undefined,
+    qty: useAmount ? undefined : item.qty,
     amount: item.amount,
-    orderType: item.order_type || 'MARKET',
-    price: item.order_type === 'LIMIT' ? item.limit_price : undefined,
+    orderType,
+    price: orderType === 'LIMIT' ? item.limit_price : undefined,
     note: `Manager 결정 매수${item.rationale ? ` — ${item.rationale.slice(0, 80)}` : ''}`
   });
 }
@@ -55,15 +63,20 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
  * - qty 미지정 시 매도 가능 수량 전량
  */
 async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
-  let qty = item.qty;
-  if (qty === undefined) {
-    qty = await getSellableQuantity(item.symbol);
-    if (qty <= 0) {
-      return {
-        success: false, dryRun: false, symbol: item.symbol, side: 'SELL',
-        error: '매도 가능 수량이 없습니다 (보유 없음 또는 전량 주문 중).'
-      };
-    }
+  const sellable = await getSellableQuantity(item.symbol);
+  if (sellable <= 0) {
+    return {
+      success: false, dryRun: false, symbol: item.symbol, side: 'SELL',
+      error: '매도 가능 수량이 없습니다 (보유 없음 또는 전량 주문 중).'
+    };
+  }
+
+  // Manager가 수량을 지정했으면 매도가능수량으로 클램프 — LLM이 보유량을
+  // 과대 추정해도 매도 의도 자체(청산)는 살린다. 미지정이면 전량.
+  let qty = item.qty ?? sellable;
+  if (qty > sellable) {
+    console.warn(`⚠️ ${item.symbol}: 결정 수량 ${qty} > 매도가능 ${sellable} — 가능 수량으로 조정`);
+    qty = sellable;
   }
 
   return executeSell({
@@ -92,8 +105,8 @@ export async function executeDecision(decision: ManagerDecision): Promise<Execut
 
   console.log(`🎯 결정 집행 시작: SELL ${sells.length} → BUY ${buys.length} (HOLD ${holds.length} 건너뜀)`);
 
-  // 매도 먼저 (현금 확보 후 매수)
-  for (const item of [...sells, ...buys]) {
+  /** 주문 1건 처리 (성공/실패 요약 기록) */
+  const runOne = async (item: DecisionItem): Promise<TradeResult | null> => {
     try {
       const result = item.action === 'SELL'
         ? await executeSellDecision(item)
@@ -106,16 +119,37 @@ export async function executeDecision(decision: ManagerDecision): Promise<Execut
         summary.failed.push(result);
         console.warn(`⚠️ ${item.action} ${item.symbol} 거부: ${result.error}`);
       }
+      return result;
     } catch (error: any) {
       summary.failed.push({
         success: false, dryRun: false, symbol: item.symbol, side: item.action as 'BUY' | 'SELL',
         error: error.message
       });
       console.error(`❌ ${item.action} ${item.symbol} 오류:`, error.message);
+      return null;
+    } finally {
+      // 주문 간 짧은 간격 (레이트리밋 여유)
+      await new Promise(r => setTimeout(r, 1500));
     }
+  };
 
-    // 주문 간 짧은 간격 (레이트리밋 여유)
-    await new Promise(r => setTimeout(r, 1500));
+  // 1) 매도 먼저 (현금 확보)
+  let realSellHappened = false;
+  for (const item of sells) {
+    const r = await runOne(item);
+    if (r?.success && !r.dryRun) realSellHappened = true;
+  }
+
+  // 2) 실매도가 있었으면 매도 대금이 매수가능금액에 반영될 시간을 준다
+  //    (시장가라도 체결·잔고 반영이 즉시가 아닐 수 있음 — 바로 사면 잔고 부족 거부)
+  if (realSellHappened && buys.length > 0) {
+    console.log('⏳ 매도 대금 반영 대기 (15초)...');
+    await new Promise(r => setTimeout(r, 15 * 1000));
+  }
+
+  // 3) 매수
+  for (const item of buys) {
+    await runOne(item);
   }
 
   console.log(`🎯 결정 집행 완료: 성공 ${summary.executed.length} / 거부·실패 ${summary.failed.length} / 건너뜀 ${summary.skipped.length}`);

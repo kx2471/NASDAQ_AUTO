@@ -9,7 +9,7 @@ export interface PerformanceData {
   current_value_krw: number;
   total_return_krw: number;
   total_return_percent: number;
-  // 초기 자금 기준 수익률 (220만원 기준)
+  // 초기 자금 기준 수익률 (INITIAL_CAPITAL_KRW 환경변수 기준)
   initial_capital_krw: number;
   total_return_from_initial_krw: number;
   total_return_from_initial_percent: number;
@@ -39,7 +39,10 @@ export function calculateCurrentPerformance(
   currentPrices: Record<string, number>,
   exchangeRate: number,
   previousValue?: number,
-  initialCapitalKRW: number = 2200000 // 초기 자금 220만원
+  // 초기 자금: 2026-07-11 기준점 리셋 시점의 총자산 (env로 조정 가능)
+  initialCapitalKRW: number = parseFloat(process.env.INITIAL_CAPITAL_KRW || '') || 287208,
+  // 현금(USD) — 총자산 평가에 포함 (초기자금이 현금 포함 총자산이므로 대칭 유지)
+  cashUsd: number = 0
 ): PerformanceData {
 
   const currentDate = new Date().toISOString().split('T')[0];
@@ -54,11 +57,11 @@ export function calculateCurrentPerformance(
     sum + toKrw(holding, holding.avg_cost), 0
   );
 
-  // 현재 평가액 (KRW)
+  // 현재 평가액 (KRW) = 보유종목 + 현금
   const currentValueKRW = holdings.reduce((sum, holding) => {
     const currentPrice = currentPrices[holding.symbol] || holding.avg_cost;
     return sum + toKrw(holding, currentPrice);
-  }, 0);
+  }, 0) + cashUsd * exchangeRate;
 
   // 수익 계산 (투자원금 기준, 원금 0이면 0%)
   const totalReturnKRW = currentValueKRW - totalInvestmentKRW;
@@ -97,7 +100,7 @@ export function calculateCurrentPerformance(
  */
 export function analyzeTargetProgress(
   currentPerformance: PerformanceData,
-  startDate: string = '2025-09-10'
+  startDate: string = process.env.INVEST_START_DATE || '2026-07-11' // 기준점 리셋일
 ): TargetAnalysis {
   
   const targetAmount = 10000000; // 1000만원

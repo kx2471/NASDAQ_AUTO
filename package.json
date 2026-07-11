@@ -11,6 +11,7 @@
     "report": "node --no-deprecation -e \"require('./dist/jobs/scheduler.js').runReportPipeline()\"",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test tests/requirements.test.js",
     "migrate": "node --no-deprecation scripts/migrate-to-supabase.js"
   },
   "keywords": [

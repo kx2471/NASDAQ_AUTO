@@ -33,6 +33,7 @@ export interface ManagerDecision {
   report_id: string;
   decided_at: string;
   actions: DecisionItem[];
+  executed_at?: string;   // 실주문 집행 완료 시각 (dry-run은 기록 안 함 — 재집행 허용)
 }
 
 const DECISIONS_FILE = 'decisions';
@@ -69,7 +70,10 @@ export function parseManagerDecision(reportMarkdown: string, reportId: string): 
   // actions 배열을 가진 마지막 블록 채택
   for (let i = blocks.length - 1; i >= 0; i--) {
     try {
-      const parsed = JSON.parse(blocks[i]);
+      // LLM 출력 특유의 느슨한 JSON 허용: 트레일링 콤마 제거
+      // (파싱 실패 = 그날 결정 전체 유실이므로 흔한 실수는 관대하게 수용)
+      const lenient = blocks[i].replace(/,\s*([}\]])/g, '$1');
+      const parsed = JSON.parse(lenient);
       const rawActions = Array.isArray(parsed) ? parsed : parsed.actions;
       if (!Array.isArray(rawActions)) continue;
 
@@ -105,10 +109,41 @@ export function parseManagerDecision(reportMarkdown: string, reportId: string): 
  * @param decision 파싱된 Manager 결정
  */
 export async function saveDecision(decision: ManagerDecision): Promise<void> {
-  const all = await db.read<ManagerDecision>(DECISIONS_FILE);
-  all.push(decision);
-  await db.write(DECISIONS_FILE, all);
+  await db.withLock(DECISIONS_FILE, async () => {
+    const all = await db.read<ManagerDecision>(DECISIONS_FILE);
+    all.push(decision);
+    await db.write(DECISIONS_FILE, all);
+  });
   console.log(`💾 결정 저장 완료: ${decision.actions.length}개 액션 (report ${decision.report_id})`);
+}
+
+/**
+ * 해당 report_id의 결정이 이미 실주문 집행됐는지 확인
+ * - 파이프라인 재실행(수동 npm run report 등) 시 같은 결정의 이중 매수를 막는다
+ * @param reportId 확인할 report_id
+ * @returns 실집행 이력이 있으면 true
+ */
+export async function isDecisionExecuted(reportId: string): Promise<boolean> {
+  const all = await db.read<ManagerDecision>(DECISIONS_FILE);
+  return all.some(d => d.report_id === reportId && d.executed_at);
+}
+
+/**
+ * 결정의 실집행 완료를 기록 (report_id 기준 최신 항목에 마킹)
+ * @param reportId 집행된 결정의 report_id
+ */
+export async function markDecisionExecuted(reportId: string): Promise<void> {
+  await db.withLock(DECISIONS_FILE, async () => {
+    const all = await db.read<ManagerDecision>(DECISIONS_FILE);
+    // 같은 report_id가 여러 개면 가장 최근 것에 마킹
+    for (let i = all.length - 1; i >= 0; i--) {
+      if (all[i].report_id === reportId) {
+        all[i].executed_at = new Date().toISOString();
+        break;
+      }
+    }
+    await db.write(DECISIONS_FILE, all);
+  });
 }
 
 /**

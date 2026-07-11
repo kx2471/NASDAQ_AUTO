@@ -67,18 +67,21 @@ async function savePositions(positions: Position[]): Promise<void> {
  * @returns 갱신된 포지션 (없으면 null)
  */
 export async function updatePosition(symbol: string, patch: Partial<Position>): Promise<Position | null> {
-  const positions = await getPositions();
-  const idx = positions.findIndex(p => p.symbol === symbol);
-  if (idx < 0) return null;
+  // 파일 락: watcher(tp1_done 기록)와 reconcile이 겹칠 때 갱신 유실 방지
+  return db.withLock(POSITIONS_FILE, async () => {
+    const positions = await getPositions();
+    const idx = positions.findIndex(p => p.symbol === symbol);
+    if (idx < 0) return null;
 
-  positions[idx] = {
-    ...positions[idx],
-    ...patch,
-    symbol: positions[idx].symbol, // 심볼은 변경 불가
-    updated_at: new Date().toISOString()
-  };
-  await savePositions(positions);
-  return positions[idx];
+    positions[idx] = {
+      ...positions[idx],
+      ...patch,
+      symbol: positions[idx].symbol, // 심볼은 변경 불가
+      updated_at: new Date().toISOString()
+    };
+    await savePositions(positions);
+    return positions[idx];
+  });
 }
 
 /**
@@ -119,6 +122,8 @@ async function deriveOpenedAt(symbol: string): Promise<string> {
  */
 export async function reconcileWithToss(): Promise<Position[]> {
   const holdings: Holding[] = await getHoldings(); // 토스 실계좌 전용 (폴백 없음, 실패 시 throw)
+  // 파일 락: 토스 조회(네트워크)는 락 밖에서, positions 읽기-병합-쓰기만 임계 구역으로
+  return db.withLock(POSITIONS_FILE, async () => {
   const existing = await getPositions();
   const bySymbol = new Map(existing.map(p => [p.symbol, p]));
   const now = new Date().toISOString();
@@ -173,6 +178,7 @@ export async function reconcileWithToss(): Promise<Position[]> {
   await savePositions(merged);
   console.log(`🔄 포지션 동기화 완료: OPEN ${merged.filter(p => p.status === 'OPEN').length}개`);
   return merged;
+  }); // withLock 종료
 }
 
 /**
@@ -184,26 +190,29 @@ export async function reconcileWithToss(): Promise<Position[]> {
  * @returns 갱신된 전체 포지션
  */
 export async function applyDecisionToPositions(decision: ManagerDecision): Promise<Position[]> {
-  const positions = await getPositions();
-  const bySymbol = new Map(positions.map(p => [p.symbol, p]));
-  const now = new Date().toISOString();
+  // 파일 락: watcher의 tp1_done 기록과 겹칠 때 유실 방지
+  return db.withLock(POSITIONS_FILE, async () => {
+    const positions = await getPositions();
+    const bySymbol = new Map(positions.map(p => [p.symbol, p]));
+    const now = new Date().toISOString();
 
-  for (const action of decision.actions) {
-    if (action.action === 'SELL') continue; // 매도 계획은 실행기(Phase 3)에서 처리
-    const p = bySymbol.get(action.symbol);
-    if (!p || p.status !== 'OPEN') continue; // 미보유 신규매수는 decisions.json에만 기록
+    for (const action of decision.actions) {
+      if (action.action === 'SELL') continue; // 매도 계획은 실행기(Phase 3)에서 처리
+      const p = bySymbol.get(action.symbol);
+      if (!p || p.status !== 'OPEN') continue; // 미보유 신규매수는 decisions.json에만 기록
 
-    if (action.stop_loss !== undefined) p.stop_loss = action.stop_loss;
-    if (action.take_profit_1 !== undefined) p.take_profit_1 = action.take_profit_1;
-    if (action.take_profit_2 !== undefined) p.take_profit_2 = action.take_profit_2;
-    if (action.time_horizon) p.time_horizon = action.time_horizon;
-    if (action.rationale) p.rationale = action.rationale;
-    p.source_report_id = decision.report_id;
-    p.updated_at = now;
-  }
+      if (action.stop_loss !== undefined) p.stop_loss = action.stop_loss;
+      if (action.take_profit_1 !== undefined) p.take_profit_1 = action.take_profit_1;
+      if (action.take_profit_2 !== undefined) p.take_profit_2 = action.take_profit_2;
+      if (action.time_horizon) p.time_horizon = action.time_horizon;
+      if (action.rationale) p.rationale = action.rationale;
+      p.source_report_id = decision.report_id;
+      p.updated_at = now;
+    }
 
-  const merged = Array.from(bySymbol.values());
-  await savePositions(merged);
-  console.log(`📝 결정 반영 완료: ${decision.actions.length}개 액션 → 보유 포지션 계획 갱신`);
-  return merged;
+    const merged = Array.from(bySymbol.values());
+    await savePositions(merged);
+    console.log(`📝 결정 반영 완료: ${decision.actions.length}개 액션 → 보유 포지션 계획 갱신`);
+    return merged;
+  });
 }

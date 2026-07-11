@@ -5,7 +5,7 @@ import { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } from '.
 import { fetchNews } from '../services/news';
 import { generateReport } from '../services/llm';
 import { generateReportWithClaude } from '../services/claude';
-import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
+import { wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
 import { loadSectors } from '../utils/config';
 import { runMarketWideScreening } from '../services/screening';
@@ -217,50 +217,11 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       claudeMdPath = claudePath;
     }
 
-    // Agent별 이메일 발송 (15:00) - 순서: Claude → GPT
-    console.log('📧 Agent별 주간 리포트 이메일 발송 중...');
-    const currentDate = new Date().toLocaleDateString('ko-KR');
-    
-    // 1. Agent_Claude 이메일 발송 (최우선)
-    if (claudeMdPath) {
-      try {
-        // 저장된 파일에서 실제 리포트 내용 읽기 (fallback 메시지가 아닌 실제 생성된 리포트)
-        const actualClaudeReport = await fs.readFile(claudeMdPath, 'utf8');
-        
-        const claudeEmailHtml = wrapInEmailTemplate(
-          actualClaudeReport.replace(/\n/g, '<br>'), 
-          `Agent_Claude 주간 리포트 (${currentDate})`
-        );
-        
-        await sendReportEmail({
-          subject: `📈 [IMPORTANT] Agent_Claude 주간 리포트 - ${currentDate}`,
-          html: claudeEmailHtml,
-          mdPath: claudeMdPath
-        });
-        console.log('📧 Agent_Claude 이메일 전송 완료 (저장된 파일 기준)');
-      } catch (emailError) {
-        console.warn('⚠️ Agent_Claude 이메일 전송 실패:', (emailError as Error).message);
-      }
-    }
-    
-    // 2. Agent_GPT 이메일 전송
-    try {
-      const gptEmailHtml = wrapInEmailTemplate(
-        agentGptReport.replace(/\n/g, '<br>'), 
-        `Agent_GPT 주간 리포트 (${currentDate})`
-      );
-      
-      await sendReportEmail({
-        subject: `🤖 Agent_GPT 주간 리포트 - ${currentDate}`,
-        html: gptEmailHtml,
-        mdPath: gptMdPath
-      });
-      console.log('📧 Agent_GPT 이메일 전송 완료');
-    } catch (emailError) {
-      console.warn('⚠️ Agent_GPT 이메일 전송 실패:', (emailError as Error).message);
-    }
-
-    console.log('✅ Agent별 주간 리포트 처리 완료 (data/report 폴더에 저장됨)');
+    // 에이전트 리포트는 Manager 취합용 내부 데이터 — 이메일 발송하지 않음.
+    // 사용자에게는 Manager 통합 리포트 1통만 발송되며, 에이전트 의견은 그 안에 명시된다.
+    // (원본은 data/report에 저장되어 감사·디버깅 시 확인 가능: claudeMdPath, gptMdPath)
+    void claudeMdPath; void gptMdPath;
+    console.log('✅ Agent별 리포트 처리 완료 (이메일 없음 — Manager 취합용, data/report 저장)');
 
   } catch (error) {
     console.error('❌ Agent별 주간 리포트 처리 실패:', error);
@@ -340,11 +301,14 @@ async function prepareWeeklyReportPayload(params: {
       }
     }
     
-    // 성과 계산
+    // 성과 계산 (현금 포함 총자산 기준)
     const performance = calculateCurrentPerformance(
       holdings,
       currentPrices,
-      exchangeRate.usd_to_krw
+      exchangeRate.usd_to_krw,
+      undefined,
+      undefined,
+      cashBalance
     );
     
     // 목표 분석

@@ -1,3 +1,5 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { runWeekly } from './weekly';
 import { runManager } from './manager';
 import { checkPositionsOnce } from './watcher';
@@ -21,9 +23,38 @@ import { getUsMarketCalendar, isTossEnabled } from '../services/toss';
  */
 
 let timer: ReturnType<typeof setInterval> | null = null;
-let lastReportDate = '';      // 리포트를 이미 실행한 미국 영업일 (중복 방지)
+let lastReportDate = '';      // 리포트를 이미 실행한 미국 영업일 (메모리 캐시)
 let pipelineRunning = false;  // 리포트 파이프라인 동시 실행 방지
 let watcherRunning = false;   // 감시 틱 겹침 방지
+
+// 마지막 실행일을 디스크에 보존 — 서버가 리포트 후 재시작돼도 같은 날 중복 실행
+// (LLM 비용 2배 + 결정 이중 집행 위험)을 막는다
+const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.json');
+
+/**
+ * 디스크에 저장된 마지막 리포트 실행일 로드
+ * @returns 미국 영업일 문자열 (없으면 '')
+ */
+async function loadLastReportDate(): Promise<string> {
+  try {
+    const raw = await fs.readFile(STATE_FILE, 'utf-8');
+    return JSON.parse(raw).lastReportDate || '';
+  } catch {
+    return ''; // 파일 없음 = 첫 실행
+  }
+}
+
+/**
+ * 마지막 리포트 실행일 저장 (재시작 대비)
+ * @param date 미국 영업일 문자열
+ */
+async function saveLastReportDate(date: string): Promise<void> {
+  try {
+    await fs.writeFile(STATE_FILE, JSON.stringify({ lastReportDate: date }, null, 2), 'utf-8');
+  } catch (error) {
+    console.warn('⚠️ 스케줄러 상태 저장 실패 (재시작 시 중복 실행 위험):', error);
+  }
+}
 
 /**
  * 리포트 파이프라인 1회 실행 (에이전트 리포트 → Manager 통합 → 결정 집행)
@@ -61,10 +92,16 @@ async function tick(): Promise<void> {
     const leadMinutes = parseInt(process.env.REPORT_LEAD_MINUTES || '', 10) || 40;
     const reportAt = today.regular.start - leadMinutes * 60 * 1000;
 
-    // 1) 개장 전 리포트 트리거 (영업일당 1회)
+    // 1) 개장 전 리포트 트리거 (영업일당 1회 — 디스크 상태로 재시작에도 안전)
     //    reportAt 이후~개장 전 구간이면 실행 — 서버가 늦게 켜져도 개장 전이면 따라잡는다
     if (now >= reportAt && now < today.regular.start && lastReportDate !== today.date) {
+      const persisted = await loadLastReportDate();
+      if (persisted === today.date) {
+        lastReportDate = today.date; // 재시작 전 이미 실행됨 — 메모리 캐시만 복구
+        return;
+      }
       lastReportDate = today.date;
+      await saveLastReportDate(today.date);
       console.log(`⏰ 개장 ${Math.round((today.regular.start - now) / 60000)}분 전 — 리포트 파이프라인 트리거 (영업일 ${today.date})`);
       void runReportPipeline();
     }
