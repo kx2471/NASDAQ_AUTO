@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { runWeekly } from './weekly';
 import { runManager } from './manager';
-import { checkPositionsOnce } from './watcher';
+import { checkPositionsOnce, syncPendingFills } from './watcher';
 import { getUsMarketCalendar, isTossEnabled } from '../services/toss';
 
 /**
@@ -106,10 +106,12 @@ async function tick(): Promise<void> {
       void runReportPipeline();
     }
 
-    // 2) 정규장 중 SL/TP 감시 (매분)
+    // 2) 정규장 중 매분: 체결 지연 자가 치유 → SL/TP 감시
+    //    (동기화를 먼저 해야 방금 체결된 종목도 같은 틱에서 감시 대상이 됨)
     if (now >= today.regular.start && now < today.regular.end && !watcherRunning) {
       watcherRunning = true;
       try {
+        await syncPendingFills();
         await checkPositionsOnce();
       } finally {
         watcherRunning = false;

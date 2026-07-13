@@ -251,6 +251,10 @@ const fmtUsd = (v, d = 2) => '$' + Number(v).toLocaleString('en-US', { minimumFr
 const fmtPct = (v, sign = true) => (sign && v > 0 ? '+' : '') + v.toFixed(2) + '%';
 const pnlClass = (v) => v > 0.0001 ? 'up' : v < -0.0001 ? 'down' : 'flat';
 const arrow = (v) => v > 0.0001 ? '▲ ' : v < -0.0001 ? '▼ ' : '';
+const fmtKst = (iso) => {
+  const t = new Date(iso);
+  return isNaN(t) ? String(iso ?? '') : t.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+};
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function api(path) {
   const r = await fetch('/dashboard/api/' + path);
@@ -447,10 +451,11 @@ async function loadDecisions() {
     $('decisions').innerHTML = list.map(dec => {
       const acts = (dec.actions || []).map(a => {
         const cls = a.action === 'BUY' ? 'buy' : a.action === 'SELL' ? 'sell' : 'hold';
-        return `<span class="act"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(a.symbol)}</b>${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</span>`;
+        const label = a.symbol === 'CASH' ? '현금 보유 (매매 없음)' : a.symbol;
+        return `<span class="act" title="${esc(a.rationale || '')}"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(label)}</b>${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</span>`;
       }).join('');
       return `<div class="decision">
-        <div class="d-head"><b style="color:var(--text-1)">${esc(dec.report_id)}</b><span>${esc(String(dec.decided_at).slice(0, 16).replace('T', ' '))}</span></div>
+        <div class="d-head"><b style="color:var(--text-1)">${esc(dec.report_id)}</b><span>${esc(fmtKst(dec.decided_at))} KST</span></div>
         <div class="acts">${acts || '<span class="empty">액션 없음</span>'}</div>
       </div>`;
     }).join('');
@@ -468,7 +473,7 @@ async function loadTrades() {
     $('tradesCount').textContent = `총 ${j.total ?? list.length}건 중 최근 ${list.length}건`;
     if (!list.length) { $('trades').innerHTML = '<div class="empty">거래 내역이 없습니다</div>'; return; }
     const rows = list.map(t => `<tr>
-      <td class="num" style="color:var(--text-3)">${esc(String(t.traded_at).slice(0, 16).replace('T', ' '))}</td>
+      <td class="num" style="color:var(--text-3)">${esc(fmtKst(t.traded_at))}</td>
       <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${esc(t.side)}</span></td>
       <td class="sym" style="text-align:left">${esc(t.symbol)}</td>
       <td class="num">${t.qty}</td>

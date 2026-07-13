@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { generateManagerReport, saveManagerReport } from '../services/manager';
-import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { parseManagerDecision, saveDecision, isDecisionExecuted, markDecisionExecuted } from '../services/decision';
 import { reconcileWithToss, applyDecisionToPositions } from '../storage/positions';
 
@@ -47,15 +46,9 @@ export async function runManager(): Promise<void> {
     console.log('💾 Manager_Agent 최종 리포트 저장 중...');
     const reportPath = await saveManagerReport(managerReport);
 
-    // 5. Manager_Agent 이메일 발송 — 개장 전 도착이 목표이므로 집행(개장 대기)보다 먼저
-    console.log('📧 Manager_Agent 최종 리포트 이메일 발송 중...');
-    try {
-      await sendManagerEmail(managerReport, reportPath);
-      console.log('✅ Manager_Agent 이메일 발송 완료');
-    } catch (emailError) {
-      console.error('⚠️ Manager_Agent 이메일 발송 실패 (보고서는 정상 저장됨):', emailError);
-      // 이메일 실패해도 파이프라인은 계속 진행
-    }
+    // 5. 이메일 발송 없음 — 리포트는 data/report에 저장되어 대시보드에서 열람
+    //    (사용자 요청으로 모든 이메일 발송 제거, 2026-07-13)
+    void reportPath;
 
     // 6. 기계 판독용 결정 파싱 + 포지션 동기화 (자동매매 입력)
     //  - 토스 보유종목(진실)과 positions.json(의도)을 먼저 동기화
@@ -110,14 +103,7 @@ export async function runManager(): Promise<void> {
 
   } catch (error) {
     console.error('❌ Manager_Agent 파이프라인 실패:', error);
-
-    // 실패 시 오류 이메일 발송 시도 (실패해도 무시)
-    try {
-      await sendErrorEmail(error as Error);
-    } catch (emailError) {
-      console.error('⚠️ 오류 알림 이메일도 발송 실패 (무시):', emailError);
-    }
-
+    // 오류는 로그와 대시보드로 확인 (이메일 발송 제거됨)
     throw error;
   }
 }
@@ -171,81 +157,6 @@ async function validateAgentReportsExist(): Promise<void> {
   }
 
   console.log('✅ 모든 Agent 리포트 확인 완료');
-}
-
-/**
- * Manager_Agent 이메일 발송
- */
-async function sendManagerEmail(report: string, reportPath: string): Promise<void> {
-  try {
-    const currentDate = new Date().toLocaleDateString('ko-KR');
-    
-    const emailHtml = wrapInEmailTemplate(
-      report.replace(/\n/g, '<br>'), 
-      `Manager_Agent 최종 통합 리포트 (${currentDate})`
-    );
-    
-    await sendReportEmail({
-      subject: `🏢 Manager_Agent 최종 통합 리포트 - ${currentDate}`,
-      html: emailHtml,
-      mdPath: reportPath
-    });
-    
-    console.log('✅ Manager_Agent 이메일 전송 완료');
-    
-  } catch (error) {
-    console.error('❌ Manager_Agent 이메일 전송 실패:', error);
-    throw error;
-  }
-}
-
-/**
- * 오류 발생 시 알림 이메일 발송
- */
-async function sendErrorEmail(error: Error): Promise<void> {
-  try {
-    const currentDate = new Date().toLocaleDateString('ko-KR');
-    const currentTime = new Date().toLocaleTimeString('ko-KR');
-    
-    const errorReport = `
-# 🚨 Manager_Agent 실행 오류 알림
-
-## 오류 정보
-- **발생 시간**: ${currentDate} ${currentTime}
-- **오류 메시지**: ${error.message}
-- **상세 내용**: ${error.stack || '스택 트레이스 없음'}
-
-## 가능한 원인
-1. Agent 리포트들이 15:00에 생성되지 않음
-2. 데이터베이스 연결 문제
-3. API 호출 한도 초과
-4. 파일 시스템 오류
-
-## 대응 방안
-1. 15:00 Agent 리포트 생성 상태 확인
-2. 로컬 서버 로그 확인
-3. 수동으로 Agent 리포트 재실행
-4. Manager_Agent 수동 실행
-
----
-*자동 오류 알림 시스템*
-    `;
-    
-    const emailHtml = wrapInEmailTemplate(
-      errorReport.replace(/\n/g, '<br>'), 
-      `Manager_Agent 오류 알림 (${currentDate})`
-    );
-    
-    await sendReportEmail({
-      subject: `🚨 Manager_Agent 오류 알림 - ${currentDate}`,
-      html: emailHtml
-    });
-    
-    console.log('📧 오류 알림 이메일 전송 완료');
-    
-  } catch (emailError) {
-    console.error('❌ 오류 알림 이메일 전송도 실패:', emailError);
-  }
 }
 
 /**

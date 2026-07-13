@@ -396,67 +396,17 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       }
     };
 
-    // 각 Agent의 전략과 추천 종목을 구체적으로 추출
+    // 에이전트 분석 메모 전달
+    // - 메모는 이미 Manager 취합용 압축 형식(≤1,500토큰)이므로 섹션 추출 없이 전문을 전달한다.
+    //   (과거 리포트 형식의 섹션 제목을 정규식으로 긁던 방식은 형식 변경에 깨져서 폐기 —
+    //    2026-07-13 첫 실전에서 "의견 데이터 전무" 오판의 원인이 됐음)
     const extractAgentData = (report: string, agentName: string) => {
-      // 매매 의견 섹션 (보유 종목 분석) - 더 넓은 패턴으로 검색
-      let tradingOpinion = '';
-      const tradingPatterns = [
-        /## 2\. 매매 의견.*?(?=## 3\.|## 4\.|$)/s,
-        /매매 의견.*?(?=고성장 추천|## 3\.|## 4\.|$)/s,
-        /보유종목.*?(?=고성장 추천|## 3\.|## 4\.|$)/s
-      ];
-
-      for (const pattern of tradingPatterns) {
-        const match = report.match(pattern);
-        if (match && match[0].length > 50) {
-          tradingOpinion = match[0].trim();
-          break;
-        }
-      }
-
-      // 고성장 추천 종목 섹션 - 더 넓은 패턴으로 검색
-      let recommendations = '';
-      const recommendationPatterns = [
-        /## 3\. 고성장 추천 종목.*?(?=## 4\.|## 5\.|$)/s,
-        /고성장 추천 종목.*?(?=## 4\.|## 5\.|시장 동향|$)/s,
-        /\*\*3\. 고성장 추천 종목.*?(?=\*\*4\.|## 4\.|$)/s,
-        /신규 매수 계획.*?(?=## 4\.|시장 동향|$)/s
-      ];
-
-      for (const pattern of recommendationPatterns) {
-        const match = report.match(pattern);
-        if (match && match[0].length > 100) {
-          recommendations = match[0].trim();
-          break;
-        }
-      }
-
-      // 핵심 매매 제안 한줄평 추출 - 더 정확한 패턴
-      let advice = '';
-      const advicePatterns = [
-        /🎯 Agent 핵심 매매 제안 & 1000만원 전략 한줄평([\s\S]*?)(?=\n추가 유의|추가 유의|부록|$)/,
-        /⚡ 이번 주 핵심 액션([\s\S]*?)(?=💡 1000만원|$)/,
-        /💡 1000만원 목표 전망([\s\S]*?)(?=📊 위험도|$)/
-      ];
-
-      for (const pattern of advicePatterns) {
-        const match = report.match(pattern);
-        if (match && match[1]) {
-          advice = match[1].trim();
-          break;
-        }
-      }
-
-      // 추출된 내용 검증 및 로깅
-      console.log(`📋 ${agentName} 추출 결과:`);
-      console.log(`  - 전략 길이: ${tradingOpinion.length}자`);
-      console.log(`  - 추천 길이: ${recommendations.length}자`);
-      console.log(`  - 한줄평 길이: ${advice.length}자`);
-
+      const memo = (report || '').trim();
+      console.log(`📋 ${agentName} 메모 길이: ${memo.length}자`);
       return {
-        strategy: tradingOpinion || `Agent_${agentName} 매매 의견 정보 없음`,
-        recommendations: recommendations || `Agent_${agentName} 추천 종목 정보 없음`,
-        advice: advice || `Agent_${agentName} 한줄평 정보 없음`
+        strategy: memo || `Agent_${agentName} 분석 메모 없음 (생성 실패)`,
+        recommendations: memo ? '(위 분석 메모의 "신규 매수 추천" 섹션 참조)' : `Agent_${agentName} 추천 정보 없음`,
+        advice: ''
       };
     };
 
@@ -522,19 +472,15 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 **현재 상황 브리핑**:
 - 현금: $${availableCash.toFixed(2)}
 - 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
-- 목표: 1년 내 ₩10,000,000 달성
-
-**각 Agent 핵심 매매 제안 요약**:
-- Agent_GPT: ${gptData.advice}
-- Agent_Claude: ${claudeData.advice}
+- 목표: 1년 내 $8,000 달성
 
 **과거 Manager 투자 결정 이력** (최근 3개):
 ${previousReportsSummary}
 
 **Manager 핵심 임무**:
-1. 위 2개 Agent(GPT, Claude)의 전략을 독립적으로 분석하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
+1. 위 2개 Agent(GPT, Claude)의 분석 메모를 독립적으로 검토하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
 2. 과거 Manager 보고서들의 투자 결정과 그 결과를 참고하여 일관성 있는 전략을 수립하세요.
-3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, 1000만원 목표 달성을 위한 구체적 전략을 수립하세요.
+3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, $8,000 목표 달성을 위한 구체적 전략을 수립하세요.
 4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
 `;
 

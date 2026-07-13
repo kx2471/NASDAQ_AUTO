@@ -50,7 +50,7 @@ export interface TradeResult {
  * 종목당 최대 주문 금액(USD) 가드레일 조회
  * - TOSS_MAX_ORDER_USD 미설정 시 기본값 1000 USD
  */
-function getMaxOrderUsd(): number {
+export function getMaxOrderUsd(): number {
   return parseFloat(process.env.TOSS_MAX_ORDER_USD || '') || 1000;
 }
 

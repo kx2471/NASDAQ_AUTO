@@ -1,6 +1,6 @@
 import { ManagerDecision, DecisionItem } from './decision';
-import { executeBuy, executeSell, TradeResult } from './trading';
-import { isUsRegularSessionOpen, getSellableQuantity } from './toss';
+import { executeBuy, executeSell, TradeResult, getMaxOrderUsd } from './trading';
+import { isUsRegularSessionOpen, getSellableQuantity, getPrices } from './toss';
 
 /**
  * Manager 결정 집행기 (Phase 3)
@@ -48,10 +48,35 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
     console.warn(`⚠️ ${item.symbol}: LIMIT+금액 주문은 토스 미지원 — MARKET 금액 주문으로 보정`);
   }
 
+  // 종목당 한도 클램프: Manager 배분이 한도를 넘으면 거부(기회 상실) 대신
+  // 한도에 맞게 수량/금액을 줄여 매수 의도를 살린다 (SELL 클램프와 같은 원리)
+  const maxOrder = getMaxOrderUsd();
+  let qty = useAmount ? undefined : item.qty;
+  let amount = item.amount;
+
+  if (amount !== undefined && amount > maxOrder) {
+    console.warn(`⚠️ ${item.symbol}: 결정 금액 $${amount} > 한도 $${maxOrder} — 한도로 축소`);
+    amount = maxOrder;
+  }
+  if (qty !== undefined) {
+    const refPrice = item.limit_price ?? (await getPrices([item.symbol]))[item.symbol];
+    if (refPrice && qty * refPrice > maxOrder) {
+      const clamped = Math.floor(maxOrder / refPrice);
+      if (clamped < 1) {
+        return {
+          success: false, dryRun: false, symbol: item.symbol, side: 'BUY',
+          error: `1주 가격 $${refPrice.toFixed(2)}이 종목당 한도 $${maxOrder}를 초과해 매수 불가.`
+        };
+      }
+      console.warn(`⚠️ ${item.symbol}: ${qty}주×$${refPrice.toFixed(2)}=$${(qty * refPrice).toFixed(2)} > 한도 $${maxOrder} — ${clamped}주로 축소`);
+      qty = clamped;
+    }
+  }
+
   return executeBuy({
     symbol: item.symbol,
-    qty: useAmount ? undefined : item.qty,
-    amount: item.amount,
+    qty,
+    amount,
     orderType,
     price: orderType === 'LIMIT' ? item.limit_price : undefined,
     note: `Manager 결정 매수${item.rationale ? ` — ${item.rationale.slice(0, 80)}` : ''}`

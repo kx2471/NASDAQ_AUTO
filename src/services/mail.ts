@@ -23,6 +23,14 @@ export interface EmailOptions {
  */
 export async function sendReportEmail(options: EmailOptions): Promise<void> {
   const provider = process.env.MAIL_PROVIDER || 'RESEND';
+
+  // 전역 이메일 차단: MAIL_PROVIDER=DISABLED면 어떤 경로에서도 발송하지 않음
+  // (리포트는 data/report 저장 + 대시보드 열람으로 대체)
+  if (provider.toUpperCase() === 'DISABLED') {
+    console.log(`📧 이메일 발송 생략 (MAIL_PROVIDER=DISABLED): ${options.subject}`);
+    return;
+  }
+
   const { subject, html, mdPath, attachments = [] } = options;
   const to = options.to || process.env.MAIL_TO;
 

@@ -1,6 +1,9 @@
-import { getOpenPositions, updatePosition, reconcileWithToss, Position } from '../storage/positions';
+import fs from 'fs/promises';
+import path from 'path';
+import { getOpenPositions, updatePosition, reconcileWithToss, applyDecisionToPositions, Position } from '../storage/positions';
 import { getPrices, isUsRegularSessionOpen, getSellableQuantity } from '../services/toss';
 import { executeSell } from '../services/trading';
+import { ManagerDecision } from '../services/decision';
 
 /**
  * SL/TP 실시간 감시자 (정규장 전용)
@@ -18,6 +21,54 @@ import { executeSell } from '../services/trading';
 
 // 주문 진행 중인 심볼 (한 틱에서 주문 나간 심볼은 reconcile 전까지 재주문 금지)
 const inFlight = new Set<string>();
+
+/**
+ * 체결 지연 자가 치유 (매분, 정규장 중)
+ *
+ * 시장가 주문도 체결→보유 반영에 지연이 있어, 집행 직후 1회 동기화만으로는
+ * 포지션·SL/TP 계획 부착이 누락될 수 있다 (2026-07-13 COMP 사례).
+ * 최근 24시간 내 결정의 BUY 종목 중 "계획 미부착" 종목이 있으면
+ * 토스 reconcile + 결정 재적용으로 복구한다.
+ *
+ * - 정상 상태면 로컬 파일 검사만 하고 종료 (API 호출 0회)
+ * - 이미 손절 등으로 청산된 종목은 reconcile이 CLOSED 처리하므로 재부착되지 않음
+ */
+export async function syncPendingFills(): Promise<void> {
+  let decisions: ManagerDecision[];
+  try {
+    const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'decisions.json'), 'utf-8');
+    decisions = JSON.parse(raw);
+  } catch {
+    return; // 결정 기록 없음
+  }
+  if (!Array.isArray(decisions) || decisions.length === 0) return;
+
+  // 최근 24시간 내 결정만 대상 (오래된 결정을 새 포지션에 재적용하지 않도록)
+  const latest = decisions[decisions.length - 1];
+  const ageMs = Date.now() - new Date(latest.decided_at).getTime();
+  if (!isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return;
+
+  const buySymbols = latest.actions
+    .filter(a => a.action === 'BUY' && (a.stop_loss || a.take_profit_1 || a.take_profit_2))
+    .map(a => a.symbol);
+  if (buySymbols.length === 0) return;
+
+  // 로컬 검사: 계획이 붙은 OPEN 포지션이 전부 있으면 아무것도 안 함
+  const positions = await getOpenPositions();
+  const planned = new Set(
+    positions.filter(p => p.stop_loss || p.take_profit_1 || p.take_profit_2).map(p => p.symbol)
+  );
+  const missing = buySymbols.filter(s => !planned.has(s));
+  if (missing.length === 0) return;
+
+  console.log(`🔁 체결 동기화: ${missing.join(', ')} 계획 미부착 — 토스 재조회 후 결정 재적용`);
+  try {
+    await reconcileWithToss();
+    await applyDecisionToPositions(latest);
+  } catch (error: any) {
+    console.warn('⚠️ 체결 동기화 실패 (다음 분에 재시도):', error.message);
+  }
+}
 
 /**
  * 포지션 1개에 대한 SL/TP 판정 (순수 함수 — 테스트 가능하도록 export)
