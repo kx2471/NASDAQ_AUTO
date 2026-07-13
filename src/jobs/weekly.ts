@@ -7,7 +7,6 @@ import { generateReport } from '../services/llm';
 import { generateReportWithClaude } from '../services/claude';
 import { wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
-import { loadSectors } from '../utils/config';
 import { runMarketWideScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
 import { calculateCurrentPerformance, analyzeTargetProgress, savePerformanceHistory, generatePerformanceReport } from '../services/performance';
@@ -37,19 +36,16 @@ export async function runWeekly(): Promise<void> {
       return;
     }
 
-    // 2. 섹터 설정 로드 (6개 섹터)
-    const sectors = await loadSectors();
-    console.log(`📋 ${Object.keys(sectors).length}개 섹터 로드됨 (AI, Computing, Nuclear, Technology, Aerospace, Defense)`);
-
-    // 3. 미국 전시장 퍼널 스크리닝 (유니버스 → 시총/유동성 → 모멘텀 → 정밀분석)
+    // 2. 미국 전시장 퍼널 스크리닝 — 섹터를 미리 정하지 않고 전 종목(~5,800)에서
+    //    시총·유동성·모멘텀으로 좁혀 들어간다 (구 6개 고정 섹터 방식은 폐기됨)
     console.log('\n🔍 전시장 종목 스크리닝 시작...');
     const screeningResults = await runMarketWideScreening();
 
-    // 4. Agent별 리포트 생성 (15:00)
-    console.log('\n📊 Agent별 주간 리포트 생성 시작...');
-    
+    // 3. Agent별 리포트 생성
+    console.log('\n📊 Agent별 리포트 생성 시작...');
+
     try {
-      await processWeeklyAgentReports(sectors, screeningResults);
+      await processWeeklyAgentReports({}, screeningResults);
       console.log('✅ Agent별 주간 리포트 생성 완료');
     } catch (error) {
       console.error('❌ Agent별 리포트 생성 실패:', error);

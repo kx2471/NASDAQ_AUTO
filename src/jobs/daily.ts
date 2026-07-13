@@ -7,7 +7,6 @@ import { generateReport } from '../services/llm';
 import { generateReportWithClaude } from '../services/claude';
 import { sendReportEmail, wrapInEmailTemplate } from '../services/mail';
 import { generateReportFile } from '../logic/report';
-import { loadSectors } from '../utils/config';
 import { runMarketWideScreening } from '../services/screening';
 import { getCachedExchangeRate } from '../services/exchange';
 
@@ -35,11 +34,7 @@ export async function runDaily(): Promise<void> {
       return;
     }
 
-    // 2. 섹터 설정 로드
-    const sectors = await loadSectors();
-    console.log(`📋 ${Object.keys(sectors).length}개 섹터 로드됨`);
-
-    // 미국 전시장 퍼널 스크리닝 (유니버스 → 시총/유동성 → 모멘텀 → 정밀분석)
+    // 2. 미국 전시장 퍼널 스크리닝 (유니버스 → 시총/유동성 → 모멘텀 → 정밀분석)
     console.log('\n🔍 전시장 종목 스크리닝 시작...');
     const screeningResults = await runMarketWideScreening();
 
@@ -47,7 +42,7 @@ export async function runDaily(): Promise<void> {
     console.log('\n📊 통합 리포트 생성 시작...');
     
     try {
-      await processUnifiedReport(sectors, screeningResults);
+      await processUnifiedReport({}, screeningResults);
       console.log('✅ 통합 리포트 생성 완료');
     } catch (error) {
       console.error('❌ 통합 리포트 생성 실패:', error);
