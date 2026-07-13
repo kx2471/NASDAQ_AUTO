@@ -1,7 +1,15 @@
 /**
  * 포트폴리오 성과 추적 및 목표 분석 서비스
- * 1년 1000만원 목표 달성을 위한 성과 모니터링
+ * 목표 금액(TARGET_AMOUNT_KRW) 달성을 위한 성과 모니터링
  */
+
+/**
+ * 목표 금액(KRW) 조회 — TARGET_AMOUNT_KRW 환경변수 ($8,000 기준으로 설정됨)
+ * @returns 목표 금액 (원)
+ */
+function getTargetAmountKrw(): number {
+  return parseFloat(process.env.TARGET_AMOUNT_KRW || '') || 11950000;
+}
 
 export interface PerformanceData {
   date: string;
@@ -15,7 +23,7 @@ export interface PerformanceData {
   total_return_from_initial_percent: number;
   daily_return_krw: number;
   daily_return_percent: number;
-  target_progress: number; // 1000만원 목표 대비 진행률
+  target_progress: number; // 목표 금액 대비 진행률
   days_to_target?: number; // 현재 수익률 유지 시 목표 달성까지 일수
 }
 
@@ -76,8 +84,8 @@ export function calculateCurrentPerformance(
   const dailyReturnPercent = previousValue ?
     ((currentValueKRW - previousValue) / previousValue) * 100 : 0;
 
-  // 1000만원 목표 대비 진행률
-  const targetProgress = (currentValueKRW / 10000000) * 100;
+  // 목표 대비 진행률 (TARGET_AMOUNT_KRW — $8,000 기준, 미설정 시 기본값)
+  const targetProgress = (currentValueKRW / getTargetAmountKrw()) * 100;
   
   return {
     date: currentDate,
@@ -96,14 +104,14 @@ export function calculateCurrentPerformance(
 }
 
 /**
- * 1000만원 목표 달성 분석
+ * 목표 금액 달성 분석 ($8,000 — TARGET_AMOUNT_KRW)
  */
 export function analyzeTargetProgress(
   currentPerformance: PerformanceData,
   startDate: string = process.env.INVEST_START_DATE || '2026-07-11' // 기준점 리셋일
 ): TargetAnalysis {
   
-  const targetAmount = 10000000; // 1000만원
+  const targetAmount = getTargetAmountKrw(); // 목표 금액 (env)
   const currentAmount = currentPerformance.current_value_krw;
   const remainingAmount = targetAmount - currentAmount;
   const progressPercent = (currentAmount / targetAmount) * 100;
@@ -191,7 +199,7 @@ export function generatePerformanceReport(
   const progressBar = '█'.repeat(filledCount) + '░'.repeat(20 - filledCount);
   
   return `
-## 🎯 1000만원 목표 진행 현황
+## 🎯 목표 진행 현황
 
 **현재 포트폴리오**
 - 투자원금: ₩${performance.total_investment_krw.toLocaleString()}
@@ -200,7 +208,7 @@ export function generatePerformanceReport(
 
 **목표 달성률**
 [${progressBar}] ${targetAnalysis.progress_percent}%
-- 목표 금액: ₩10,000,000
+- 목표 금액: ₩${targetAnalysis.target_amount_krw.toLocaleString()}
 - 남은 금액: ₩${targetAnalysis.remaining_amount_krw.toLocaleString()}
 - 필요 수익률: ${targetAnalysis.required_return_percent}%
 - 현재 수익률: ${targetAnalysis.current_return_percent}%

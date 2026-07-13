@@ -301,9 +301,16 @@ describe('[통합] R7. 결정 집행 (dry-run)', () => {
       report_id: 'EXEC-T2', decided_at: new Date().toISOString(),
       actions: [{ symbol: 'AAPL', action: 'BUY', order_type: 'LIMIT', amount: 10, limit_price: 200 }]
     });
-    // 보정 후 MARKET 금액주문 → 잔고 가드 도달 (스펙 위반 400이 아니라)
-    const r = s.failed[0] || s.executed[0];
-    assert.match(r.error || 'OK', /매수가능금액|초과/);
+    const r = s.executed[0] || s.failed[0];
+    // 핵심 단언: 스펙 거부("MARKET 전용")로 죽지 않았다 = 보정이 동작했다.
+    // 잔고에 따라 성공(dry-run) 또는 잔고 가드 거부 둘 다 정상 경로.
+    if (r.error) {
+      assert.doesNotMatch(r.error, /MARKET 전용/, '보정 없이 스펙 거부되면 실패');
+      assert.match(r.error, /매수가능금액|초과/, '실패했다면 잔고·한도 가드여야 함');
+    } else {
+      assert.equal(r.success, true);
+      assert.equal(r.dryRun, true, '실주문 아님 (dry-run 게이트)');
+    }
   });
 
   test('실집행 마킹된 결정은 재집행 차단 (이중 매수 방지)', async () => {
@@ -321,24 +328,37 @@ describe('[통합] R7. 결정 집행 (dry-run)', () => {
  * ═══════════════════════════════════════════════════════════ */
 describe('[통합] R8. 포지션 동기화', () => {
   test('reconcile: 실보유 반영 + 유령 포지션 CLOSED + 재진입 계획 초기화', async () => {
-    // 시드: 실보유(005930)를 CLOSED+낡은 SL로, 미보유(ZZZZ)를 OPEN으로
-    fs.writeFileSync(DATA('positions.json'), JSON.stringify([
-      { symbol: '005930', status: 'CLOSED', shares: 0, avg_cost: 0, opened_at: '2025-01-01', updated_at: '2025-01-01', stop_loss: 999999, tp1_done: true },
+    // 계좌 상태에 의존하지 않도록 실제 보유 목록을 먼저 조회
+    const { getHoldings } = require('../dist/storage/database.js');
+    const holdings = await getHoldings();
+    const held = holdings[0]; // 있으면 재진입 시나리오까지, 없으면 유령 정리만 검증
+
+    const seed = [
       { symbol: 'ZZZZ', status: 'OPEN', shares: 5, avg_cost: 10, opened_at: '2025-01-01', updated_at: '2025-01-01' }
-    ]));
+    ];
+    if (held) {
+      // 실보유 종목을 "과거 청산 + 낡은 계획" 상태로 시드 → 재진입 초기화 검증
+      seed.push({
+        symbol: held.symbol, status: 'CLOSED', shares: 0, avg_cost: 0,
+        opened_at: '2025-01-01', updated_at: '2025-01-01', stop_loss: 999999, tp1_done: true
+      });
+    }
+    fs.writeFileSync(DATA('positions.json'), JSON.stringify(seed));
 
     const { reconcileWithToss } = require('../dist/storage/positions.js');
     const merged = await reconcileWithToss();
 
-    const samsung = merged.find(p => p.symbol === '005930');
-    assert.equal(samsung.status, 'OPEN', '실보유는 OPEN 복구');
-    assert.equal(samsung.stop_loss, undefined, '재진입 시 낡은 손절가 제거 (즉시 오발동 방지)');
-    assert.equal(samsung.tp1_done, undefined, '재진입 시 tp1_done 초기화');
-    assert.equal(samsung.currency, 'KRW', '통화 보존');
-
     const ghost = merged.find(p => p.symbol === 'ZZZZ');
     assert.equal(ghost.status, 'CLOSED', '토스에 없는 포지션은 청산 처리');
     assert.equal(ghost.shares, 0);
+
+    if (held) {
+      const reentered = merged.find(p => p.symbol === held.symbol);
+      assert.equal(reentered.status, 'OPEN', '실보유는 OPEN 복구');
+      assert.equal(reentered.stop_loss, undefined, '재진입 시 낡은 손절가 제거 (즉시 오발동 방지)');
+      assert.equal(reentered.tp1_done, undefined, '재진입 시 tp1_done 초기화');
+      assert.equal(reentered.currency, held.currency, '통화 보존');
+    }
   });
 });
 
