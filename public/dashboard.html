@@ -295,7 +295,7 @@ async function loadPortfolio() {
     const retPct = p.total_return_from_initial_percent;
     $('stReturn').textContent = fmtPct(retPct);
     $('stReturn').className = 'value num ' + pnlClass(retPct);
-    $('stReturnKrw').textContent = `초기 ${fmtKrw(p.initial_capital_krw)} → ${arrow(p.total_return_from_initial_krw)}${fmtKrw(Math.abs(p.total_return_from_initial_krw))}`;
+    $('stReturnKrw').textContent = `초기 ${fmtKrw(p.initial_capital_krw)} → 현재 ${fmtKrw(p.current_value_krw)} (${arrow(p.total_return_from_initial_krw)}${fmtKrw(Math.abs(p.total_return_from_initial_krw))})`;
     $('stReturnKrw').className = 'delta ' + pnlClass(p.total_return_from_initial_krw);
 
     // current_value_krw는 이미 현금 포함 총자산
