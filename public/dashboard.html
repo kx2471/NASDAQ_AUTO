@@ -303,7 +303,8 @@ async function loadPortfolio() {
     $('stTotalUsd').textContent = `보유종목 + 현금 (실계좌 기준)`;
 
     $('stCash').textContent = fmtUsd(d.cash_usd);
-    $('stFx').textContent = `환율 ${d.exchangeRate.toLocaleString()}원/$`;
+    const pending = d.pending_buy_usd || 0;
+    $('stFx').textContent = (pending > 0 ? `체결 대기 ${fmtUsd(pending)} · ` : '') + `환율 ${d.exchangeRate.toLocaleString()}원/$`;
 
     const prog = Math.max(0, Math.min(100, d.targetAnalysis.progress_percent));
     $('stTarget').textContent = prog.toFixed(1) + '%';

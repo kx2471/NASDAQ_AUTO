@@ -615,6 +615,50 @@ export async function modifyOrder(
   return { orderId: result.orderId, clientOrderId: result.clientOrderId, dryRun: false };
 }
 
+/** 미체결(진행 중) 주문 (숫자 정규화) */
+export interface TossOpenOrder {
+  orderId: string;
+  symbol: string;
+  side: OrderSide;
+  orderType: OrderType;
+  status: string;          // 세부 상태 (예: SUBMITTED, PARTIALLY_FILLED 등)
+  quantity?: number;       // 수량기반 주문
+  orderAmount?: number;    // 금액기반 주문 (USD)
+  price?: number;          // LIMIT 지정가
+  currency: string;
+  orderedAt: string;
+}
+
+/**
+ * 미체결 주문 목록 조회 (status=OPEN — 전량 반환, 페이지네이션 없음)
+ * - 체결 대기 중인 매수대금(평가액 계산)·미체결 감시 등에 사용
+ * @returns 진행 중 주문 배열
+ */
+export async function getOpenOrders(): Promise<TossOpenOrder[]> {
+  const result = await tossRequest<{ orders: Array<{
+    orderId: string; symbol: string; side: OrderSide; orderType: OrderType;
+    status: string; quantity?: string; orderAmount?: string; price?: string;
+    currency: string; orderedAt: string;
+  }> }>(
+    'get',
+    '/api/v1/orders',
+    { query: { status: 'OPEN' }, withAccount: true }
+  );
+
+  return (result.orders || []).map(o => ({
+    orderId: o.orderId,
+    symbol: o.symbol,
+    side: o.side,
+    orderType: o.orderType,
+    status: o.status,
+    quantity: o.quantity !== undefined ? parseFloat(o.quantity) : undefined,
+    orderAmount: o.orderAmount !== undefined ? parseFloat(o.orderAmount) : undefined,
+    price: o.price !== undefined ? parseFloat(o.price) : undefined,
+    currency: o.currency,
+    orderedAt: o.orderedAt
+  }));
+}
+
 /**
  * 주문 취소
  * @param orderId 취소할 주문 ID

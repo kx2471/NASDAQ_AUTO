@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getHoldings, getCashBalance, db, Trade } from '../../storage/database';
 import { getCachedExchangeRate } from '../../services/exchange';
-import { getPrices, isDryRun, isUsRegularSessionOpen, getUsMarketCalendar, isTossEnabled } from '../../services/toss';
+import { getPrices, isDryRun, isUsRegularSessionOpen, getUsMarketCalendar, isTossEnabled, getOpenOrders } from '../../services/toss';
 import { calculateCurrentPerformance, analyzeTargetProgress } from '../../services/performance';
 import { getOpenPositions } from '../../storage/positions';
 
@@ -23,24 +23,36 @@ router.get('/', (req, res) => {
  */
 router.get('/api/portfolio', async (req, res) => {
   try {
-    const [holdings, cashBalance, exchangeRate] = await Promise.all([
+    const [holdings, cashBalance, exchangeRate, openOrders] = await Promise.all([
       getHoldings(),
       getCashBalance(),
-      getCachedExchangeRate()
+      getCachedExchangeRate(),
+      getOpenOrders().catch(() => []) // 미체결 조회 실패해도 대시보드는 동작
     ]);
 
     // 보유 종목 현재가 (토스 실시간, 1콜)
     const symbols = holdings.map(h => h.symbol);
     const currentPrices = symbols.length > 0 ? await getPrices(symbols) : {};
 
-    // 성과 계산 (통화 인식 — KRW 종목은 환율 미적용)
-    const performance = calculateCurrentPerformance(holdings, currentPrices, exchangeRate.usd_to_krw, undefined, undefined, cashBalance);
+    // 체결 대기 매수대금 (USD): 미체결 BUY 주문에 묶인 돈 — 현금도 보유도 아니지만
+    // 여전히 내 자산이므로 평가액에 포함 (누락 시 주문 직후 수익률이 급락한 것처럼 보임)
+    const pendingBuyUsd = openOrders
+      .filter(o => o.side === 'BUY' && o.currency === 'USD')
+      .reduce((sum, o) => sum + (o.orderAmount ?? ((o.quantity || 0) * (o.price || 0))), 0);
+
+    // 성과 계산 (통화 인식 — KRW 종목은 환율 미적용, 현금+체결대기금 포함)
+    const performance = calculateCurrentPerformance(holdings, currentPrices, exchangeRate.usd_to_krw, undefined, undefined, cashBalance + pendingBuyUsd);
     const targetAnalysis = analyzeTargetProgress(performance);
 
     res.json({
       success: true,
       data: {
         cash_usd: cashBalance,
+        pending_buy_usd: Math.round(pendingBuyUsd * 100) / 100,
+        open_orders: openOrders.map(o => ({
+          symbol: o.symbol, side: o.side, status: o.status,
+          quantity: o.quantity, price: o.price, orderAmount: o.orderAmount
+        })),
         holdings: holdings.map(h => {
           const price = currentPrices[h.symbol] || 0;
           return {
