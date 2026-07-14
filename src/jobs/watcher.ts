@@ -96,10 +96,14 @@ export function judge(position: Position, price: number):
 
   if (position.take_profit_1 && !position.tp1_done && price >= position.take_profit_1) {
     // 절반 매도 (소수점 보유 대비 내림, 1주 미만이면 전량)
-    const half = Math.floor(position.shares / 2);
+    // 절반 매도: 정수 보유는 내림(floor), 소수점 보유는 소수점 절반
+    // (토스는 시장가 매도에 소수점 6자리까지 허용 — 소수점 포지션도 2단계 익절 유지)
+    const half = position.shares >= 2
+      ? Math.floor(position.shares / 2)
+      : Math.floor((position.shares / 2) * 1e6) / 1e6;
     return {
       type: 'TP1',
-      qty: half >= 1 ? half : position.shares,
+      qty: half > 0 ? half : position.shares,
       reason: `1차 익절: 현재가 $${price} ≥ TP1 $${position.take_profit_1}`
     };
   }
