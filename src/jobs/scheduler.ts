@@ -31,36 +31,99 @@ let watcherRunning = false;   // 감시 틱 겹침 방지
 // (LLM 비용 2배 + 결정 이중 집행 위험)을 막는다
 const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.json');
 
+/** 스케줄러 영속 상태 */
+interface SchedulerState {
+  lastReportDate?: string;      // 개장 전 리포트를 실행한 미국 영업일
+  intradayReportDate?: string;  // 장중 현금 재배치 리포트를 실행한 미국 영업일 (하루 1회 한정)
+}
+
 /**
- * 디스크에 저장된 마지막 리포트 실행일 로드
- * @returns 미국 영업일 문자열 (없으면 '')
+ * 디스크에 저장된 스케줄러 상태 로드
+ * @returns 상태 객체 (없으면 빈 객체)
  */
-async function loadLastReportDate(): Promise<string> {
+async function loadState(): Promise<SchedulerState> {
   try {
-    const raw = await fs.readFile(STATE_FILE, 'utf-8');
-    return JSON.parse(raw).lastReportDate || '';
+    return JSON.parse(await fs.readFile(STATE_FILE, 'utf-8'));
   } catch {
-    return ''; // 파일 없음 = 첫 실행
+    return {}; // 파일 없음 = 첫 실행
   }
 }
 
 /**
- * 마지막 리포트 실행일 저장 (재시작 대비)
- * @param date 미국 영업일 문자열
+ * 스케줄러 상태 부분 갱신 저장 (재시작 대비)
+ * @param patch 갱신할 필드
  */
-async function saveLastReportDate(date: string): Promise<void> {
+async function saveState(patch: SchedulerState): Promise<void> {
   try {
-    await fs.writeFile(STATE_FILE, JSON.stringify({ lastReportDate: date }, null, 2), 'utf-8');
+    const cur = await loadState();
+    await fs.writeFile(STATE_FILE, JSON.stringify({ ...cur, ...patch }, null, 2), 'utf-8');
   } catch (error) {
     console.warn('⚠️ 스케줄러 상태 저장 실패 (재시작 시 중복 실행 위험):', error);
   }
 }
 
 /**
+ * 장중 현금 재배치 트리거 판정 (순수 함수 — 테스트 가능)
+ *
+ * 장중 손절/익절로 현금이 풀렸을 때 다음 날까지 놀리지 않도록,
+ * 조건 충족 시 리포트를 하루 1회 추가 발행해 재투자한다.
+ *
+ * @param p.msToClose      장 마감까지 남은 시간(ms)
+ * @param p.cashRatio      현금(미체결 주문 제외) / 총자산 비율 (0~1)
+ * @param p.alreadyRanToday 오늘 이미 장중 재배치를 실행했는지
+ * @param p.pipelineRunning 파이프라인이 이미 실행 중인지
+ * @returns 재배치 리포트를 실행해야 하면 true
+ */
+export function shouldRedeployCash(p: {
+  msToClose: number; cashRatio: number; alreadyRanToday: boolean; pipelineRunning: boolean;
+}): boolean {
+  const threshold = parseFloat(process.env.REDEPLOY_CASH_RATIO || '') || 0.3;
+  return !p.pipelineRunning
+    && !p.alreadyRanToday
+    && p.msToClose > 60 * 60 * 1000   // 마감까지 1시간 초과 남음
+    && p.cashRatio >= threshold;      // 현금 비중 30% 이상 (REDEPLOY_CASH_RATIO)
+}
+
+/**
+ * 현금 비중 계산 — 현금 / (현금 + 보유 평가 + 미체결 매수대금)
+ * - 미체결 주문에 묶인 돈은 "노는 현금"이 아니므로 분자에서 제외, 분모에 포함
+ * - KRW 종목은 환율로 USD 환산
+ * @returns 0~1 비율 (총자산 0이면 0)
+ */
+async function getCashRatio(): Promise<number> {
+  const { getBuyingPower, getHoldings, getPrices, getOpenOrders, getExchangeRate } =
+    await import('../services/toss');
+
+  const [cash, holdings, openOrders] = await Promise.all([
+    getBuyingPower('USD'), getHoldings(), getOpenOrders().catch(() => [])
+  ]);
+
+  let holdingsUsd = 0;
+  if (holdings.length > 0) {
+    const prices = await getPrices(holdings.map(h => h.symbol));
+    const needKrw = holdings.some(h => h.currency === 'KRW');
+    const rate = needKrw ? await getExchangeRate('USD', 'KRW') : 1;
+    for (const h of holdings) {
+      const value = h.shares * (prices[h.symbol] || h.avg_cost);
+      holdingsUsd += h.currency === 'KRW' ? value / rate : value;
+    }
+  }
+
+  const pendingBuyUsd = openOrders
+    .filter(o => o.side === 'BUY' && o.currency === 'USD')
+    .reduce((s, o) => s + (o.orderAmount ?? ((o.quantity || 0) * (o.price || 0))), 0);
+
+  const total = cash + holdingsUsd + pendingBuyUsd;
+  return total > 0 ? cash / total : 0;
+}
+
+/**
  * 리포트 파이프라인 1회 실행 (에이전트 리포트 → Manager 통합 → 결정 집행)
  * - 수동 실행: npm run report
+ * @param reportIdSuffix 결정 report_id 접미사 — 장중 재배치는 '-i1'로 구분해
+ *                       개장 전 결정의 이중 집행 가드와 충돌하지 않게 한다
  */
-export async function runReportPipeline(): Promise<void> {
+export async function runReportPipeline(reportIdSuffix: string = ''): Promise<void> {
   if (pipelineRunning) {
     console.warn('⚠️ 리포트 파이프라인이 이미 실행 중입니다 — 이번 실행을 건너뜁니다.');
     return;
@@ -69,9 +132,9 @@ export async function runReportPipeline(): Promise<void> {
   const startedAt = Date.now();
 
   try {
-    console.log('🚀 리포트 파이프라인 시작 (에이전트 리포트 → Manager → 결정 집행)');
+    console.log(`🚀 리포트 파이프라인 시작 (에이전트 리포트 → Manager → 결정 집행)${reportIdSuffix ? ` [장중 재배치${reportIdSuffix}]` : ''}`);
     await runWeekly();
-    await runManager();
+    await runManager(reportIdSuffix);
     console.log(`🎉 리포트 파이프라인 완료 (${Math.round((Date.now() - startedAt) / 1000)}초 소요)`);
   } catch (error) {
     console.error('❌ 리포트 파이프라인 실패:', error);
@@ -95,13 +158,13 @@ async function tick(): Promise<void> {
     // 1) 개장 전 리포트 트리거 (영업일당 1회 — 디스크 상태로 재시작에도 안전)
     //    reportAt 이후~개장 전 구간이면 실행 — 서버가 늦게 켜져도 개장 전이면 따라잡는다
     if (now >= reportAt && now < today.regular.start && lastReportDate !== today.date) {
-      const persisted = await loadLastReportDate();
+      const persisted = (await loadState()).lastReportDate;
       if (persisted === today.date) {
         lastReportDate = today.date; // 재시작 전 이미 실행됨 — 메모리 캐시만 복구
         return;
       }
       lastReportDate = today.date;
-      await saveLastReportDate(today.date);
+      await saveState({ lastReportDate: today.date });
       console.log(`⏰ 개장 ${Math.round((today.regular.start - now) / 60000)}분 전 — 리포트 파이프라인 트리거 (영업일 ${today.date})`);
       void runReportPipeline();
     }
@@ -115,6 +178,36 @@ async function tick(): Promise<void> {
         await checkPositionsOnce();
       } finally {
         watcherRunning = false;
+      }
+
+      // 3) 장중 현금 재배치 (10분 간격 검사, 영업일당 1회)
+      //    손절/익절로 현금이 풀렸을 때(비중 ≥30%) 마감 1시간+ 전이면 리포트를
+      //    한 번 더 발행해 재투자한다 — 현금이 다음 날까지 노는 것을 방지
+      if (new Date().getMinutes() % 10 === 0) {
+        try {
+          const state = await loadState();
+          const cheap = shouldRedeployCash({
+            msToClose: today.regular.end - now,
+            cashRatio: 1, // 일단 통과값 — 비싼 API 검사는 아래에서
+            alreadyRanToday: state.intradayReportDate === today.date,
+            pipelineRunning
+          });
+          if (cheap) {
+            const ratio = await getCashRatio();
+            if (shouldRedeployCash({
+              msToClose: today.regular.end - now,
+              cashRatio: ratio,
+              alreadyRanToday: state.intradayReportDate === today.date,
+              pipelineRunning
+            })) {
+              await saveState({ intradayReportDate: today.date });
+              console.log(`💸 장중 현금 재배치 트리거: 현금 비중 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마감까지 ${Math.round((today.regular.end - now) / 60000)}분 — 리포트 재발행`);
+              void runReportPipeline('-i1');
+            }
+          }
+        } catch (error: any) {
+          console.warn('⚠️ 현금 재배치 검사 실패 (10분 후 재시도):', error.message);
+        }
       }
     }
   } catch (error: any) {

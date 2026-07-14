@@ -23,7 +23,11 @@ function getKoreanDateString(): string {
  * - GPT-5 기반 Manager_Agent가 최종 통합 의사결정 생성
  * - 구체적이고 실행 가능한 매매 지시사항 제공
  */
-export async function runManager(): Promise<void> {
+/**
+ * @param reportIdSuffix 결정 report_id 접미사 (장중 재배치 '-i1' 등) —
+ *                       개장 전 결정과 구분해 이중 집행 가드가 서로를 막지 않게 함
+ */
+export async function runManager(reportIdSuffix: string = ''): Promise<void> {
   const today = new Date();
   
   console.log(`🏢 Manager_Agent 통합 리포트 파이프라인 시작: ${today.toISOString()}`);
@@ -54,7 +58,7 @@ export async function runManager(): Promise<void> {
     //  - 토스 보유종목(진실)과 positions.json(의도)을 먼저 동기화
     //  - Manager 결정의 SL/TP/보유계획/근거를 보유 포지션에 반영
     try {
-      const reportId = getKoreanDateString();
+      const reportId = getKoreanDateString() + reportIdSuffix;
       await reconcileWithToss();
       const decision = parseManagerDecision(managerReport, reportId);
       if (decision) {
