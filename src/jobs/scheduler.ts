@@ -34,7 +34,6 @@ const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.jso
 /** 스케줄러 영속 상태 */
 interface SchedulerState {
   lastReportDate?: string;      // 개장 전 리포트를 실행한 미국 영업일
-  intradayReportDate?: string;  // 장중 현금 재배치 리포트를 실행한 미국 영업일 (하루 1회 한정)
 }
 
 /**
@@ -66,22 +65,45 @@ async function saveState(patch: SchedulerState): Promise<void> {
  * 장중 현금 재배치 트리거 판정 (순수 함수 — 테스트 가능)
  *
  * 장중 손절/익절로 현금이 풀렸을 때 다음 날까지 놀리지 않도록,
- * 조건 충족 시 리포트를 하루 1회 추가 발행해 재투자한다.
+ * 조건 충족 시 리포트를 추가 발행해 재투자한다.
+ * 하루 횟수 제한 대신 "마지막 Manager 결정 후 2시간 쿨다운"을 사용 —
+ * 매매 직후 현금이 다시 30%를 넘는 경우에도 2시간 뒤 자동으로 재시도된다.
  *
- * @param p.msToClose      장 마감까지 남은 시간(ms)
- * @param p.cashRatio      현금(미체결 주문 제외) / 총자산 비율 (0~1)
- * @param p.alreadyRanToday 오늘 이미 장중 재배치를 실행했는지
- * @param p.pipelineRunning 파이프라인이 이미 실행 중인지
+ * @param p.msToClose           장 마감까지 남은 시간(ms)
+ * @param p.cashRatio           현금(미체결 주문 제외) / 총자산 비율 (0~1)
+ * @param p.msSinceLastDecision 마지막 Manager 결정(decided_at) 이후 경과 시간(ms)
+ * @param p.pipelineRunning     파이프라인이 이미 실행 중인지
  * @returns 재배치 리포트를 실행해야 하면 true
  */
 export function shouldRedeployCash(p: {
-  msToClose: number; cashRatio: number; alreadyRanToday: boolean; pipelineRunning: boolean;
+  msToClose: number; cashRatio: number; msSinceLastDecision: number; pipelineRunning: boolean;
 }): boolean {
   const threshold = parseFloat(process.env.REDEPLOY_CASH_RATIO || '') || 0.3;
+  const cooldownMs = (parseFloat(process.env.REDEPLOY_COOLDOWN_HOURS || '') || 2) * 60 * 60 * 1000;
   return !p.pipelineRunning
-    && !p.alreadyRanToday
-    && p.msToClose > 60 * 60 * 1000   // 마감까지 1시간 초과 남음
-    && p.cashRatio >= threshold;      // 현금 비중 30% 이상 (REDEPLOY_CASH_RATIO)
+    && p.msSinceLastDecision > cooldownMs  // 최근 결정 후 2시간 초과 (REDEPLOY_COOLDOWN_HOURS)
+    && p.msToClose > 60 * 60 * 1000        // 마감까지 1시간 초과 남음
+    && p.cashRatio >= threshold;           // 현금 비중 30% 이상 (REDEPLOY_CASH_RATIO)
+}
+
+/**
+ * 마지막 Manager 결정 시각 조회 (decisions.json, 로컬 파일만 — API 0회)
+ * - 수동 재시도(-r1) 등 모든 결정을 포함해 가장 최근 decided_at을 반환
+ * @returns epoch ms (기록 없으면 0 = 쿨다운 없음)
+ */
+async function getLastDecisionTime(): Promise<number> {
+  try {
+    const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'decisions.json'), 'utf-8');
+    const decisions = JSON.parse(raw);
+    if (!Array.isArray(decisions) || decisions.length === 0) return 0;
+    // decided_at 최대값 (추가 순서가 시간순이 아닐 수 있으므로 전체 스캔)
+    return decisions.reduce((max: number, d: any) => {
+      const t = new Date(d.decided_at).getTime();
+      return isFinite(t) && t > max ? t : max;
+    }, 0);
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -180,16 +202,16 @@ async function tick(): Promise<void> {
         watcherRunning = false;
       }
 
-      // 3) 장중 현금 재배치 (10분 간격 검사, 영업일당 1회)
-      //    손절/익절로 현금이 풀렸을 때(비중 ≥30%) 마감 1시간+ 전이면 리포트를
-      //    한 번 더 발행해 재투자한다 — 현금이 다음 날까지 노는 것을 방지
+      // 3) 장중 현금 재배치 (10분 간격 검사)
+      //    조건: 현금 ≥30% + 마감 1시간+ 전 + 마지막 Manager 결정 후 2시간 초과.
+      //    매매 직후 현금이 다시 30%를 넘어도 쿨다운이 지나면 재시도된다.
       if (new Date().getMinutes() % 10 === 0) {
         try {
-          const state = await loadState();
+          const msSinceLastDecision = now - (await getLastDecisionTime());
           const cheap = shouldRedeployCash({
             msToClose: today.regular.end - now,
             cashRatio: 1, // 일단 통과값 — 비싼 API 검사는 아래에서
-            alreadyRanToday: state.intradayReportDate === today.date,
+            msSinceLastDecision,
             pipelineRunning
           });
           if (cheap) {
@@ -197,12 +219,12 @@ async function tick(): Promise<void> {
             if (shouldRedeployCash({
               msToClose: today.regular.end - now,
               cashRatio: ratio,
-              alreadyRanToday: state.intradayReportDate === today.date,
+              msSinceLastDecision,
               pipelineRunning
             })) {
-              await saveState({ intradayReportDate: today.date });
-              console.log(`💸 장중 현금 재배치 트리거: 현금 비중 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마감까지 ${Math.round((today.regular.end - now) / 60000)}분 — 리포트 재발행`);
-              void runReportPipeline('-i1');
+              const hhmm = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false, hour: '2-digit', minute: '2-digit' }).replace(':', '');
+              console.log(`💸 장중 현금 재배치 트리거: 현금 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마지막 결정 후 ${Math.round(msSinceLastDecision / 3600000 * 10) / 10}시간, 마감까지 ${Math.round((today.regular.end - now) / 60000)}분`);
+              void runReportPipeline('-i' + hhmm);
             }
           }
         } catch (error: any) {
