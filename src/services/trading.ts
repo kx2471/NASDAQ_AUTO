@@ -87,7 +87,18 @@ function isUsTicker(symbol: string): boolean {
  * - dry-run 주문은 기록되지 않으므로 한도를 소모하지 않는다.
  */
 async function getRecentBuyNotional(): Promise<number> {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  // "일일" 한도의 창은 오늘 정규장 세션 시작부터 — 롤링 24시간을 쓰면
+  // 전일 매수가 창에 남아 당일 매도 대금 재투자까지 막는다 (2026-07-14 실사고).
+  // 캘린더 조회 실패 시에만 보수적으로 24시간 롤링으로 폴백.
+  let cutoff: number;
+  try {
+    const { getUsMarketCalendar } = await import('./toss');
+    const { today } = await getUsMarketCalendar();
+    cutoff = today.regular ? today.regular.start : Date.now() - 24 * 60 * 60 * 1000;
+  } catch {
+    cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  }
+
   const trades = await db.find<Trade>('trades', t =>
     t.side === 'BUY' && new Date(t.traded_at).getTime() >= cutoff
   );
@@ -221,7 +232,7 @@ export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
       const recentBuys = await getRecentBuyNotional();
       const maxDaily = getMaxDailyBuyUsd();
       if (recentBuys + estimatedNotional > maxDaily) {
-        return fail(order, `24시간 누적 매수 $${(recentBuys + estimatedNotional).toFixed(2)}이 한도 $${maxDaily}를 초과합니다 (기집행 $${recentBuys.toFixed(2)}).`);
+        return fail(order, `당일 누적 매수 $${(recentBuys + estimatedNotional).toFixed(2)}이 한도 $${maxDaily}를 초과합니다 (기집행 $${recentBuys.toFixed(2)}).`);
       }
     } else {
       // 매도: 수량기반만 검증 (금액기반 매도는 미지원)
