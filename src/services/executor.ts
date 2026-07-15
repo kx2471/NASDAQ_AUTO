@@ -73,7 +73,7 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
     }
   }
 
-  return executeBuy({
+  const result = await executeBuy({
     symbol: item.symbol,
     qty,
     amount,
@@ -81,6 +81,25 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
     price: orderType === 'LIMIT' ? item.limit_price : undefined,
     note: `Manager 결정 매수${item.rationale ? ` — ${item.rationale.slice(0, 80)}` : ''}`
   });
+
+  // 소수점 거래 제한 종목 폴백: 금액 주문(소수점 체결)이 거부되면
+  // 금액에 맞는 정수 수량 시장가 주문으로 전환해 매수 의도를 살린다
+  if (!result.success && amount !== undefined && /소수점 거래가 제한|stock-restricted/.test(result.error || '')) {
+    const price = (await getPrices([item.symbol]))[item.symbol];
+    const intQty = price ? Math.floor(amount / price) : 0;
+    if (intQty >= 1) {
+      console.warn(`⚠️ ${item.symbol}: 소수점 제한 종목 — $${amount} 금액 주문을 ${intQty}주 정수 주문으로 전환`);
+      return executeBuy({
+        symbol: item.symbol,
+        qty: intQty,
+        orderType: 'MARKET',
+        note: `Manager 결정 매수 (소수점 제한 → 정수 전환)${item.rationale ? ` — ${item.rationale.slice(0, 60)}` : ''}`
+      });
+    }
+    console.warn(`⚠️ ${item.symbol}: 1주 가격 $${price}가 배분액 $${amount}보다 커서 정수 전환 불가`);
+  }
+
+  return result;
 }
 
 /**
@@ -101,6 +120,12 @@ async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
   let qty = item.qty ?? sellable;
   if (qty > sellable) {
     console.warn(`⚠️ ${item.symbol}: 결정 수량 ${qty} > 매도가능 ${sellable} — 가능 수량으로 조정`);
+    qty = sellable;
+  }
+  // 먼지 잔량 방지: 거의 전량(99% 이상) 매도면 정확히 전량으로 — LLM이 소수점을
+  // 반올림해 내면 0.000005주 같은 잔여분이 생겨 토스가 422(잔여분 최소금액 미달)로 거부한다
+  if (qty < sellable && qty >= sellable * 0.99) {
+    console.warn(`⚠️ ${item.symbol}: 잔여 먼지 방지 — ${qty} → 전량 ${sellable}로 조정`);
     qty = sellable;
   }
 

@@ -496,7 +496,7 @@ ${previousReportsSummary}
       // 리포트 맨 끝의 결정 JSON이 잘리면 자동매매 입력이 사라지므로 타이트하게 조이지 않는다.
       const anthropicResponse = await anthropicClient.messages.create({
         model: managerModel,
-        max_tokens: 8000,
+        max_tokens: 12000,
         system: processedPrompt,
         messages: [
           {
