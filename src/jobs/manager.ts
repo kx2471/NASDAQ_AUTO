@@ -78,13 +78,14 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
           if (await isDecisionExecuted(reportId)) {
             console.warn(`⚠️ report ${reportId} 결정은 이미 실집행됨 — 이중 매매 방지를 위해 집행을 건너뜁니다.`);
           } else {
-            const { waitForRegularSession, executeDecision } = await import('../services/executor');
+            const { waitForRegularSession, executeDecision, buildExecutionOutcomes } = await import('../services/executor');
             const sessionOpen = await waitForRegularSession(90);
             if (sessionOpen) {
               const summary = await executeDecision(decision);
-              // 실주문 체결이 있었으면 집행 마킹 + 포지션 재동기화 (dry-run은 마킹 안 함 — 테스트 반복 허용)
+              // 실주문 체결이 있었으면 집행 마킹 + 결과 저장 + 포지션 재동기화
+              // (dry-run은 마킹 안 함 — 테스트 반복 허용). 집행 결과는 다음 사이클 Manager 피드백.
               if (summary.executed.some(r => !r.dryRun)) {
-                await markDecisionExecuted(reportId);
+                await markDecisionExecuted(reportId, buildExecutionOutcomes(decision, summary));
                 await reconcileWithToss();
                 await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
               }

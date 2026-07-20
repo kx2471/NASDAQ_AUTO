@@ -1,4 +1,4 @@
-import { ManagerDecision, DecisionItem } from './decision';
+import { ManagerDecision, DecisionItem, ExecutionOutcome } from './decision';
 import { executeBuy, executeSell, TradeResult, getMaxOrderUsd } from './trading';
 import { isUsRegularSessionOpen, getSellableQuantity, getPrices } from './toss';
 
@@ -204,4 +204,34 @@ export async function executeDecision(decision: ManagerDecision): Promise<Execut
 
   console.log(`🎯 결정 집행 완료: 성공 ${summary.executed.length} / 거부·실패 ${summary.failed.length} / 건너뜀 ${summary.skipped.length}`);
   return summary;
+}
+
+/**
+ * 집행 요약 → Manager 피드백용 결과 목록으로 변환
+ * - 다음 사이클에 "지난 지시가 실제로 어떻게 됐나"를 Manager에게 알려주기 위함
+ * @param decision 원본 결정
+ * @param summary  집행 요약
+ * @returns 종목별 집행 결과 (FILLED/REJECTED/SKIPPED)
+ */
+export function buildExecutionOutcomes(
+  decision: ManagerDecision,
+  summary: ExecutionSummary
+): ExecutionOutcome[] {
+  const outcomes: ExecutionOutcome[] = [];
+
+  for (const r of summary.executed) {
+    outcomes.push({
+      symbol: r.symbol, action: r.side as any, status: 'FILLED',
+      filled_qty: r.qty, filled_price: r.price ?? r.estimatedNotional
+    });
+  }
+  for (const r of summary.failed) {
+    outcomes.push({ symbol: r.symbol, action: r.side as any, status: 'REJECTED', reason: r.error });
+  }
+  // HOLD 등 집행 대상 아님 (summary.skipped는 "SYMBOL (HOLD)" 문자열)
+  for (const s of summary.skipped) {
+    const sym = s.replace(/\s*\(HOLD\)\s*$/, '');
+    outcomes.push({ symbol: sym, action: 'HOLD', status: 'SKIPPED' });
+  }
+  return outcomes;
 }

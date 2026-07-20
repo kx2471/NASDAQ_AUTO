@@ -453,13 +453,37 @@ async function loadDecisions() {
       return;
     }
     $('decisions').innerHTML = list.map(dec => {
+      // 집행 결과 맵 (심볼별) — 있으면 각 액션 옆에 체결/거부 표시
+      const outcomeBy = {};
+      (dec.execution_outcomes || []).forEach(o => { outcomeBy[o.symbol] = o; });
+
       const acts = (dec.actions || []).map(a => {
         const cls = a.action === 'BUY' ? 'buy' : a.action === 'SELL' ? 'sell' : 'hold';
         const label = a.symbol === 'CASH' ? '현금 보유 (매매 없음)' : a.symbol;
-        return `<span class="act" title="${esc(a.rationale || '')}"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(label)}</b>${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</span>`;
+        const o = outcomeBy[a.symbol];
+        let mark = '';
+        if (o) {
+          if (o.status === 'FILLED') mark = '<span title="체결됨" style="color:var(--good)">✅</span>';
+          else if (o.status === 'REJECTED') mark = `<span title="${esc(o.reason || '거부됨')}" style="color:var(--critical)">❌</span>`;
+        }
+        return `<span class="act" title="${esc(a.rationale || '')}"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(label)}</b>${mark}${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</span>`;
       }).join('');
+
+      // 집행 요약 배지
+      const oc = dec.execution_outcomes || [];
+      let summary = '';
+      if (oc.length) {
+        const filled = oc.filter(o => o.status === 'FILLED').length;
+        const rejected = oc.filter(o => o.status === 'REJECTED').length;
+        summary = `<span style="font-size:.72rem;color:var(--text-3)">체결 ${filled}${rejected ? ` · <span style="color:var(--critical)">거부 ${rejected}</span>` : ''}</span>`;
+      } else if (dec.executed_at) {
+        summary = '<span style="font-size:.72rem;color:var(--text-3)">집행됨</span>';
+      } else {
+        summary = '<span style="font-size:.72rem;color:var(--text-3)">미집행/대기</span>';
+      }
+
       return `<div class="decision">
-        <div class="d-head"><b style="color:var(--text-1)">${esc(dec.report_id)}</b><span>${esc(fmtKst(dec.decided_at))} KST</span></div>
+        <div class="d-head"><b style="color:var(--text-1)">${esc(dec.report_id)}</b><span>${esc(fmtKst(dec.decided_at))} KST</span>${summary}</div>
         <div class="acts">${acts || '<span class="empty">액션 없음</span>'}</div>
       </div>`;
     }).join('');

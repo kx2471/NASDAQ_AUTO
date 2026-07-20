@@ -17,6 +17,7 @@ export interface ScreeningResult {
   overall_score: number;     // 종합 점수 (0-1)
   recommendation: 'BUY' | 'HOLD' | 'SELL';
   reason: string;
+  avg_dollar_volume?: number; // 20일 평균 거래대금 (USD) — 유동성/거래가능성 판단용
 }
 
 /**
@@ -545,7 +546,10 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
         { symbol: finalist.symbol, name: finalist.name },
         finalist.market
       );
-      if (result) results.push(result);
+      if (result) {
+        result.avg_dollar_volume = finalist.avgDollarVolume; // 유동성 전달 (스캔 단계 계산값)
+        results.push(result);
+      }
     } catch (error) {
       console.warn(`⚠️ ${finalist.symbol} 정밀 분석 실패:`, error);
     }

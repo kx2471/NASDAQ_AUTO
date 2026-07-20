@@ -28,12 +28,23 @@ export interface DecisionItem {
   rationale?: string;        // 결정 근거
 }
 
+/** 집행 결과 1건 (Manager 피드백용) */
+export interface ExecutionOutcome {
+  symbol: string;
+  action: DecisionAction;
+  status: 'FILLED' | 'REJECTED' | 'SKIPPED';  // 체결(주문접수) / 거부 / 건너뜀(HOLD)
+  reason?: string;         // 거부 사유 등
+  filled_qty?: number;     // 접수 수량 (클램프·보정 후 실제)
+  filled_price?: number;   // 추정 체결가 (감사 기록 기준)
+}
+
 /** Manager 한 사이클의 전체 결정 */
 export interface ManagerDecision {
   report_id: string;
   decided_at: string;
   actions: DecisionItem[];
-  executed_at?: string;   // 실주문 집행 완료 시각 (dry-run은 기록 안 함 — 재집행 허용)
+  executed_at?: string;              // 실주문 집행 완료 시각 (dry-run은 기록 안 함 — 재집행 허용)
+  execution_outcomes?: ExecutionOutcome[]; // 집행 결과 (Manager 다음 사이클 피드백)
 }
 
 const DECISIONS_FILE = 'decisions';
@@ -131,14 +142,16 @@ export async function isDecisionExecuted(reportId: string): Promise<boolean> {
 /**
  * 결정의 실집행 완료를 기록 (report_id 기준 최신 항목에 마킹)
  * @param reportId 집행된 결정의 report_id
+ * @param outcomes 집행 결과 목록 (Manager 다음 사이클 피드백용, 선택)
  */
-export async function markDecisionExecuted(reportId: string): Promise<void> {
+export async function markDecisionExecuted(reportId: string, outcomes?: ExecutionOutcome[]): Promise<void> {
   await db.withLock(DECISIONS_FILE, async () => {
     const all = await db.read<ManagerDecision>(DECISIONS_FILE);
     // 같은 report_id가 여러 개면 가장 최근 것에 마킹
     for (let i = all.length - 1; i >= 0; i--) {
       if (all[i].report_id === reportId) {
         all[i].executed_at = new Date().toISOString();
+        if (outcomes) all[i].execution_outcomes = outcomes;
         break;
       }
     }

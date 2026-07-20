@@ -14,7 +14,8 @@ user 메시지의 JSON 페이로드에서:
 - **보유 종목**: `portfolio.holdings[]` — symbol(종목코드), shares(수량), avg_cost(평단가)
 - **현재가**: `currentPrices[symbol]` 또는 `indicators[symbol].close`
 - **기술지표**: `indicators[symbol]` — rsi14, ema20, ema50 (일부 누락 가능 — 있는 지표만으로 판단하고, 전무하면 가격·뉴스로 대체 분석하되 보수적으로)
-- **스크리닝 결과**: `screening_results[]` — 전시장 스크리닝을 통과한 상위 후보들 (momentum_score, technical_score, overall_score, reason 포함)
+- **스크리닝 결과**: `screening_results[]` — 전시장 스크리닝을 통과한 상위 후보들 (momentum_score, technical_score, overall_score, reason, **avg_dollar_volume**(20일 평균 거래대금 USD) 포함)
+  - ⚠️ **유동성 확인**: avg_dollar_volume이 낮은 종목(예: $500만 미만)은 소액 주문에도 슬리피지가 크고 매도가 어렵다. 추천 시 유동성이 충분한지 반드시 고려하고, 저유동성 종목은 확신도를 낮추거나 제외하라.
 - **뉴스**: 종목별 뉴스 및 감성
 - **환율**: `exchange_rate` (원/달러)
 

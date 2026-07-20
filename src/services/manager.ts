@@ -495,6 +495,28 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       return reports.join('\n');
     })();
 
+    // 집행 결과 피드백: 지난 결정이 "실제로 어떻게 집행됐나"를 정량으로 요약
+    // (Manager가 자기 의도가 전부 현실이 됐다고 착각하지 않도록)
+    const executionFeedback = await (async (): Promise<string> => {
+      try {
+        const { getRecentDecisions } = await import('./decision');
+        const recent = await getRecentDecisions(3);
+        const withOutcomes = recent.filter(d => d.execution_outcomes && d.execution_outcomes.length > 0);
+        if (withOutcomes.length === 0) return "집행 결과 기록 없음 (첫 실집행 대기)";
+
+        return withOutcomes.map(d => {
+          const lines = (d.execution_outcomes || []).map(o => {
+            if (o.status === 'FILLED') return `  ✅ ${o.action} ${o.symbol} 체결 (${o.filled_qty ?? '?'}주 @ ~$${o.filled_price?.toFixed(2) ?? '?'})`;
+            if (o.status === 'REJECTED') return `  ❌ ${o.action} ${o.symbol} 거부: ${o.reason || '사유 불명'}`;
+            return `  ⏸️ ${o.symbol} HOLD (미집행)`;
+          });
+          return `[${d.report_id}]\n${lines.join('\n')}`;
+        }).join('\n');
+      } catch {
+        return "집행 결과 조회 실패";
+      }
+    })();
+
     // Manager용 추가 컨텍스트
     const managerContext = `
 **현재 상황 브리핑**:
@@ -502,14 +524,20 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
 - 목표: 1년 내 $8,000 달성
 
+**⚡ 지난 결정의 실제 집행 결과 (중요 — 착각 방지)**:
+아래는 당신의 지난 지시가 실제로 어떻게 됐는지다. 체결(✅)만 현재 보유에 반영됐고,
+거부(❌)된 지시는 실행되지 않았다. 거부된 주문을 "이미 보유 중"으로 착각하지 말고,
+같은 거부가 반복되면(예: 잔고 부족·한도 초과) 원인을 반영해 이번 결정을 조정하라.
+${executionFeedback}
+
 **과거 Manager 투자 결정 이력** (최근 3개):
 ${previousReportsSummary}
 
 **Manager 핵심 임무**:
 1. 위 2개 Agent(GPT, Claude)의 분석 메모를 독립적으로 검토하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
-2. 과거 Manager 보고서들의 투자 결정과 그 결과를 참고하여 일관성 있는 전략을 수립하세요.
+2. 과거 Manager 보고서들의 투자 결정과 **실제 집행 결과**를 참고하여 일관성 있고 실현 가능한 전략을 수립하세요.
 3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, $8,000 목표 달성을 위한 구체적 전략을 수립하세요.
-4. 과거 실패한 투자 결정이 있다면 그 원인을 분석하고 개선된 접근 방식을 제시하세요.
+4. 거부·미체결된 지난 지시가 있으면 그 원인을 분석하고 이번엔 실행 가능한 형태로 제시하세요.
 `;
 
     // API별 클라이언트 및 호출 방식 분기
