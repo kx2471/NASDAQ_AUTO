@@ -35,6 +35,18 @@ Current Prices: {currentPrices}
 Exchange Rate : {exchange_rate} 원/달러
 ```
 
+**Portfolio 각 종목의 필드 (보유 맥락 — 판단에 반드시 활용)**:
+- `shares`/`avg_cost`/`currency`: 보유 수량·평단가·통화
+- `held_days`: **보유 일수** — 며칠째 들고 있는지. 목표(2-3개월 회전) 대비 너무 오래 정체된 종목은 교체 검토
+- `stop_loss`/`take_profit_1`/`take_profit_2`: 직전에 설정한 손절·익절가 (현재가와 비교해 근접도 판단)
+- `tp1_done`: 1차 익절이 이미 체결됐는지 (true면 이미 절반 수익 실현한 잔량)
+- `rationale`: **최초 매수 근거** — 그때의 논리가 여전히 유효한지 재평가
+- `time_horizon`: 원래 계획한 보유 기간
+- `source_report_id`: 어느 회차 결정으로 진입했는지
+
+> 보유 판단 시 "현재 손익"만이 아니라 **보유 일수·최초 근거의 유효성·SL/TP 근접도**를 종합하라.
+> 예: 근거가 무너졌거나 held_days가 계획을 초과했으면 손익과 무관하게 정리 검토. 근거가 여전히 유효하고 상승 여력 있으면 HOLD 유지.
+
 ---
 
 # 📊 Manager_Agent 독립 분석 리포트

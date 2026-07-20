@@ -181,14 +181,42 @@ async function loadAgentReports(): Promise<{
  */
 async function getCurrentPortfolioData(): Promise<any> {
   try {
-    const [holdings, cashBalance, exchangeRate] = await Promise.all([
+    const { getOpenPositions } = await import('../storage/positions');
+    const [holdings, cashBalance, exchangeRate, positions] = await Promise.all([
       getHoldings(),
       getCashBalance(),
-      getCachedExchangeRate()
+      getCachedExchangeRate(),
+      getOpenPositions().catch(() => [])  // 계획 정보 (진입시각·SL/TP·근거)
     ]);
-    
+
+    // 토스 보유(진실)에 앱 계획(의도)을 병합 — Manager가 보유 맥락으로 판단하도록.
+    // opened_at으로 보유 일수를 계산해 "며칠째 보유 중인지"까지 전달한다.
+    const planBySymbol = new Map(positions.map((p: any) => [p.symbol, p]));
+    const now = Date.now();
+    const enriched = holdings.map(h => {
+      const plan: any = planBySymbol.get(h.symbol) || {};
+      const heldDays = plan.opened_at
+        ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000))
+        : null;
+      return {
+        symbol: h.symbol,
+        shares: h.shares,
+        avg_cost: h.avg_cost,
+        currency: h.currency,
+        opened_at: plan.opened_at || null,
+        held_days: heldDays,             // 보유 일수 (없으면 null)
+        stop_loss: plan.stop_loss ?? null,
+        take_profit_1: plan.take_profit_1 ?? null,
+        take_profit_2: plan.take_profit_2 ?? null,
+        tp1_done: plan.tp1_done ?? false,
+        time_horizon: plan.time_horizon || null,
+        rationale: plan.rationale || null,   // 최초 매수 근거
+        source_report_id: plan.source_report_id || null
+      };
+    });
+
     return {
-      holdings,
+      holdings: enriched,
       cash_usd: cashBalance,
       exchange_rate: exchangeRate
     };
