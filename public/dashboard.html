@@ -180,6 +180,9 @@
   }
   .report-view hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
   .report-view blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text-2); margin: 8px 0; }
+  .report-view details { border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; margin: 8px 0; background: var(--surface-2); }
+  .report-view summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+  .report-view summary::-webkit-details-marker { color: var(--text-3); }
 
   footer { text-align: center; color: var(--text-3); font-size: .74rem; padding: 10px 0 30px; }
   .skeleton { color: var(--text-3); font-size: .85rem; padding: 20px; text-align: center; }
@@ -538,12 +541,22 @@ function mdToHtml(md) {
   };
   const inline = (s) => s
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // 리포트 본문에 섞여온 인라인 강조 태그(esc된 &lt;b&gt; 등) 복원
+    .replace(/&lt;(\/?(?:b|strong|i|em|br))&gt;/g, '<$1>');
   for (const raw of lines) {
     if (raw.startsWith('```')) { flushTable(); html += inCode ? '</pre>' : '<pre>'; inCode = !inCode; continue; }
     if (inCode) { html += raw + '\n'; continue; }
     if (/^\s*\|/.test(raw)) { tableBuf.push(raw); continue; }
     flushTable();
+    // Manager 리포트의 접기 태그(esc되어 &lt;details&gt; 형태)를 실제 UI로 복원
+    const trimmed = raw.trim();
+    if (/^&lt;details/.test(trimmed)) { if (inList) { html += '</ul>'; inList = false; } html += '<details open>'; continue; }
+    if (/^&lt;\/details&gt;/.test(trimmed)) { if (inList) { html += '</ul>'; inList = false; } html += '</details>'; continue; }
+    if (/^&lt;summary&gt;/.test(trimmed)) {
+      const inner = trimmed.replace(/^&lt;summary&gt;/, '').replace(/&lt;\/summary&gt;\s*$/, '');
+      html += `<summary>${inline(inner)}</summary>`; continue;
+    }
     const listItem = raw.match(/^\s*[-*] (.*)/);
     if (listItem) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(listItem[1])}</li>`; continue; }
     if (inList) { html += '</ul>'; inList = false; }
