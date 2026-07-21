@@ -155,6 +155,8 @@ router.get('/api/status', async (req, res) => {
     const status: Record<string, unknown> = {
       dryRun: isDryRun(),
       tossEnabled: isTossEnabled(),
+      tossAuthOk: true as boolean,        // 토스 실호출 성공 여부 (IP 차단 등 감지)
+      tossAuthError: null as null | string,
       schedulerEnabled: process.env.ENABLE_SCHEDULER !== 'false',
       reportLeadMinutes: parseInt(process.env.REPORT_LEAD_MINUTES || '', 10) || 40,
       sessionOpen: false,
@@ -163,14 +165,35 @@ router.get('/api/status', async (req, res) => {
     };
 
     if (isTossEnabled()) {
-      const [open, calendar] = await Promise.all([isUsRegularSessionOpen(), getUsMarketCalendar()]);
-      status.sessionOpen = open;
-      status.todayRegular = calendar.today.regular
-        ? { start: new Date(calendar.today.regular.start).toISOString(), end: new Date(calendar.today.regular.end).toISOString() }
-        : null;
-      status.nextBusinessDay = calendar.next.date;
-      if (!calendar.today.regular && calendar.next.regular) {
-        status.nextRegularStart = new Date(calendar.next.regular.start).toISOString();
+      // 토스 실호출로 인증 생사 확인 — 실패해도 status는 정상 반환해서
+      // 대시보드가 "토스 연결 끊김" 경고를 띄울 수 있게 한다 (IP 차단 등)
+      try {
+        const [open, calendar] = await Promise.all([isUsRegularSessionOpen(), getUsMarketCalendar()]);
+        status.sessionOpen = open;
+        status.todayRegular = calendar.today.regular
+          ? { start: new Date(calendar.today.regular.start).toISOString(), end: new Date(calendar.today.regular.end).toISOString() }
+          : null;
+        status.nextBusinessDay = calendar.next.date;
+        if (!calendar.today.regular && calendar.next.regular) {
+          status.nextRegularStart = new Date(calendar.next.regular.start).toISOString();
+        }
+      } catch (tossError: any) {
+        status.tossAuthOk = false;
+        // IP 차단은 대표적 원인 — 메시지에서 식별해 사용자 안내에 활용
+        const msg = String(tossError?.message || tossError);
+        const isIpBlock = /IP address not allowed|access_denied|403/.test(msg);
+        status.tossAuthError = isIpBlock
+          ? 'IP 미허용 — 토스 API에 현재 IP를 등록해야 합니다 (정전·재접속으로 IP가 바뀌었을 수 있음)'
+          : '토스 API 연결 실패 — 인증/네트워크 확인 필요';
+        console.error('⚠️ 토스 인증 확인 실패 (대시보드 경고 표시):', msg.slice(0, 120));
+
+        // IP 차단이면 현재 공인 IP를 함께 알려줘 등록을 쉽게 (실패해도 무시)
+        if (isIpBlock) {
+          try {
+            const r = await fetch('https://api.ipify.org', { signal: AbortSignal.timeout(5000) });
+            status.currentIp = (await r.text()).trim();
+          } catch { /* IP 조회 실패는 무시 */ }
+        }
       }
     }
 
