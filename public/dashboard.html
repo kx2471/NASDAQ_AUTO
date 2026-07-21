@@ -136,6 +136,18 @@
   /* ── 테이블 ───────────────────────────────────────── */
   .tbl-scroll { overflow-x: auto; max-height: 380px; overflow-y: auto; }
   .scroll-y { max-height: 380px; overflow-y: auto; } /* 카드형 목록 (결정·저널) 스크롤 */
+  /* 자산 추이 날짜 필터 */
+  .chart-filter { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .chart-filter input[type="date"] {
+    background: var(--surface-2); color: var(--text-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px 6px; font-size: .72rem; font-family: inherit;
+    color-scheme: dark light;
+  }
+  .chart-filter button {
+    background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px 10px; font-size: .72rem; cursor: pointer; font-family: inherit;
+  }
+  .chart-filter button:hover { color: var(--text-1); border-color: var(--text-3); }
   .sym a { color: inherit; text-decoration: none; }
   .sym a:hover { text-decoration: underline; color: var(--accent, #3182f6); }
   table { width: 100%; border-collapse: collapse; font-size: .84rem; }
@@ -232,7 +244,15 @@
   <!-- 자산 추이 + 최근 결정 -->
   <section class="grid-2">
     <div class="card">
-      <div class="card-head"><h2>자산 추이</h2><span class="sub">일별 평가액 (₩)</span></div>
+      <div class="card-head">
+        <h2>자산 추이</h2>
+        <span class="chart-filter">
+          <input type="date" id="chartFrom" title="시작일">
+          <span style="color:var(--text-3)">~</span>
+          <input type="date" id="chartTo" title="종료일">
+          <button id="chartReset" title="전체 기간 보기">전체</button>
+        </span>
+      </div>
       <div class="card-body chart-wrap" id="chartWrap">
         <div class="skeleton">불러오는 중…</div>
       </div>
@@ -403,17 +423,49 @@ function renderHoldings(d) {
 }
 
 /* ───────────────────────── 자산 추이 차트 (SVG) ───────────────────────── */
+let chartPtsAll = []; // 전체 성과 데이터 캐시 — 필터는 클라이언트에서만 (API 재호출 없음)
+
+/** 날짜 필터를 적용해 차트를 다시 그린다. 기본(입력 비움) = 전체 기간 */
+function redrawChart() {
+  const from = $('chartFrom').value; // 'YYYY-MM-DD' 또는 ''
+  const to = $('chartTo').value;
+  const pts = chartPtsAll.filter(p =>
+    (!from || p.date >= from) && (!to || p.date <= to)
+  );
+  if (pts.length < 2) {
+    $('chartWrap').innerHTML = chartPtsAll.length < 2
+      ? '<div class="empty">아직 표시할 성과 데이터가 부족합니다 (2일 이상 필요)</div>'
+      : '<div class="empty">선택한 기간에 데이터가 부족합니다 (2일 이상 필요)</div>';
+    return;
+  }
+  drawLineChart($('chartWrap'), pts);
+}
+
 async function loadChart() {
   try {
     const hist = await api('performance');
-    const pts = hist
+    chartPtsAll = hist
       .filter(h => Number.isFinite(h.current_value_krw))
-      .map(h => ({ date: h.date, v: h.current_value_krw }));
-    if (pts.length < 2) {
-      $('chartWrap').innerHTML = '<div class="empty">아직 표시할 성과 데이터가 부족합니다 (2일 이상 필요)</div>';
-      return;
+      .map(h => ({ date: h.date, v: h.current_value_krw }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // 날짜 입력의 선택 가능 범위를 데이터 범위로 제한
+    if (chartPtsAll.length > 0) {
+      const min = chartPtsAll[0].date, max = chartPtsAll[chartPtsAll.length - 1].date;
+      for (const id of ['chartFrom', 'chartTo']) { $(id).min = min; $(id).max = max; }
     }
-    drawLineChart($('chartWrap'), pts);
+
+    // 필터 이벤트 연결 (1회만)
+    if (!loadChart._wired) {
+      loadChart._wired = true;
+      $('chartFrom').addEventListener('change', redrawChart);
+      $('chartTo').addEventListener('change', redrawChart);
+      $('chartReset').addEventListener('click', () => {
+        $('chartFrom').value = ''; $('chartTo').value = ''; redrawChart();
+      });
+    }
+
+    redrawChart(); // 기본값: 전체 기간
   } catch (e) {
     $('chartWrap').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
   }
