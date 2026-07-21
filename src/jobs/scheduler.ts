@@ -24,6 +24,7 @@ import { getUsMarketCalendar, isTossEnabled } from '../services/toss';
 
 let timer: ReturnType<typeof setInterval> | null = null;
 let lastReportDate = '';      // 리포트를 이미 실행한 미국 영업일 (메모리 캐시)
+let lastWeeklyReviewDate = ''; // 주간 회고를 실행한 KST 일요일 (메모리 캐시)
 let pipelineRunning = false;  // 리포트 파이프라인 동시 실행 방지
 let watcherRunning = false;   // 감시 틱 겹침 방지
 
@@ -33,7 +34,8 @@ const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.jso
 
 /** 스케줄러 영속 상태 */
 interface SchedulerState {
-  lastReportDate?: string;      // 개장 전 리포트를 실행한 미국 영업일
+  lastReportDate?: string;        // 개장 전 리포트를 실행한 미국 영업일
+  lastWeeklyReviewDate?: string;  // 주간 전략 회고를 실행한 KST 일요일 날짜
 }
 
 /**
@@ -170,6 +172,23 @@ export async function runReportPipeline(reportIdSuffix: string = ''): Promise<vo
  */
 async function tick(): Promise<void> {
   try {
+    // 0) 주간 전략 회고: KST 일요일 10시 이후 1회 (미장 휴장일이라 매매와 완전 분리)
+    //    휴장일 early-return보다 앞에 있어야 함 — 일요일엔 today.regular가 없다.
+    const kstNow = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', weekday: 'short', hour: '2-digit', hour12: false });
+    const kstDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    if (kstNow.startsWith('Sun') && parseInt(kstNow.slice(-2), 10) >= 10 && lastWeeklyReviewDate !== kstDate) {
+      const persisted = (await loadState()).lastWeeklyReviewDate;
+      if (persisted === kstDate) {
+        lastWeeklyReviewDate = kstDate; // 재시작 전 이미 실행됨
+      } else {
+        lastWeeklyReviewDate = kstDate;
+        await saveState({ lastWeeklyReviewDate: kstDate });
+        console.log(`📆 일요일 — 주간 전략 회고 트리거 (${kstDate})`);
+        const { runWeeklyReview } = await import('../services/weeklyReview');
+        void runWeeklyReview();
+      }
+    }
+
     const { today } = await getUsMarketCalendar(); // 10분 캐시 — 매분 호출해도 콜 낭비 없음
     if (!today.regular) return; // 휴장일
 

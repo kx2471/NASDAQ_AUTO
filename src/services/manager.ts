@@ -495,27 +495,18 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       return reports.join('\n');
     })();
 
-    // 집행 결과 피드백: 지난 결정이 "실제로 어떻게 집행됐나"를 정량으로 요약
-    // (Manager가 자기 의도가 전부 현실이 됐다고 착각하지 않도록)
-    const executionFeedback = await (async (): Promise<string> => {
-      try {
-        const { getRecentDecisions } = await import('./decision');
-        const recent = await getRecentDecisions(3);
-        const withOutcomes = recent.filter(d => d.execution_outcomes && d.execution_outcomes.length > 0);
-        if (withOutcomes.length === 0) return "집행 결과 기록 없음 (첫 실집행 대기)";
-
-        return withOutcomes.map(d => {
-          const lines = (d.execution_outcomes || []).map(o => {
-            if (o.status === 'FILLED') return `  ✅ ${o.action} ${o.symbol} 체결 (${o.filled_qty ?? '?'}주 @ ~$${o.filled_price?.toFixed(2) ?? '?'})`;
-            if (o.status === 'REJECTED') return `  ❌ ${o.action} ${o.symbol} 거부: ${o.reason || '사유 불명'}`;
-            return `  ⏸️ ${o.symbol} HOLD (미집행)`;
-          });
-          return `[${d.report_id}]\n${lines.join('\n')}`;
-        }).join('\n');
-      } catch {
-        return "집행 결과 조회 실패";
-      }
-    })();
+    // 기록 스트림 4종: Manager가 "더 많은 기록을 보고 판단"하도록 시스템 누적 데이터를
+    // 증류(신호만)해서 주입한다. managerRecords.ts 참조.
+    //  ③ 지난 결정→실제 결과, ① 실현 손익 원장, ② 자산 궤적+목표 페이스, 저널(교훈 누적)
+    const {
+      buildDecisionOutcomes, buildRealizedLedger, buildPerformanceTrajectory, readJournal,
+    } = await import('./managerRecords');
+    const [executionFeedback, realizedLedger, performanceTrajectory, journal] = await Promise.all([
+      buildDecisionOutcomes().catch(() => '집행 결과 조회 실패'),
+      buildRealizedLedger().catch(() => '실현 원장 조회 실패'),
+      buildPerformanceTrajectory().catch(() => '성과 궤적 조회 실패'),
+      readJournal(30).catch(() => '저널 조회 실패'),
+    ]);
 
     // Manager용 추가 컨텍스트
     const managerContext = `
@@ -524,20 +515,30 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
 - 목표: 1년 내 $8,000 달성
 
-**⚡ 지난 결정의 실제 집행 결과 (중요 — 착각 방지)**:
-아래는 당신의 지난 지시가 실제로 어떻게 됐는지다. 체결(✅)만 현재 보유에 반영됐고,
-거부(❌)된 지시는 실행되지 않았다. 거부된 주문을 "이미 보유 중"으로 착각하지 말고,
-같은 거부가 반복되면(예: 잔고 부족·한도 초과) 원인을 반영해 이번 결정을 조정하라.
+**⚡ 지난 결정 → 실제 결과 (착각 방지 + 성과 피드백)**:
+당신의 지난 지시가 실제로 어떻게 됐는지다. 체결(✅)만 보유에 반영됐고 거부(❌)는 실행 안 됨.
+체결 뒤 청산됐으면 실현 수익률까지 붙였다. 잘된 결정은 반복하고, 손실로 끝난 결정 패턴은 피하라.
 ${executionFeedback}
+
+**📒 실현 손익 원장 (내 매매 성적표 — 이걸로 이번 SL/TP·보유기간을 캘리브레이션하라)**:
+${realizedLedger}
+
+**📈 자산 궤적 + 목표 페이스 (이걸로 이번 사이클 공격/방어 스탠스를 정하라)**:
+${performanceTrajectory}
+
+**🧠 의사결정 저널 (과거 사이클에서 내가 남긴 교훈 — 같은 실수를 반복하지 마라)**:
+${journal}
 
 **과거 Manager 투자 결정 이력** (최근 3개):
 ${previousReportsSummary}
 
 **Manager 핵심 임무**:
 1. 위 2개 Agent(GPT, Claude)의 분석 메모를 독립적으로 검토하여 단순 취합이 아닌 Manager만의 최적 투자 결정을 내리세요.
-2. 과거 Manager 보고서들의 투자 결정과 **실제 집행 결과**를 참고하여 일관성 있고 실현 가능한 전략을 수립하세요.
+2. **실현 원장·자산 궤적·저널**을 근거로 판단하세요: 승률·평균 보유일에 맞춰 목표가/보유기간을 정하고, 목표 페이스 대비 위치로 리스크를 조절하세요.
 3. Agent 간 의견이 다를 때는 명확한 중재 논리를 제시하고, $8,000 목표 달성을 위한 구체적 전략을 수립하세요.
 4. 거부·미체결된 지난 지시가 있으면 그 원인을 분석하고 이번엔 실행 가능한 형태로 제시하세요.
+5. **리포트 맨 끝에 이번 사이클의 교훈 한 줄을 반드시 남기세요** (저널 누적용):
+   \`[JOURNAL] <이번 결정에서 배운 것·다음에 유의할 점 한 문장>\`
 `;
 
     // API별 클라이언트 및 호출 방식 분기
@@ -550,9 +551,23 @@ ${previousReportsSummary}
       console.log('📡 Anthropic API 호출 중...');
       // 분량: 프롬프트에서 3,000토큰 이내로 지시. 캡은 여유를 둔 안전망 —
       // 리포트 맨 끝의 결정 JSON이 잘리면 자동매매 입력이 사라지므로 타이트하게 조이지 않는다.
+      // Fable 5(claude-fable-5)는 사고가 항상 켜져 있고, 사고 깊이는 output_config.effort로 조절한다.
+      //  - effort: 'xhigh' — high(기본)와 max 사이. 결정권자용 사고 깊이를 한 단계 끌어올림.
+      //    리포트 양식(system 프롬프트)은 그대로 두고 사고량만 늘리는 손잡이.
+      //  - thinking 파라미터는 넣지 않는다 — Fable 5는 {type:"disabled"}조차 400. Opus도 이 호출은 무해.
+      //  - temperature/top_p도 넣지 않는다 — Fable 5/Opus 4.7+ 모두 400.
+      //  - max_tokens는 리포트 출력 상한(사고와 별도 회계). 결정 JSON이 잘리지 않도록 여유(16000).
+      // output_config는 GA 파라미터지만 설치된 SDK(0.62.0) 타입에는 아직 없다.
+      // 프로브로 확인함: 이 SDK도 미지정 필드를 와이어에 그대로 실어보내고 서버가 effort를 적용한다.
+      // (잘못된 effort 값을 넣으면 API가 400으로 거부 → 필드가 실제로 도달·검증됨을 확인)
+      // 알려진 필드는 타입 검증을 유지하고 output_config만 교집합으로 넓힌다.
+      // thinking.display:"summarized" — 사고 요약을 응답에 포함시킨다 (비용 동일, 표시만 켜는 것).
+      // 사고 요약은 리포트 부록 "Manager 사고 과정"으로 저장돼 결정의 감사 추적에 쓰인다.
       const anthropicResponse = await anthropicClient.messages.create({
         model: managerModel,
-        max_tokens: 12000,
+        max_tokens: 16000,
+        output_config: { effort: 'xhigh' },
+        thinking: { type: 'adaptive', display: 'summarized' },
         system: processedPrompt,
         messages: [
           {
@@ -560,10 +575,14 @@ ${previousReportsSummary}
             content: managerContext
           }
         ]
+      } as Anthropic.MessageCreateParamsNonStreaming & {
+        output_config: { effort: string };
+        thinking: { type: string; display: string };
       });
 
       console.log('📊 Anthropic 응답 구조 디버깅:', {
         content_length: anthropicResponse.content?.length || 0,
+        block_types: anthropicResponse.content?.map((c: any) => c.type).join(','),
         stop_reason: anthropicResponse.stop_reason
       });
 
@@ -572,6 +591,17 @@ ${previousReportsSummary}
         throw new Error('Anthropic API로부터 빈 응답을 받았습니다');
       }
       content = textContent.text;
+
+      // 사고 요약 추출 → 리포트 부록으로 첨부 (감사 추적용)
+      // ``` 펜스는 이스케이프 — 사고 텍스트 속 json 펜스가 결정 파서에 오인되는 것을 차단.
+      const thinkingSummary = anthropicResponse.content
+        .filter((c: any) => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())
+        .map((c: any) => c.thinking.trim().replace(/```/g, "'''"))
+        .join('\n\n');
+      if (thinkingSummary) {
+        content += `\n\n---\n\n## 🧩 Manager 사고 과정 (요약 — 감사 추적용)\n\n<details><summary>결정에 이르기까지의 사고 요약 펼치기</summary>\n\n${thinkingSummary}\n\n</details>\n`;
+        console.log(`🧩 사고 요약 ${thinkingSummary.length}자 리포트에 첨부`);
+      }
 
     } else {
       // OpenAI API 사용 (GPT 모델)

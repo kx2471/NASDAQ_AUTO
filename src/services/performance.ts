@@ -164,6 +164,17 @@ export async function savePerformanceHistory(
       // 파일이 없으면 빈 배열로 시작
     }
     
+    // 이상치 가드: 직전 기록 대비 초기자본 대비 수익률이 ±50%p 이상 튀면
+    // 스냅샷 글리치(예: 토스가 일시적으로 빈 보유 반환)로 보고 저장을 건너뛴다.
+    // (실제 사고 이력: 2026-07-14 -86.96% 기록 — 다음날 -0.48%로 복귀한 명백한 글리치)
+    const prevEntry = [...history].filter(h => h.date !== performance.date).sort((a, b) => a.date.localeCompare(b.date)).pop();
+    const curPct = (performance as any).total_return_from_initial_percent;
+    const prevPct = prevEntry ? (prevEntry as any).total_return_from_initial_percent : undefined;
+    if (Number.isFinite(curPct) && Number.isFinite(prevPct) && Math.abs(curPct - prevPct) > 50) {
+      console.warn(`⚠️ 성과 스냅샷 이상치 감지 — 저장 스킵: 초기대비 ${prevPct}% → ${curPct}% (하루 ±50%p 초과, 스냅샷 글리치 의심)`);
+      return;
+    }
+
     // 같은 날짜 데이터가 있으면 업데이트, 없으면 추가
     const existingIndex = history.findIndex(h => h.date === performance.date);
     if (existingIndex >= 0) {

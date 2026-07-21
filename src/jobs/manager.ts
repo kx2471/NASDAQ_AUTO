@@ -64,6 +64,14 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
       if (decision) {
         await saveDecision(decision);
         await applyDecisionToPositions(decision);
+        // 영속 저널: 리포트 끝의 [JOURNAL] 교훈 한 줄을 뽑아 누적 (다음 사이클 입력으로 재주입)
+        try {
+          const { appendJournalFromReport } = await import('../services/managerRecords');
+          const lesson = await appendJournalFromReport(reportId, managerReport);
+          if (lesson) console.log(`🧠 저널 기록: ${lesson.slice(0, 80)}`);
+        } catch (e) {
+          console.error('⚠️ 저널 기록 실패(무시):', (e as Error).message);
+        }
         const counts = decision.actions.reduce((acc: Record<string, number>, a) => {
           acc[a.action] = (acc[a.action] || 0) + 1; return acc;
         }, {});

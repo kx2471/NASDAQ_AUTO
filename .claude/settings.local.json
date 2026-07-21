@@ -35,7 +35,20 @@
       "Bash(gh workflow:*)",
       "Bash(git rm:*)",
       "Bash(gh run view 18645094028 --log)",
-      "Bash(gh run view 18645402844 --log)"
+      "Bash(gh run view 18645402844 --log)",
+      "WebSearch",
+      "WebFetch(domain:finnhub.io)",
+      "WebFetch(domain:alpaca.markets)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:app.alpaca.markets)",
+      "Bash(dir tools srcstorage datajson)",
+      "Bash(git fetch:*)",
+      "Bash(echo \"---exit $?\")",
+      "Bash(cp data/json/trades.json data/json/trades.backup-20260710.json)",
+      "Bash(cp data/json/cash_events.json data/json/cash_events.backup-20260710.json)",
+      "Bash(tee /private/tmp/claude-501/-Users-sangok-Desktop-project-Nasdaq-Auto/6b91fc8d-34e1-465d-916b-cf10bf42c092/scratchpad/report-run.log)",
+      "Bash(python3 *)",
+      "Bash(grep -vE \"모멘텀:|기술:|뉴스:|수집$|건 수집\")"
     ],
     "deny": [],
     "ask": []

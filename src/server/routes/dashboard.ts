@@ -9,6 +9,28 @@ import { getOpenPositions } from '../../storage/positions';
 
 const router = express.Router();
 
+// ── 종목 한글명 맵 (universe.json 기반, 1시간 캐시) ─────────────────────────
+// 대시보드에서 "애플 (AAPL)"처럼 한글명+티커를 함께 보여주기 위한 조회.
+// universe.json을 직접 읽는다(getUniverse()는 오래되면 재빌드를 유발하므로 회피).
+let _nameMap: Record<string, string> | null = null;
+let _nameMapAt = 0;
+async function getKoreanNameMap(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (_nameMap && now - _nameMapAt < 3600_000) return _nameMap;
+  try {
+    const raw = await fs.readFile(path.join(process.cwd(), 'data/json/universe.json'), 'utf-8');
+    const parsed = JSON.parse(raw);
+    const stocks: Array<{ symbol: string; name?: string }> = parsed.stocks || [];
+    const map: Record<string, string> = {};
+    for (const s of stocks) if (s.symbol && s.name) map[s.symbol] = s.name;
+    _nameMap = map;
+    _nameMapAt = now;
+    return map;
+  } catch {
+    return _nameMap || {}; // 실패해도 대시보드는 티커로 동작
+  }
+}
+
 /**
  * 대시보드 메인 페이지 (정적 파일 서빙)
  * GET /dashboard
@@ -34,6 +56,9 @@ router.get('/api/portfolio', async (req, res) => {
     const symbols = holdings.map(h => h.symbol);
     const currentPrices = symbols.length > 0 ? await getPrices(symbols) : {};
 
+    // 종목 한글명 맵 (표시용 — "애플 (AAPL)")
+    const nameMap = await getKoreanNameMap();
+
     // 체결 대기 매수대금 (USD): 미체결 BUY 주문에 묶인 돈 — 현금도 보유도 아니지만
     // 여전히 내 자산이므로 평가액에 포함 (누락 시 주문 직후 수익률이 급락한 것처럼 보임)
     const pendingBuyUsd = openOrders
@@ -57,6 +82,7 @@ router.get('/api/portfolio', async (req, res) => {
           const price = currentPrices[h.symbol] || 0;
           return {
             ...h,
+            name_kr: nameMap[h.symbol] || null,   // 한글 종목명 (없으면 null → 대시보드는 티커만)
             current_price: price,
             current_value: price * h.shares,
             pnl: (price - h.avg_cost) * h.shares,
@@ -200,6 +226,32 @@ router.get('/api/status', async (req, res) => {
     res.json({ success: true, data: status });
   } catch (error) {
     console.error('❌ 시스템 상태 조회 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * 의사결정 저널 API — Manager가 사이클마다 남긴 교훈 누적 파일
+ * GET /dashboard/api/journal
+ */
+router.get('/api/journal', async (req, res) => {
+  try {
+    const journalPath = path.join(process.cwd(), 'data/report/manager_journal.md');
+    try {
+      const content = await fs.readFile(journalPath, 'utf-8');
+      // "## [reportId] date\n교훈" 단위로 분해해 최신순 반환
+      const entries = content.split(/\n(?=## )/).filter(s => s.trim()).map(block => {
+        const m = block.match(/^## \[([^\]]+)\]\s*(\S+)?\n([\s\S]*)/);
+        return m
+          ? { report_id: m[1], date: m[2] || '', lesson: m[3].trim() }
+          : { report_id: '', date: '', lesson: block.trim() };
+      }).reverse();
+      res.json({ success: true, data: entries });
+    } catch {
+      res.json({ success: true, data: [] }); // 저널 파일 없음 = 아직 교훈 없음
+    }
+  } catch (error) {
+    console.error('❌ 저널 조회 실패:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

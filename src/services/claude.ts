@@ -28,17 +28,21 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
   try {
     console.log(`🤖 ${modelAttempt.displayName}를 사용하여 보고서 생성 중...`);
 
-    // Opus 4.8은 temperature/top_p/budget_tokens를 거부(400)하므로 전달하지 않음
+    // Sonnet 5/Opus 4.8은 temperature/top_p/budget_tokens를 거부(400)하므로 전달하지 않음.
+    // Sonnet 5는 thinking 생략 시 적응형 사고가 기본 ON — 사고 토큰이 출력 예산을 소모하므로
+    // max_tokens에 여유를 둔다 (메모 자체는 ~1,500토큰 제한).
     const response = await anthropic.messages.create({
       model: modelAttempt.name,
-      max_tokens: 8192,
+      max_tokens: 12000,
       messages: [{
         role: 'user',
         content: prompt
       }]
     });
 
-    const responseText = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    // Sonnet 5는 content[]에 thinking 블록이 섞임 — content[0]이 아니라 text 타입 블록을 찾는다
+    const textBlock = response.content.find(c => c.type === 'text');
+    const responseText = textBlock && textBlock.type === 'text' ? textBlock.text : '';
 
     if (!responseText) {
       throw new Error('API에서 응답을 받지 못했습니다');

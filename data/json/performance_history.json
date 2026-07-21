@@ -1,1 +1,93 @@
-[]
+[
+  {
+    "date": "2026-07-13",
+    "total_investment_krw": 0,
+    "current_value_krw": 299696,
+    "total_return_krw": 299696,
+    "total_return_percent": 0,
+    "initial_capital_krw": 299220,
+    "total_return_from_initial_krw": 476,
+    "total_return_from_initial_percent": 0.16,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 2.51
+  },
+  {
+    "date": "2026-07-14",
+    "total_investment_krw": 291678,
+    "current_value_krw": 286987,
+    "total_return_krw": -4691,
+    "total_return_percent": -1.61,
+    "initial_capital_krw": 2200000,
+    "total_return_from_initial_krw": -1913013,
+    "total_return_from_initial_percent": -86.96,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 2.87
+  },
+  {
+    "date": "2026-07-15",
+    "total_investment_krw": 286482,
+    "current_value_krw": 580244,
+    "total_return_krw": 293762,
+    "total_return_percent": 102.54,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -2821,
+    "total_return_from_initial_percent": -0.48,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 4.86
+  },
+  {
+    "date": "2026-07-16",
+    "total_investment_krw": 519223,
+    "current_value_krw": 576116,
+    "total_return_krw": 56893,
+    "total_return_percent": 10.96,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -6949,
+    "total_return_from_initial_percent": -1.19,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 4.82
+  },
+  {
+    "date": "2026-07-17",
+    "total_investment_krw": 559233,
+    "current_value_krw": 553849,
+    "total_return_krw": -5384,
+    "total_return_percent": -0.96,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -29216,
+    "total_return_from_initial_percent": -5.01,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 4.63
+  },
+  {
+    "date": "2026-07-20",
+    "total_investment_krw": 546468,
+    "current_value_krw": 560765,
+    "total_return_krw": 14297,
+    "total_return_percent": 2.62,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -22300,
+    "total_return_from_initial_percent": -3.82,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 4.69
+  },
+  {
+    "date": "2026-07-21",
+    "total_investment_krw": 555390,
+    "current_value_krw": 555012,
+    "total_return_krw": -378,
+    "total_return_percent": -0.07,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -28053,
+    "total_return_from_initial_percent": -4.81,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 4.64
+  }
+]

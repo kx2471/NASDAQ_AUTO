@@ -145,6 +145,7 @@
   tbody td { padding: 9px 10px; text-align: right; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); white-space: nowrap; }
   tbody tr:hover { background: var(--surface-2); }
   .sym { font-weight: 700; }
+  .sym .tk { font-weight: 500; color: var(--text-3); font-size: .82em; }
   .badge {
     display: inline-block; padding: 2px 9px; border-radius: 6px;
     font-size: .72rem; font-weight: 700;
@@ -249,6 +250,12 @@
   <div class="card">
     <div class="card-head"><h2>거래 내역</h2><span class="sub" id="tradesCount"></span></div>
     <div class="card-body tbl-scroll" id="trades"><div class="skeleton">불러오는 중…</div></div>
+  </div>
+
+  <!-- 의사결정 저널 -->
+  <div class="card">
+    <div class="card-head"><h2>🧠 의사결정 저널</h2><span class="sub">Manager가 사이클마다 남긴 교훈 (누적 학습)</span></div>
+    <div class="card-body" id="journal"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
   <!-- 리포트 -->
@@ -370,7 +377,7 @@ function renderHoldings(d) {
       ? fmtUsd(plan.take_profit_1) + (plan.take_profit_2 ? ' / ' + fmtUsd(plan.take_profit_2) : '')
       : '—';
     return `<tr>
-      <td class="sym">${esc(h.symbol)}${h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : ''}</td>
+      <td class="sym">${h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol)}${h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : ''}</td>
       <td class="num">${h.shares}</td>
       <td class="num">${cur}${fmt(h.avg_cost)}</td>
       <td class="num">${cur}${fmt(h.current_price)}</td>
@@ -524,6 +531,31 @@ async function loadDecisions() {
 }
 
 /* ───────────────────────── 거래 내역 ───────────────────────── */
+/* ───────────────────────── 의사결정 저널 ───────────────────────── */
+async function loadJournal() {
+  try {
+    const entries = await api('journal');
+    if (!entries.length) {
+      $('journal').innerHTML = '<div class="empty">아직 기록된 교훈이 없습니다 — 다음 Manager 사이클부터 쌓입니다</div>';
+      return;
+    }
+    // 최신순 목록: [reportId · 날짜] 교훈 한 줄 (WR- 접두는 주간 회고)
+    $('journal').innerHTML = entries.slice(0, 20).map(e => {
+      const isWeekly = String(e.report_id).startsWith('WR-');
+      const badge = isWeekly ? '<span class="badge buy">주간회고</span>' : '<span class="badge hold">일일</span>';
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:3px">
+          ${badge}<b style="font-size:.78rem">${esc(e.report_id)}</b>
+          <span style="font-size:.72rem;color:var(--text-3)">${esc(e.date)}</span>
+        </div>
+        <div style="font-size:.85rem;line-height:1.5">${esc(e.lesson)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    $('journal').innerHTML = `<div class="empty">저널 로드 실패: ${esc(e.message)}</div>`;
+  }
+}
+
 async function loadTrades() {
   try {
     const r = await fetch('/dashboard/api/trades?limit=100');
@@ -641,6 +673,7 @@ async function refreshLive() {
   loadChart();
   loadDecisions();
   loadTrades();
+  loadJournal();
   loadReports();
   setInterval(refreshLive, 60_000); // 실시간 값만 60초 갱신
 })();
