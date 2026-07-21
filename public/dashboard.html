@@ -135,6 +135,9 @@
 
   /* ── 테이블 ───────────────────────────────────────── */
   .tbl-scroll { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+  .scroll-y { max-height: 380px; overflow-y: auto; } /* 카드형 목록 (결정·저널) 스크롤 */
+  .sym a { color: inherit; text-decoration: none; }
+  .sym a:hover { text-decoration: underline; color: var(--accent, #3182f6); }
   table { width: 100%; border-collapse: collapse; font-size: .84rem; }
   thead th {
     position: sticky; top: 0; background: var(--surface); z-index: 1;
@@ -236,7 +239,7 @@
     </div>
     <div class="card">
       <div class="card-head"><h2>Manager 결정</h2><span class="sub">최근 매매 지시</span></div>
-      <div class="card-body" id="decisions"><div class="skeleton">불러오는 중…</div></div>
+      <div class="card-body scroll-y" id="decisions"><div class="skeleton">불러오는 중…</div></div>
     </div>
   </section>
 
@@ -255,7 +258,7 @@
   <!-- 의사결정 저널 -->
   <div class="card">
     <div class="card-head"><h2>🧠 의사결정 저널</h2><span class="sub">Manager가 사이클마다 남긴 교훈 (누적 학습)</span></div>
-    <div class="card-body" id="journal"><div class="skeleton">불러오는 중…</div></div>
+    <div class="card-body scroll-y" id="journal"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
   <!-- 리포트 -->
@@ -283,6 +286,13 @@ const fmtKst = (iso) => {
   return isNaN(t) ? String(iso ?? '') : t.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* 토스증권 종목 페이지 링크 — 미국 티커만 (tossinvest.com/stocks/{TICKER}).
+   KRW/비정상 심볼은 링크 없이 그대로 표시 */
+function tossLink(symbol, innerHtml) {
+  if (!/^[A-Z][A-Z0-9.]{0,9}$/.test(symbol)) return innerHtml;
+  return `<a href="https://www.tossinvest.com/stocks/${encodeURIComponent(symbol)}" target="_blank" rel="noopener" title="토스증권에서 ${esc(symbol)} 보기">${innerHtml}</a>`;
+}
+
 async function api(path) {
   const r = await fetch('/dashboard/api/' + path);
   const j = await r.json();
@@ -377,7 +387,7 @@ function renderHoldings(d) {
       ? fmtUsd(plan.take_profit_1) + (plan.take_profit_2 ? ' / ' + fmtUsd(plan.take_profit_2) : '')
       : '—';
     return `<tr>
-      <td class="sym">${h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol)}${h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : ''}</td>
+      <td class="sym">${tossLink(h.symbol, h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol))}${h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : ''}</td>
       <td class="num">${h.shares}</td>
       <td class="num">${cur}${fmt(h.avg_cost)}</td>
       <td class="num">${cur}${fmt(h.current_price)}</td>
@@ -566,7 +576,7 @@ async function loadTrades() {
     const rows = list.map(t => `<tr>
       <td class="num" style="color:var(--text-3)">${esc(fmtKst(t.traded_at))}</td>
       <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${esc(t.side)}</span></td>
-      <td class="sym" style="text-align:left">${esc(t.symbol)}</td>
+      <td class="sym" style="text-align:left">${tossLink(t.symbol, esc(t.symbol))}</td>
       <td class="num">${t.qty}</td>
       <td class="num">${fmtUsd(t.price)}</td>
       <td class="num">${fmtUsd(t.qty * t.price)}</td>
