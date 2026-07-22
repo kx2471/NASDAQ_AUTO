@@ -144,7 +144,11 @@ export async function checkPositionsOnce(): Promise<void> {
       const sellable = await getSellableQuantity(position.symbol);
       const qty = Math.min(action.qty, sellable);
       if (qty <= 0) {
-        console.warn(`⚠️ ${position.symbol} 매도 가능 수량 없음 — 건너뜀`);
+        // 매도가능 0인데 포지션은 OPEN = 이상 상태. 대표 원인: 직전 SL/TP 시장가 주문의
+        // 체결 반영 지연 — 주문 직후 reconcile 시점엔 토스 보유에 아직 남아 있어 OPEN 유지됨.
+        // 여기서 다시 동기화해 이미 청산된 유령 포지션이면 CLOSED 처리 (매분 재트리거 차단).
+        console.warn(`⚠️ ${position.symbol} 매도 가능 수량 없음 — 토스와 재동기화 (체결 지연/유령 포지션 정리)`);
+        await reconcileWithToss();
         continue;
       }
 
