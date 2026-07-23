@@ -48,8 +48,15 @@ export async function syncPendingFills(): Promise<void> {
   const ageMs = Date.now() - new Date(latest.decided_at).getTime();
   if (!isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return;
 
+  // 집행 결과가 기록됐다면 REJECTED/SKIPPED 심볼은 제외 — 체결이 영원히 없으므로
+  // 매분 재동기화(토스 재조회)를 반복하는 낭비를 막는다 (2026-07-23 LQDA 거부에서 실측)
+  const notFilled = new Set(
+    (latest.execution_outcomes || [])
+      .filter(o => o.action === 'BUY' && o.status !== 'FILLED')
+      .map(o => o.symbol)
+  );
   const buySymbols = latest.actions
-    .filter(a => a.action === 'BUY' && (a.stop_loss || a.take_profit_1 || a.take_profit_2))
+    .filter(a => a.action === 'BUY' && !notFilled.has(a.symbol) && (a.stop_loss || a.take_profit_1 || a.take_profit_2))
     .map(a => a.symbol);
   if (buySymbols.length === 0) return;
 
