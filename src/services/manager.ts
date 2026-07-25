@@ -499,13 +499,14 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     // 증류(신호만)해서 주입한다. managerRecords.ts 참조.
     //  ③ 지난 결정→실제 결과, ① 실현 손익 원장, ② 자산 궤적+목표 페이스, 저널(교훈 누적)
     const {
-      buildDecisionOutcomes, buildRealizedLedger, buildPerformanceTrajectory, readJournal,
+      buildDecisionOutcomes, buildRealizedLedger, buildPerformanceTrajectory, readJournal, readPlaybook,
     } = await import('./managerRecords');
-    const [executionFeedback, realizedLedger, performanceTrajectory, journal] = await Promise.all([
+    const [executionFeedback, realizedLedger, performanceTrajectory, journal, playbook] = await Promise.all([
       buildDecisionOutcomes().catch(() => '집행 결과 조회 실패'),
       buildRealizedLedger().catch(() => '실현 원장 조회 실패'),
       buildPerformanceTrajectory().catch(() => '성과 궤적 조회 실패'),
       readJournal(30).catch(() => '저널 조회 실패'),
+      readPlaybook().catch(() => '규칙서 조회 실패'),
     ]);
 
     // Manager용 추가 컨텍스트
@@ -514,6 +515,11 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - 현금: $${availableCash.toFixed(2)}
 - 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
 - 목표: 1년 내 $8,000 달성
+
+**🎯 학습된 매매 규칙서 (주간회고가 실제 매매 결과에서 증류한 나의 운영 규칙 — 최우선 준수)**:
+아래는 지난 매매들에서 검증돼 '규칙'으로 승격된 것이다. 이번 결정은 이 규칙과 정합해야 한다.
+규칙을 의도적으로 어길 경우, 리포트에 그 이유(이번엔 왜 예외인지)를 반드시 한 줄 명시하라.
+${playbook}
 
 **⚡ 지난 결정 → 실제 결과 (착각 방지 + 성과 피드백)**:
 당신의 지난 지시가 실제로 어떻게 됐는지다. 체결(✅)만 보유에 반영됐고 거부(❌)는 실행 안 됨.

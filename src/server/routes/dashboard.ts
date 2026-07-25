@@ -257,6 +257,28 @@ router.get('/api/journal', async (req, res) => {
 });
 
 /**
+ * 학습된 매매 규칙서 API — 주간회고가 증류·재작성하는 살아있는 규칙집
+ * GET /dashboard/api/playbook
+ */
+router.get('/api/playbook', async (req, res) => {
+  try {
+    const playbookPath = path.join(process.cwd(), 'data/report/manager_playbook.md');
+    try {
+      const content = await fs.readFile(playbookPath, 'utf-8');
+      // 헤더 주석(<!-- ... -->) 제거하고 갱신일 추출
+      const dateMatch = content.match(/갱신:\s*(\S+)|\((\S+)\s*갱신\)/);
+      const body = content.replace(/<!--[\s\S]*?-->\n?/g, '').trim();
+      res.json({ success: true, data: { body, updated: dateMatch ? (dateMatch[1] || dateMatch[2] || '') : '' } });
+    } catch {
+      res.json({ success: true, data: null }); // 규칙서 아직 없음 (첫 주간회고 전)
+    }
+  } catch (error) {
+    console.error('❌ 규칙서 조회 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
  * 리포트 목록 API (data/report의 .md 파일, 최신순)
  * GET /dashboard/api/reports
  */

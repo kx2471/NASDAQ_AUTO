@@ -17,6 +17,11 @@ import { getRecentDecisions } from './decision';
 
 const DATA_DIR = path.join(process.cwd(), 'data/json');
 const JOURNAL_PATH = path.join(process.cwd(), 'data/report/manager_journal.md');
+// 학습된 매매 규칙서(플레이북) — 저널(append-only 날것)과 달리 주간회고가 '통째로 재작성'하는 살아있는 규칙집.
+const PLAYBOOK_PATH = path.join(process.cwd(), 'data/report/manager_playbook.md');
+const PLAYBOOK_HISTORY_DIR = path.join(process.cwd(), 'data/report/playbook_history');
+// 자기수정 무한팽창 방지 코드 캡 — LLM이 규칙서를 아무리 부풀려도 이 길이에서 잘린다(안전핀).
+const PLAYBOOK_MAX_CHARS = 4000;
 
 interface RawTrade {
   traded_at: string; symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; note?: string;
@@ -225,6 +230,60 @@ export async function readJournal(limit: number = 30): Promise<string> {
     if (entries.length === 0) return '저널 비어 있음 — 이번 사이클부터 교훈을 남긴다.';
     return entries.slice(-limit).join('\n');
   } catch { return '저널 비어 있음 — 이번 사이클부터 교훈을 남긴다.'; }
+}
+
+/**
+ * 학습된 매매 규칙서(플레이북) 읽기 — 일일 Manager에 '최우선 신호'로 주입한다.
+ *
+ * 저널이 매일 쌓이는 날것 관찰이라면, 규칙서는 그걸 증류해 검증된 것만 규칙으로 승격한 결과다.
+ * 갱신 주체는 주간회고(replacePlaybookFromReview) 하나뿐 — 일일 Manager는 읽기만 한다.
+ * @returns 규칙서 본문 (없으면 안내 문구)
+ */
+export async function readPlaybook(): Promise<string> {
+  try {
+    const raw = (await fs.readFile(PLAYBOOK_PATH, 'utf-8')).trim();
+    return raw || '아직 규칙서 없음 — 첫 주간회고가 저널·실현원장을 증류해 규칙을 세운다.';
+  } catch {
+    return '아직 규칙서 없음 — 첫 주간회고가 저널·실현원장을 증류해 규칙을 세운다.';
+  }
+}
+
+/**
+ * 주간회고 리포트에서 [PLAYBOOK]…[/PLAYBOOK] 블록을 뽑아 규칙서를 통째로 교체한다.
+ *
+ * ⚠️ 이것이 "프롬프트 자기수정"의 유일한 실체다. 안전 경계:
+ *  - 갱신 대상은 '조언 계층'인 규칙서 파일 하나뿐. 헌법(promptManagerSimple.md)·
+ *    가드레일(trading.ts 주문 한도·dry-run)은 이 함수가 손대지 못한다.
+ *  - 교체 전 기존 규칙서를 playbook_history/에 타임스탬프 백업 → 나쁜 규칙 롤백·diff 가능.
+ *  - PLAYBOOK_MAX_CHARS 초과분은 잘라 저장 → 자기수정 무한팽창을 코드에서 캡.
+ * @returns 새 규칙서 본문(헤더 포함), 블록 없으면 null(기존 규칙서 유지)
+ */
+export async function replacePlaybookFromReview(reviewId: string, reviewContent: string): Promise<string | null> {
+  const m = reviewContent.match(/\[PLAYBOOK\]\s*([\s\S]*?)\[\/PLAYBOOK\]/);
+  if (!m) return null;
+  let body = m[1].trim();
+  if (!body) return null;
+  if (body.length > PLAYBOOK_MAX_CHARS) {
+    console.warn(`⚠️ 규칙서 상한 초과(${body.length}>${PLAYBOOK_MAX_CHARS}자) — 잘라서 저장`);
+    body = body.slice(0, PLAYBOOK_MAX_CHARS);
+  }
+  const dateKst = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  try {
+    // 기존 규칙서 백업 (있을 때만) — 롤백·이력 추적용
+    if (await fileExists(PLAYBOOK_PATH)) {
+      await fs.mkdir(PLAYBOOK_HISTORY_DIR, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+      const prev = await fs.readFile(PLAYBOOK_PATH, 'utf-8');
+      await fs.writeFile(path.join(PLAYBOOK_HISTORY_DIR, `manager_playbook_${stamp}.md`), prev, 'utf-8');
+    }
+    const doc = `<!-- 자동 생성: ${reviewId} · ${dateKst} 주간회고가 증류. 직접 수정 금지(다음 회고에 덮어씀) -->\n# 🎯 Manager 학습 규칙서 (${dateKst} 갱신)\n\n${body}\n`;
+    await fs.mkdir(path.dirname(PLAYBOOK_PATH), { recursive: true });
+    await fs.writeFile(PLAYBOOK_PATH, doc, 'utf-8');
+    return doc;
+  } catch (e) {
+    console.error('⚠️ 규칙서 교체 실패:', (e as Error).message);
+    return null;
+  }
 }
 
 /**

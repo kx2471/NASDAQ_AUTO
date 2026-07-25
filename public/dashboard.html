@@ -275,6 +275,12 @@
     <div class="card-body tbl-scroll" id="trades"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
+  <!-- 학습된 매매 규칙서 -->
+  <div class="card">
+    <div class="card-head"><h2>🎯 학습된 매매 규칙서</h2><span class="sub" id="playbook-sub">주간회고가 실매매 결과에서 증류·재작성 (일일 결정 최우선 준수)</span></div>
+    <div class="card-body scroll-y" id="playbook"><div class="skeleton">불러오는 중…</div></div>
+  </div>
+
   <!-- 의사결정 저널 -->
   <div class="card">
     <div class="card-head"><h2>🧠 의사결정 저널</h2><span class="sub">Manager가 사이클마다 남긴 교훈 (누적 학습)</span></div>
@@ -592,6 +598,35 @@ async function loadDecisions() {
   }
 }
 
+/* ───────────────────────── 학습된 매매 규칙서 ───────────────────────── */
+async function loadPlaybook() {
+  try {
+    const pb = await api('playbook');
+    if (!pb || !pb.body) {
+      $('playbook').innerHTML = '<div class="empty">아직 규칙서가 없습니다 — 첫 주간회고(일요일)가 실매매 결과를 증류해 규칙을 세웁니다</div>';
+      return;
+    }
+    if (pb.updated) $('playbook-sub').textContent = `${pb.updated} 갱신 · 주간회고가 증류·재작성`;
+    // 규칙서 본문 렌더: 마크다운 제목(#) 줄은 제거, 번호 규칙은 강조, 근거 구절은 흐리게.
+    const lines = String(pb.body).split('\n').filter(l => !/^#\s/.test(l.trim()));
+    const html = lines.map(l => {
+      const t = l.trim();
+      if (!t) return '';
+      const numbered = t.match(/^(\d+)[.)]\s*(.*)$/);
+      const text = numbered ? numbered[2] : t;
+      // "— 근거:" 이후는 흐린 색으로 분리
+      const parts = text.split(/\s[—-]\s*근거:/);
+      const rule = esc(parts[0]);
+      const basis = parts[1] ? `<span style="color:var(--text-3);font-size:.78rem"> · 근거:${esc(parts[1])}</span>` : '';
+      const num = numbered ? `<b style="color:var(--accent,#4ea1ff);margin-right:6px">${numbered[1]}</b>` : '';
+      return `<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:.85rem;line-height:1.5">${num}${rule}${basis}</div>`;
+    }).join('');
+    $('playbook').innerHTML = html || '<div class="empty">규칙서 내용 없음</div>';
+  } catch (e) {
+    $('playbook').innerHTML = `<div class="empty">규칙서 로드 실패: ${esc(e.message)}</div>`;
+  }
+}
+
 /* ───────────────────────── 거래 내역 ───────────────────────── */
 /* ───────────────────────── 의사결정 저널 ───────────────────────── */
 async function loadJournal() {
@@ -735,6 +770,7 @@ async function refreshLive() {
   loadChart();
   loadDecisions();
   loadTrades();
+  loadPlaybook();
   loadJournal();
   loadReports();
   setInterval(refreshLive, 60_000); // 실시간 값만 60초 갱신

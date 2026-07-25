@@ -14,12 +14,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import {
   buildRealizedLedger, buildPerformanceTrajectory, buildDecisionOutcomes,
-  readJournal, appendJournalFromReport,
+  readJournal, appendJournalFromReport, readPlaybook, replacePlaybookFromReview,
 } from './managerRecords';
 
 const REVIEW_SYSTEM_PROMPT = `당신은 자동매매 시스템의 수석 전략가입니다. 지난 한 주의 매매 기록 전체를 보고 "주간 전략 회고"를 작성하세요.
 
-이 문서는 매매 지시가 아닙니다 — 패턴 진단과 전략 조정 제안입니다. 일일 결정 Manager가 다음 주에 참고합니다.
+이 문서는 매매 지시가 아닙니다 — 패턴 진단과 전략 조정, 그리고 **매매 규칙서 재작성**입니다. 일일 결정 Manager가 다음 주에 이 규칙서를 최우선으로 따릅니다.
 
 ## 출력 구조 (마크다운, 2,500토큰 이내)
 # 📆 주간 전략 회고
@@ -28,11 +28,23 @@ const REVIEW_SYSTEM_PROMPT = `당신은 자동매매 시스템의 수석 전략�
 ## 3. 패턴 진단
 - 청산 사유 분포(손절발동 비율이 높으면 SL 설정 문제), 승률·평균 손익폭·보유일의 함의
 - 반복되는 실수 또는 확인된 강점
-## 4. 다음 주 전략 조정 제안 (구체적·실행가능하게 2-4개)
-## 5. 저널 교훈 검증
+## 4. 저널 교훈 검증
 - 기존 저널 교훈 중 이번 주 데이터로 확인/반박된 것
+## 5. 🎯 매매 규칙서 재작성 (핵심 산출물)
+아래 입력의 "현재 규칙서"를 이번 주 데이터로 **재작성**하라. 단순 추가가 아니라 증류·교체다:
+- 데이터로 **확인된 규칙은 유지·강화**, **반박된 규칙은 삭제**, **새 패턴은 규칙으로 승격**
+- 각 규칙에 반드시 **근거를 한 구절**로 달 것 (실현원장 통계·청산사유 분포·저널 관찰 등)
+- **총 15개 이내.** 넘으면 신호가 약한 규칙부터 버려라
+- 규칙은 **'판단 성향'에 관한 것만**: 진입 기준(RSI·모멘텀), 손절폭, 익절 배분, 보유기간, 집중도 등.
+  주문 한도·dry-run·시스템 설정은 **규칙서 밖**이다(코드 가드레일이 관리 — 규칙에 넣지 마라).
 
-맨 마지막 줄에 반드시:
+## 맨 끝 출력 (필수 · 순서 준수)
+먼저 재작성된 규칙서 전문을 아래 마커로 감싸고, 그 다음 줄에 저널 한 줄을 남겨라.
+[PLAYBOOK]
+1. <규칙> — 근거: <통계/관찰>
+2. <규칙> — 근거: <통계/관찰>
+...
+[/PLAYBOOK]
 [JOURNAL] <이번 주 회고에서 나온 가장 중요한 전략 교훈 한 문장>`;
 
 /** 리뷰 실행 중 여부 (중복 실행 방지) */
@@ -51,11 +63,12 @@ export async function runWeeklyReview(): Promise<string | null> {
     const model = process.env.MANAGER_MODEL || 'claude-opus-4-8';
 
     console.log('📆 주간 전략 회고 시작...');
-    const [ledger, trajectory, outcomes, journal] = await Promise.all([
+    const [ledger, trajectory, outcomes, journal, playbook] = await Promise.all([
       buildRealizedLedger().catch(() => '조회 실패'),
       buildPerformanceTrajectory().catch(() => '조회 실패'),
       buildDecisionOutcomes().catch(() => '조회 실패'),
       readJournal(50).catch(() => '조회 실패'),
+      readPlaybook().catch(() => '조회 실패'),
     ]);
 
     const userContext = [
@@ -63,6 +76,7 @@ export async function runWeeklyReview(): Promise<string | null> {
       '\n## 📈 자산 궤적 + 목표 페이스', trajectory,
       '\n## ⚡ 최근 결정 → 실제 결과', outcomes,
       '\n## 🧠 누적 의사결정 저널 (검증 대상)', journal,
+      '\n## 🎯 현재 매매 규칙서 (이걸 재작성하라 — 없으면 새로 세워라)', playbook,
     ].join('\n');
 
     // Fable 5: thinking 항상 ON, 사고 요약은 회고에도 부록으로 남긴다.
@@ -105,6 +119,11 @@ export async function runWeeklyReview(): Promise<string | null> {
     // 전략 교훈을 저널에 누적 (일일 결정에도 환류)
     const lesson = await appendJournalFromReport(`WR-${kstDate}`, content);
     if (lesson) console.log(`🧠 주간 전략 교훈 저널 기록: ${lesson.slice(0, 80)}`);
+
+    // 🎯 매매 규칙서 재작성 — 이것이 '프롬프트 자기수정'의 실체 (조언 계층만 갱신, 백업·상한 내장)
+    const newPlaybook = await replacePlaybookFromReview(`WR-${kstDate}`, content).catch(() => null);
+    if (newPlaybook) console.log(`🎯 매매 규칙서 재작성됨 (${newPlaybook.length}자, 이전 버전 백업)`);
+    else console.log('ℹ️ 규칙서 블록 없음 — 기존 규칙서 유지');
 
     console.log(`✅ 주간 전략 회고 저장: ${filename}`);
     return filePath;
