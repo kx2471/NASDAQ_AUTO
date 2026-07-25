@@ -1558,5 +1558,95 @@
     "fee": 0,
     "note": "Manager 결정 매수 — GPT 중, 기술점수 0.80, RSI 61 과열부담 작음, 거래대금 $282M 유동성 양호. (gFR7g7cyrntNdJ-kLrwPr9GGtwobyz8f5XA783yYTDzyaaOV9CxI96vgfMhP7mnl) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 160
+  },
+  {
+    "traded_at": "2026-07-22T13:30:30.316Z",
+    "symbol": "GWRE",
+    "side": "SELL",
+    "qty": 0.736174,
+    "price": 140.655,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 매수 근거(스크리닝 1위) 소멸·금주 스크리닝 탈락, -4.5% 최대 손실. 2/2 합의 ARWR 재원 확보. (rqUkS-XTq5TmqA03f8uZULC57OrE58mNLH5NaMfppoO35wosBfVmzoEhuS-VJAF4) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 161
+  },
+  {
+    "traded_at": "2026-07-22T13:30:47.127Z",
+    "symbol": "ARWR",
+    "side": "BUY",
+    "qty": 1.2192289828146772,
+    "price": 86.12,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 2/2 공동 확신 상, score 0.79 최상위, RSI 63.7 비과열, EMA20/50 정배열, 거래대금 $229M. (7JHY08DIFocmGs8AHmNgwxIO-_ocAw2itP4H6exj-2u0M7vOAAMLYKoKpRZyj0aa) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 162
+  },
+  {
+    "traded_at": "2026-07-22T13:51:41.313Z",
+    "symbol": "HUBS",
+    "side": "SELL",
+    "qty": 0.164481,
+    "price": 206.29,
+    "fee": 0,
+    "note": "손절: 현재가 $206.29 ≤ SL $206.53 (gFR7g7cyrntNdJ-kLrwPr2gO6TxmIa-iXe8YHwpA1nY1HpiuzA5OvlgkcGadBQvl) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 163
+  },
+  {
+    "traded_at": "2026-07-23T13:30:04.358Z",
+    "symbol": "MANH",
+    "side": "SELL",
+    "qty": 0.27704,
+    "price": 150.69,
+    "fee": 0,
+    "note": "Manager 결정 매도 — -7.9%로 SL $147 사실상 도달. GPT SELL + Claude 조건부 손절 — 손절발동 대기보다 선제 매도. LQDA 재원. (wkHt4DDmOYzBsCRwJwd4qLc8hPkcKl-h4plbAUOGwpVdbh76ikeAScoUHPpl58T7) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 164
+  },
+  {
+    "traded_at": "2026-07-23T13:30:22.891Z",
+    "symbol": "CVE",
+    "side": "BUY",
+    "qty": 0.9426022555125401,
+    "price": 29.705,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 2/2 공동 확신 중, RSI 68.3, 유동성 $174M, 에너지 섹터 분산. (s_Q3Wi_q3YyEMGnI5Hg54UB-VLu9uRxxHhJ47g9JZ2wb3j0nDfq3GF8gbyZAtOi0) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 165
+  },
+  {
+    "traded_at": "2026-07-24T13:30:09.979Z",
+    "symbol": "CHYM",
+    "side": "SELL",
+    "qty": 2,
+    "price": 21.04,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 2/2 공동 SELL — SL $20.36 이탈(-8.1%), 지표·뉴스 부재로 회복 근거 없음. CIFR 재원. (rym-X7qjvOk9eEEep_wh8pSHW8gY44deqxa2r6mQ3aWsK1vnLGDbWjaEk-foQop0) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 166
+  },
+  {
+    "traded_at": "2026-07-24T13:30:11.997Z",
+    "symbol": "GDDY",
+    "side": "SELL",
+    "qty": 0.427646,
+    "price": 89.02,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 조기경보(-5.8%/3일) 해당 + 지표 부재 4사이클 지속. MANH 선례상 SL 대기보다 선제 매도가 기대값 우위. (Bi5b2LShEw5LN7lKlZk6JfcjUOUrfKEOXPtFD3OvRvvxb0L93UAsEeRlg-EpP5JW) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 167
+  },
+  {
+    "traded_at": "2026-07-24T13:30:28.884Z",
+    "symbol": "CIFR",
+    "side": "BUY",
+    "qty": 3.1645569620253164,
+    "price": 25.28,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 2/2 공동 확신 '상' 유일 — score 0.79 최고, RSI 59.6 비과열, EMA 정배열, 거래대금 $5.6억. (AizQSq0Ls7q09LKdjRZ23iDjwZAqbPM3qXZK1icDB_VKIKwhRb-g3SEuLfyxfcac) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 168
+  },
+  {
+    "traded_at": "2026-07-24T13:30:30.680Z",
+    "symbol": "DRS",
+    "side": "BUY",
+    "qty": 0.8302200083022001,
+    "price": 48.18,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 2/2 공동 '중' — RSI 67.3, EMA20 상회 안정 상승, 방산 섹터 분산. (mepWQ6ZOlVrtLoLoX5FM_ptOruZQhxSKNyUia-LT83_P7_928SLiOAOmDHXhtfqS) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 169
   }
 ]
