@@ -10,6 +10,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
 import {
@@ -58,11 +59,18 @@ export async function runWeeklyReview(): Promise<string | null> {
   if (reviewRunning) { console.warn('⚠️ 주간 리뷰 이미 실행 중 — 스킵'); return null; }
   reviewRunning = true;
   try {
-    const apiKey = (process.env.CLAUDE_API_KEY || '').trim();
-    if (!apiKey) { console.warn('⚠️ CLAUDE_API_KEY 없음 — 주간 리뷰 스킵'); return null; }
-    const model = process.env.MANAGER_MODEL || 'claude-opus-4-8';
+    // 모델별 프로바이더 분기 — MANAGER_MODEL이 비-Claude로 바뀌어도 회고가 죽지 않도록.
+    // (manager.ts와 동일한 판정. 예전엔 여기서 Anthropic 클라이언트를 하드코딩해
+    //  gpt 계열 모델명이 들어오면 404로 조용히 실패 → 규칙서 갱신이 영구 중단됐다)
+    const model = process.env.MANAGER_MODEL || 'claude-opus-5';
+    const isClaudeModel = model.includes('claude');
+    const apiKey = ((isClaudeModel ? process.env.CLAUDE_API_KEY : process.env.OPENAI_API_KEY) || '').trim();
+    if (!apiKey) {
+      console.warn(`⚠️ ${isClaudeModel ? 'CLAUDE_API_KEY' : 'OPENAI_API_KEY'} 없음 — 주간 리뷰 스킵`);
+      return null;
+    }
 
-    console.log('📆 주간 전략 회고 시작...');
+    console.log(`📆 주간 전략 회고 시작... (${model})`);
     const [ledger, trajectory, outcomes, journal, playbook] = await Promise.all([
       buildRealizedLedger().catch(() => '조회 실패'),
       buildPerformanceTrajectory().catch(() => '조회 실패'),
@@ -79,32 +87,57 @@ export async function runWeeklyReview(): Promise<string | null> {
       '\n## 🎯 현재 매매 규칙서 (이걸 재작성하라 — 없으면 새로 세워라)', playbook,
     ].join('\n');
 
-    // Fable 5: thinking 항상 ON, 사고 요약은 회고에도 부록으로 남긴다.
-    // effort는 high — 회고는 xhigh까지 필요 없는 종합 작업 (주 1회라 비용 부담도 작음).
-    const client = new Anthropic({ apiKey });
-    const resp = await client.messages.create({
-      model,
-      max_tokens: 12000,
-      output_config: { effort: 'high' },
-      thinking: { type: 'adaptive', display: 'summarized' },
-      system: REVIEW_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContext }],
-    } as Anthropic.MessageCreateParamsNonStreaming & {
-      output_config: { effort: string };
-      thinking: { type: string; display: string };
-    });
+    let content: string;
 
-    const textBlock = resp.content.find(c => c.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') throw new Error('빈 응답');
-    let content = textBlock.text;
+    if (isClaudeModel) {
+      // Claude: 사고 항상 ON, 사고 요약은 회고에도 부록으로 남긴다.
+      // effort는 high — 회고는 xhigh까지 필요 없는 종합 작업 (주 1회라 비용 부담도 작음).
+      const client = new Anthropic({ apiKey });
+      const resp = await client.messages.create({
+        model,
+        max_tokens: 12000,
+        output_config: { effort: 'high' },
+        thinking: { type: 'adaptive', display: 'summarized' },
+        system: REVIEW_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userContext }],
+      } as Anthropic.MessageCreateParamsNonStreaming & {
+        output_config: { effort: string };
+        thinking: { type: string; display: string };
+      });
 
-    // 사고 요약 부록 (감사 추적 — 일일 리포트와 동일한 패턴)
-    const thinkingSummary = resp.content
-      .filter((c: any) => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())
-      .map((c: any) => c.thinking.trim().replace(/```/g, "'''"))
-      .join('\n\n');
-    if (thinkingSummary) {
-      content += `\n\n---\n\n## 🧩 회고 사고 과정 (요약)\n\n<details><summary>펼치기</summary>\n\n${thinkingSummary}\n\n</details>\n`;
+      // 안전 분류기 거부 — content가 비거나 잘린 채 정상 200으로 돌아온다.
+      // 'text 블록 없음'으로 뭉뚱그리면 원인 파악이 불가능하므로 먼저 판정한다.
+      if (resp.stop_reason === 'refusal') {
+        const cat = (resp as any).stop_details?.category ?? '사유 불명';
+        throw new Error(`안전 분류기 거부 (category=${cat}) — 회고 생성 중단`);
+      }
+
+      const textBlock = resp.content.find(c => c.type === 'text');
+      if (!textBlock || textBlock.type !== 'text') throw new Error('빈 응답');
+      content = textBlock.text;
+
+      // 사고 요약 부록 (감사 추적 — 일일 리포트와 동일한 패턴)
+      const thinkingSummary = resp.content
+        .filter((c: any) => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())
+        .map((c: any) => c.thinking.trim().replace(/```/g, "'''"))
+        .join('\n\n');
+      if (thinkingSummary) {
+        content += `\n\n---\n\n## 🧩 회고 사고 과정 (요약)\n\n<details><summary>펼치기</summary>\n\n${thinkingSummary}\n\n</details>\n`;
+      }
+    } else {
+      // OpenAI 계열 — effort/사고 요약은 지원 경로가 달라 생략 (회고 본문만 생성)
+      const client = new OpenAI({ apiKey });
+      const resp = await client.chat.completions.create({
+        model,
+        max_completion_tokens: 12000,
+        messages: [
+          { role: 'system', content: REVIEW_SYSTEM_PROMPT },
+          { role: 'user', content: userContext },
+        ],
+      });
+      const text = resp.choices[0]?.message?.content;
+      if (!text) throw new Error('빈 응답');
+      content = text;
     }
 
     // 저장: data/report/YYYYMMDD_HHMM_weekly_review.md (대시보드 리포트 목록 패턴 준수)

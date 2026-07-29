@@ -385,8 +385,8 @@ async function prepareManagerPayload(params: {
  */
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
-    // Manager Agent 모델 설정 (환경변수 우선, 기본 Claude Opus 4.8)
-    const managerModel = process.env.MANAGER_MODEL || 'claude-opus-4-8';
+    // Manager Agent 모델 설정 (환경변수 우선, 기본 Claude Opus 5)
+    const managerModel = process.env.MANAGER_MODEL || 'claude-opus-5';
     const isClaudeModel = managerModel.includes('claude');
 
     // API 키 및 클라이언트 타입 결정
@@ -557,11 +557,12 @@ ${previousReportsSummary}
       console.log('📡 Anthropic API 호출 중...');
       // 분량: 프롬프트에서 3,000토큰 이내로 지시. 캡은 여유를 둔 안전망 —
       // 리포트 맨 끝의 결정 JSON이 잘리면 자동매매 입력이 사라지므로 타이트하게 조이지 않는다.
-      // Fable 5(claude-fable-5)는 사고가 항상 켜져 있고, 사고 깊이는 output_config.effort로 조절한다.
+      // Opus 5(claude-opus-5)는 사고가 기본 ON이고, 사고 깊이는 output_config.effort로 조절한다.
       //  - effort: 'xhigh' — high(기본)와 max 사이. 결정권자용 사고 깊이를 한 단계 끌어올림.
       //    리포트 양식(system 프롬프트)은 그대로 두고 사고량만 늘리는 손잡이.
-      //  - thinking 파라미터는 넣지 않는다 — Fable 5는 {type:"disabled"}조차 400. Opus도 이 호출은 무해.
-      //  - temperature/top_p도 넣지 않는다 — Fable 5/Opus 4.7+ 모두 400.
+      //  - thinking:{type:'adaptive'}는 기본값과 동일(명시해도 무해). 단 {type:'disabled'}는
+      //    effort xhigh/max와 조합 시 400 — 이 호출은 사고를 끄지 않으므로 해당 없음.
+      //  - temperature/top_p는 넣지 않는다 — Opus 4.7+ / Fable 5 모두 400.
       //  - max_tokens는 리포트 출력 상한(사고와 별도 회계). 결정 JSON이 잘리지 않도록 여유(16000).
       // output_config는 GA 파라미터지만 설치된 SDK(0.62.0) 타입에는 아직 없다.
       // 프로브로 확인함: 이 SDK도 미지정 필드를 와이어에 그대로 실어보내고 서버가 effort를 적용한다.
@@ -591,6 +592,14 @@ ${previousReportsSummary}
         block_types: anthropicResponse.content?.map((c: any) => c.type).join(','),
         stop_reason: anthropicResponse.stop_reason
       });
+
+      // 안전 분류기 거부 판정 — Opus 5/Fable 5는 거부 시에도 HTTP 200으로 오고
+      // content가 비거나(출력 전 차단) 잘린 채(스트림 중 차단) 돌아온다.
+      // 아래 'text 블록 없음'과 뭉뚱그리면 로그만 보고는 원인을 알 수 없으므로 먼저 구분한다.
+      if (anthropicResponse.stop_reason === 'refusal') {
+        const cat = (anthropicResponse as any).stop_details?.category ?? '사유 불명';
+        throw new Error(`Manager 모델 안전 분류기 거부 (category=${cat}) — 이번 사이클 결정 생성 실패`);
+      }
 
       const textContent = anthropicResponse.content.find(c => c.type === 'text');
       if (!textContent || textContent.type !== 'text') {
