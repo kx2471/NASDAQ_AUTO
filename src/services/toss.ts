@@ -430,6 +430,7 @@ export interface UsMarketDayInfo {
 
 interface UsCalendarCache {
   fetchedAt: number;
+  previous: UsMarketDayInfo;
   today: UsMarketDayInfo;
   next: UsMarketDayInfo;
 }
@@ -449,25 +450,63 @@ function parseSession(session: { startTime: string; endTime: string } | null): U
 /**
  * 미국 장 운영 캘린더 조회 (/api/v1/market-calendar/US, 10분 캐시)
  * - 응답은 KST 기준 ISO 시각 — epoch ms로 정규화
- * @returns 오늘(현재 미국 영업일)과 다음 영업일의 정규장 구간
+ * - 토스의 `today`는 **한국 날짜 기준**이고 미국 정규장은 한국 자정을 횡단한다
+ *   (예: today=07-30 → regular 07/30 22:30 ~ 07/31 05:00 KST).
+ *   따라서 자정 이후에는 "진행 중인 세션"이 `previousBusinessDay`에 들어있다 —
+ *   전일 정보를 반드시 함께 보관한다 (2026-07-30 GPN 익절 미발동의 원인).
+ * @returns 전일·오늘·다음 영업일의 정규장 구간
  */
-export async function getUsMarketCalendar(): Promise<{ today: UsMarketDayInfo; next: UsMarketDayInfo }> {
+export async function getUsMarketCalendar(): Promise<{ previous: UsMarketDayInfo; today: UsMarketDayInfo; next: UsMarketDayInfo }> {
   if (usCalendarCache && Date.now() - usCalendarCache.fetchedAt < US_CALENDAR_TTL_MS) {
-    return { today: usCalendarCache.today, next: usCalendarCache.next };
+    return { previous: usCalendarCache.previous, today: usCalendarCache.today, next: usCalendarCache.next };
   }
 
   const result = await tossRequest<{
+    previousBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
     today: { date: string; regularMarket: { startTime: string; endTime: string } | null };
     nextBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
   }>('get', '/api/v1/market-calendar/US');
 
   usCalendarCache = {
     fetchedAt: Date.now(),
+    previous: { date: result.previousBusinessDay.date, regular: parseSession(result.previousBusinessDay.regularMarket) },
     today: { date: result.today.date, regular: parseSession(result.today.regularMarket) },
     next: { date: result.nextBusinessDay.date, regular: parseSession(result.nextBusinessDay.regularMarket) }
   };
 
-  return { today: usCalendarCache.today, next: usCalendarCache.next };
+  return { previous: usCalendarCache.previous, today: usCalendarCache.today, next: usCalendarCache.next };
+}
+
+/**
+ * 지금 진행 중인 정규장 세션 (없으면 null)
+ *
+ * 세션이 한국 자정을 넘기므로 전일·오늘 두 후보를 모두 검사한다.
+ * "24시간 빼기"로 추정하지 않는 이유: 월요일 새벽에 존재하지 않는
+ * (일요일 22:30~월요일 05:00) 세션을 열려 있다고 오판해, 낡은 금요일 종가로
+ * 손절이 발동하는 유령 매도가 가능해진다. 휴일·DST는 토스가 계산해 준다.
+ * @returns 진행 중인 세션 구간, 아니면 null
+ */
+export async function getActiveRegularSession(): Promise<UsMarketSession | null> {
+  const { previous, today } = await getUsMarketCalendar();
+  const now = Date.now();
+  for (const s of [previous.regular, today.regular]) {
+    if (s && now >= s.start && now < s.end) return s;
+  }
+  return null;
+}
+
+/**
+ * 이미 시작된 세션 중 가장 최근 것의 시작 시각 (없으면 null)
+ * - 일일 매수 한도 창의 기준점. `today.regular.start`를 그대로 쓰면 자정 이후엔
+ *   미래 시각이 되어 한도가 리셋되는 구멍이 생긴다.
+ * @returns 최근 세션 시작 epoch ms, 판정 불가면 null
+ */
+export async function getLatestSessionStart(): Promise<number | null> {
+  const { previous, today } = await getUsMarketCalendar();
+  const now = Date.now();
+  const started = [today.regular?.start, previous.regular?.start]
+    .filter((s): s is number => typeof s === 'number' && s <= now);
+  return started.length ? Math.max(...started) : null;
 }
 
 /**
@@ -476,10 +515,7 @@ export async function getUsMarketCalendar(): Promise<{ today: UsMarketDayInfo; n
  * @returns 정규장 개장 중이면 true
  */
 export async function isUsRegularSessionOpen(): Promise<boolean> {
-  const { today } = await getUsMarketCalendar();
-  if (!today.regular) return false;
-  const now = Date.now();
-  return now >= today.regular.start && now < today.regular.end;
+  return (await getActiveRegularSession()) !== null;
 }
 
 // =============================================================

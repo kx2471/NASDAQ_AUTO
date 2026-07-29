@@ -3,7 +3,7 @@ import path from 'path';
 import { runWeekly } from './weekly';
 import { runManager } from './manager';
 import { checkPositionsOnce, syncPendingFills } from './watcher';
-import { getUsMarketCalendar, isTossEnabled } from '../services/toss';
+import { getUsMarketCalendar, getActiveRegularSession, isTossEnabled } from '../services/toss';
 
 /**
  * 로컬 상시 서버용 자동매매 스케줄러 (토스 미국 장 캘린더 기반)
@@ -189,10 +189,21 @@ async function tick(): Promise<void> {
       }
     }
 
-    const { today } = await getUsMarketCalendar(); // 10분 캐시 — 매분 호출해도 콜 낭비 없음
-    if (!today.regular) return; // 휴장일
-
     const now = Date.now();
+
+    // 1) 정규장 중 매분: 체결 지연 자가 치유 → SL/TP 감시 → 현금 재배치
+    //    ⚠️ 휴장일 early-return보다 **앞**에 있어야 한다. 토스 `today`는 한국 날짜
+    //    기준이라 진행 중인 세션이 자정 이후엔 previousBusinessDay에 들어가고,
+    //    미국 휴일이 걸린 한국 날짜에는 today.regular가 null이 되기 때문이다.
+    //    (예전엔 today.regular 창으로 판정해 00:00~05:00 KST 감시가 통째로 죽었다 —
+    //     세션의 77%. 2026-07-30 GPN TP1 미발동으로 발견)
+    const activeSession = await getActiveRegularSession();
+    if (activeSession && !watcherRunning) {
+      await runIntradayWatch(activeSession, now);
+    }
+
+    const { today } = await getUsMarketCalendar(); // 10분 캐시 — 매분 호출해도 콜 낭비 없음
+    if (!today.regular) return; // 휴장일 (개장 전 리포트 트리거만 스킵)
     const leadMinutes = parseInt(process.env.REPORT_LEAD_MINUTES || '', 10) || 40;
     const reportAt = today.regular.start - leadMinutes * 60 * 1000;
 
@@ -210,49 +221,53 @@ async function tick(): Promise<void> {
       void runReportPipeline();
     }
 
-    // 2) 정규장 중 매분: 체결 지연 자가 치유 → SL/TP 감시
-    //    (동기화를 먼저 해야 방금 체결된 종목도 같은 틱에서 감시 대상이 됨)
-    if (now >= today.regular.start && now < today.regular.end && !watcherRunning) {
-      watcherRunning = true;
-      try {
-        await syncPendingFills();
-        await checkPositionsOnce();
-      } finally {
-        watcherRunning = false;
-      }
-
-      // 3) 장중 현금 재배치 (10분 간격 검사)
-      //    조건: 현금 ≥30% + 마감 1시간+ 전 + 마지막 Manager 결정 후 2시간 초과.
-      //    매매 직후 현금이 다시 30%를 넘어도 쿨다운이 지나면 재시도된다.
-      if (new Date().getMinutes() % 10 === 0) {
-        try {
-          const msSinceLastDecision = now - (await getLastDecisionTime());
-          const cheap = shouldRedeployCash({
-            msToClose: today.regular.end - now,
-            cashRatio: 1, // 일단 통과값 — 비싼 API 검사는 아래에서
-            msSinceLastDecision,
-            pipelineRunning
-          });
-          if (cheap) {
-            const ratio = await getCashRatio();
-            if (shouldRedeployCash({
-              msToClose: today.regular.end - now,
-              cashRatio: ratio,
-              msSinceLastDecision,
-              pipelineRunning
-            })) {
-              const hhmm = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false, hour: '2-digit', minute: '2-digit' }).replace(':', '');
-              console.log(`💸 장중 현금 재배치 트리거: 현금 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마지막 결정 후 ${Math.round(msSinceLastDecision / 3600000 * 10) / 10}시간, 마감까지 ${Math.round((today.regular.end - now) / 60000)}분`);
-              void runReportPipeline('-i' + hhmm);
-            }
-          }
-        } catch (error: any) {
-          console.warn('⚠️ 현금 재배치 검사 실패 (10분 후 재시도):', error.message);
-        }
-      }
-    }
   } catch (error: any) {
     console.error('⚠️ 스케줄러 틱 오류:', error.message);
+  }
+}
+
+/**
+ * 장중 1회 처리: 체결 지연 자가 치유 → SL/TP 감시 → 현금 재배치 검사
+ * - 동기화를 먼저 해야 방금 체결된 종목도 같은 틱에서 감시 대상이 된다
+ * @param session 진행 중인 정규장 구간 (마감까지 남은 시간 계산에 사용)
+ * @param now 이 틱의 기준 시각 (epoch ms)
+ */
+async function runIntradayWatch(session: { start: number; end: number }, now: number): Promise<void> {
+  watcherRunning = true;
+  try {
+    await syncPendingFills();
+    await checkPositionsOnce();
+  } finally {
+    watcherRunning = false;
+  }
+
+  // 장중 현금 재배치 (10분 간격 검사)
+  // 조건: 현금 ≥30% + 마감 1시간+ 전 + 마지막 Manager 결정 후 2시간 초과.
+  // 매매 직후 현금이 다시 30%를 넘어도 쿨다운이 지나면 재시도된다.
+  if (new Date().getMinutes() % 10 !== 0) return;
+  try {
+    const msSinceLastDecision = now - (await getLastDecisionTime());
+    const cheap = shouldRedeployCash({
+      msToClose: session.end - now,
+      cashRatio: 1, // 일단 통과값 — 비싼 API 검사는 아래에서
+      msSinceLastDecision,
+      pipelineRunning
+    });
+    if (!cheap) return;
+
+    const ratio = await getCashRatio();
+    if (shouldRedeployCash({
+      msToClose: session.end - now,
+      cashRatio: ratio,
+      msSinceLastDecision,
+      pipelineRunning
+    })) {
+      const hhmm = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false, hour: '2-digit', minute: '2-digit' }).replace(':', '');
+      console.log(`💸 장중 현금 재배치 트리거: 현금 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마지막 결정 후 ${Math.round(msSinceLastDecision / 3600000 * 10) / 10}시간, 마감까지 ${Math.round((session.end - now) / 60000)}분`);
+      void runReportPipeline('-i' + hhmm);
+    }
+  } catch (error: any) {
+    console.warn('⚠️ 현금 재배치 검사 실패 (10분 후 재시도):', error.message);
   }
 }
 

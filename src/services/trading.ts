@@ -90,11 +90,15 @@ async function getRecentBuyNotional(): Promise<number> {
   // "일일" 한도의 창은 오늘 정규장 세션 시작부터 — 롤링 24시간을 쓰면
   // 전일 매수가 창에 남아 당일 매도 대금 재투자까지 막는다 (2026-07-14 실사고).
   // 캘린더 조회 실패 시에만 보수적으로 24시간 롤링으로 폴백.
+  // ⚠️ today.regular.start를 직접 쓰면 안 된다 — 토스 `today`는 한국 날짜 기준이라
+  // 자정 이후엔 시작 시각이 미래가 되고, cutoff가 미래면 매칭 매수가 0건이 되어
+  // 일일 한도가 매일 자정에 리셋되는 구멍이 생긴다 (2026-07-30 발견).
+  // 이미 시작된 세션 중 최근 것을 기준으로 삼는다.
   let cutoff: number;
   try {
-    const { getUsMarketCalendar } = await import('./toss');
-    const { today } = await getUsMarketCalendar();
-    cutoff = today.regular ? today.regular.start : Date.now() - 24 * 60 * 60 * 1000;
+    const { getLatestSessionStart } = await import('./toss');
+    const sessionStart = await getLatestSessionStart();
+    cutoff = sessionStart ?? Date.now() - 24 * 60 * 60 * 1000;
   } catch {
     cutoff = Date.now() - 24 * 60 * 60 * 1000;
   }
