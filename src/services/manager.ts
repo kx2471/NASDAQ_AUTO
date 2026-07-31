@@ -563,16 +563,20 @@ ${previousReportsSummary}
       //  - thinking:{type:'adaptive'}는 기본값과 동일(명시해도 무해). 단 {type:'disabled'}는
       //    effort xhigh/max와 조합 시 400 — 이 호출은 사고를 끄지 않으므로 해당 없음.
       //  - temperature/top_p는 넣지 않는다 — Opus 4.7+ / Fable 5 모두 400.
-      //  - max_tokens는 리포트 출력 상한(사고와 별도 회계). 결정 JSON이 잘리지 않도록 여유(16000).
+      //  - ⚠️ max_tokens는 **사고 + 응답 텍스트 합산** 하드 캡이다 (별도 회계 아님).
+      //    16000으로 두었다가 2026-07-31 Opus 5가 사고에 대부분을 쓰고 리포트 끝의
+      //    결정 JSON이 문장 중간에서 잘렸다 → 그날 매매가 통째로 사라짐.
+      //    xhigh 사고에 여유를 주려면 64000. 단 ~16K 초과는 SDK HTTP 타임아웃 위험이
+      //    있어 반드시 스트리밍(.stream + finalMessage)으로 받는다.
       // output_config는 GA 파라미터지만 설치된 SDK(0.62.0) 타입에는 아직 없다.
       // 프로브로 확인함: 이 SDK도 미지정 필드를 와이어에 그대로 실어보내고 서버가 effort를 적용한다.
       // (잘못된 effort 값을 넣으면 API가 400으로 거부 → 필드가 실제로 도달·검증됨을 확인)
       // 알려진 필드는 타입 검증을 유지하고 output_config만 교집합으로 넓힌다.
       // thinking.display:"summarized" — 사고 요약을 응답에 포함시킨다 (비용 동일, 표시만 켜는 것).
       // 사고 요약은 리포트 부록 "Manager 사고 과정"으로 저장돼 결정의 감사 추적에 쓰인다.
-      const anthropicResponse = await anthropicClient.messages.create({
+      const anthropicStream = anthropicClient.messages.stream({
         model: managerModel,
-        max_tokens: 16000,
+        max_tokens: 64000,
         output_config: { effort: 'xhigh' },
         thinking: { type: 'adaptive', display: 'summarized' },
         system: processedPrompt,
@@ -586,6 +590,7 @@ ${previousReportsSummary}
         output_config: { effort: string };
         thinking: { type: string; display: string };
       });
+      const anthropicResponse = await anthropicStream.finalMessage();
 
       console.log('📊 Anthropic 응답 구조 디버깅:', {
         content_length: anthropicResponse.content?.length || 0,
@@ -599,6 +604,12 @@ ${previousReportsSummary}
       if (anthropicResponse.stop_reason === 'refusal') {
         const cat = (anthropicResponse as any).stop_details?.category ?? '사유 불명';
         throw new Error(`Manager 모델 안전 분류기 거부 (category=${cat}) — 이번 사이클 결정 생성 실패`);
+      }
+
+      // 출력 상한 도달 = 리포트 끝의 결정 JSON이 잘렸을 가능성이 매우 높다.
+      // 조용히 통과시키면 "리포트는 있는데 매매만 사라지는" 무증상 실패가 된다 (2026-07-31 실사고).
+      if (anthropicResponse.stop_reason === 'max_tokens') {
+        console.error(`❌ Manager 응답이 max_tokens에서 잘림 — 결정 JSON 유실 가능. (사고+본문 합산 상한, 모델 ${managerModel})`);
       }
 
       const textContent = anthropicResponse.content.find(c => c.type === 'text');

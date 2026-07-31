@@ -61,6 +61,11 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
       const reportId = getKoreanDateString() + reportIdSuffix;
       await reconcileWithToss();
       const decision = parseManagerDecision(managerReport, reportId);
+      if (!decision) {
+        // 파싱 실패를 조용히 넘기면 리포트만 저장되고 그날 매매가 통째로 사라진다.
+        // (2026-07-31: max_tokens 절단으로 결정 JSON이 끊겼는데 파이프라인은 성공으로 표시됨)
+        console.error(`❌ 결정 JSON 파싱 실패 — 오늘(${reportId}) 매매 없음. 리포트 끝의 json 블록이 잘렸는지 확인할 것`);
+      }
       if (decision) {
         await saveDecision(decision);
         await applyDecisionToPositions(decision);
