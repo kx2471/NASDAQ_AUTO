@@ -500,13 +500,15 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     //  ③ 지난 결정→실제 결과, ① 실현 손익 원장, ② 자산 궤적+목표 페이스, 저널(교훈 누적)
     const {
       buildDecisionOutcomes, buildRealizedLedger, buildPerformanceTrajectory, readJournal, readPlaybook,
+      buildTradingWindowFacts,
     } = await import('./managerRecords');
-    const [executionFeedback, realizedLedger, performanceTrajectory, journal, playbook] = await Promise.all([
+    const [executionFeedback, realizedLedger, performanceTrajectory, journal, playbook, windowFacts] = await Promise.all([
       buildDecisionOutcomes().catch(() => '집행 결과 조회 실패'),
       buildRealizedLedger().catch(() => '실현 원장 조회 실패'),
       buildPerformanceTrajectory().catch(() => '성과 궤적 조회 실패'),
       readJournal(30).catch(() => '저널 조회 실패'),
       readPlaybook().catch(() => '규칙서 조회 실패'),
+      buildTradingWindowFacts().catch(() => '매매 창 사실 조회 실패'),
     ]);
 
     // Manager용 추가 컨텍스트
@@ -515,6 +517,12 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
 - 현금: $${availableCash.toFixed(2)}
 - 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
 - 목표: 1년 내 $8,000 달성
+
+**📅 매매 창 확정 사실 (시스템이 계산한 값 — 추론으로 대체하지 말 것)**:
+아래 숫자와 타이밍은 시스템이 실제 체결 기록에서 계산한 것이다. 규칙 요건을 판정할 때
+이 값을 그대로 쓰고, 다른 전제를 세워 요건을 재해석하지 마라. 규칙을 벗어나야 한다면
+"예외로 집행한다"고 선언하고 대가(노출 축소 등)를 붙여라 — "위반이 아니다"라고 재정의하지 마라.
+${windowFacts}
 
 **🎯 학습된 매매 규칙서 (주간회고가 실제 매매 결과에서 증류한 나의 운영 규칙 — 최우선 준수)**:
 아래는 지난 매매들에서 검증돼 '규칙'으로 승격된 것이다. 이번 결정은 이 규칙과 정합해야 한다.

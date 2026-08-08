@@ -222,6 +222,43 @@ export async function buildDecisionOutcomes(): Promise<string> {
   }).join('\n');
 }
 
+/**
+ * 규칙 판정에 필요한 "확정 사실" 블록.
+ *
+ * 모델이 일반 상식으로 추론하다 틀리는 항목을 시스템이 계산해 못박는다.
+ * 계기: 2026-08-07 Manager가 "금요일 야간 주문은 다음 거래일(월) 시가 체결"이라 오인해
+ * 주간 매수 상한(규칙3, 2건)을 3건으로 넘겼다. 실제로는 그날 22:30 세션에 즉시 체결됐다.
+ * 추론 능력 문제가 아니라 **시스템이 알려주지 않은 정보**였으므로 입력으로 해결한다.
+ *
+ * @returns 이번 주(KST 월요일 기준) 매수 집행 내역 + 주문/체결 타이밍 사실
+ */
+export async function buildTradingWindowFacts(): Promise<string> {
+  const kstDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });          // YYYY-MM-DD
+  const kstWd = (d: Date) => d.toLocaleDateString('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' });
+
+  // 이번 주 월요일(KST) 날짜 문자열 — KST는 서머타임이 없어 일 단위 뺄셈이 안전하다
+  const now = new Date();
+  const wdIdx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(kstWd(now));
+  const backDays = wdIdx === 0 ? 6 : wdIdx - 1;
+  const monday = kstDate(new Date(now.getTime() - backDays * 86400000));
+
+  const trades = await readJsonArray<RawTrade>('trades');
+  const weekBuys = trades.filter(t => t.side === 'BUY' && kstDate(new Date(t.traded_at)) >= monday);
+  const list = weekBuys.length
+    ? weekBuys.map(t => `  - ${kstDate(new Date(t.traded_at))}(${kstWd(new Date(t.traded_at))}) ${t.symbol} @$${t.price}`).join('\n')
+    : '  (없음)';
+
+  return [
+    `오늘: ${kstDate(now)}(${kstWd(now)}, KST 기준) · 이번 주 시작: ${monday}(Mon)`,
+    `**이번 주 매수 집행 ${weekBuys.length}건** — 규칙3(주간 상한) 판정은 이 숫자를 그대로 쓸 것:`,
+    list,
+    `주문·체결 타이밍(확정 사실, 추론하지 말 것):`,
+    `  - 이 시스템은 **정규장 개장 시각에 주문을 전송**하고 주문은 **같은 세션에 즉시 체결**된다.`,
+    `  - 따라서 금요일 밤(KST) 주문도 그날 미국 금요일 정규장에 체결된다 — 다음 주로 넘어가지 않는다.`,
+    `  - 주간 카운터는 **KST 월요일 00:00**에 리셋된다. 매도는 카운터를 되돌리지 않는다.`,
+  ].join('\n');
+}
+
 /** 영속 저널 — 최근 교훈 N개를 텍스트로 반환 (없으면 안내). */
 export async function readJournal(limit: number = 30): Promise<string> {
   try {

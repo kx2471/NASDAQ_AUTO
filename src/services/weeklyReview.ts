@@ -92,10 +92,15 @@ export async function runWeeklyReview(): Promise<string | null> {
     if (isClaudeModel) {
       // Claude: 사고 항상 ON, 사고 요약은 회고에도 부록으로 남긴다.
       // effort는 high — 회고는 xhigh까지 필요 없는 종합 작업 (주 1회라 비용 부담도 작음).
+      // ⚠️ max_tokens는 사고 + 본문 **합산** 캡이다. 12000으로 두었다가 규칙서 블록이
+      //    잘리면 [PLAYBOOK] 파싱이 실패해 규칙서가 조용히 갱신 안 된다.
+      //    (manager.ts가 2026-07-31에 같은 설정으로 결정 JSON을 잃었다 — 동일 결함)
+      //    회고는 사건이 많은 주일수록 길어지므로 여유를 크게 두고, ~16K 초과는
+      //    HTTP 타임아웃 위험이 있어 반드시 스트리밍으로 받는다.
       const client = new Anthropic({ apiKey });
-      const resp = await client.messages.create({
+      const stream = client.messages.stream({
         model,
-        max_tokens: 12000,
+        max_tokens: 32000,
         output_config: { effort: 'high' },
         thinking: { type: 'adaptive', display: 'summarized' },
         system: REVIEW_SYSTEM_PROMPT,
@@ -104,12 +109,19 @@ export async function runWeeklyReview(): Promise<string | null> {
         output_config: { effort: string };
         thinking: { type: string; display: string };
       });
+      const resp = await stream.finalMessage();
 
       // 안전 분류기 거부 — content가 비거나 잘린 채 정상 200으로 돌아온다.
       // 'text 블록 없음'으로 뭉뚱그리면 원인 파악이 불가능하므로 먼저 판정한다.
       if (resp.stop_reason === 'refusal') {
         const cat = (resp as any).stop_details?.category ?? '사유 불명';
         throw new Error(`안전 분류기 거부 (category=${cat}) — 회고 생성 중단`);
+      }
+
+      // 출력 상한 도달 = 리포트 끝의 [PLAYBOOK]/[JOURNAL] 블록이 잘렸을 가능성이 높다.
+      // 규칙서가 갱신 안 된 채 "회고 성공"으로 보이는 무증상 실패를 막는다.
+      if (resp.stop_reason === 'max_tokens') {
+        console.error(`❌ 주간회고 응답이 max_tokens에서 잘림 — 규칙서/저널 블록 유실 가능 (모델 ${model})`);
       }
 
       const textBlock = resp.content.find(c => c.type === 'text');
