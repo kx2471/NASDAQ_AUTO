@@ -10,6 +10,10 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+# .env 백업본 — 실키가 그대로 들어있다. git add . 한 번에 GitHub로 새어나가므로 반드시 차단
+.env.bak*
+.env.*.bak
+*.env.backup
 
 # Build outputs
 dist/
