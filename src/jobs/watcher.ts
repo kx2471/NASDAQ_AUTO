@@ -22,6 +22,14 @@ import { ManagerDecision } from '../services/decision';
 // 주문 진행 중인 심볼 (한 틱에서 주문 나간 심볼은 reconcile 전까지 재주문 금지)
 const inFlight = new Set<string>();
 
+// 체결 정착 재확인 대기 (심볼 → 매도 시각 ms).
+// 매도 직후 reconcile은 토스가 체결을 반영하기 전에 실행돼 옛 수량을 되읽는 경우가 있다.
+// 그 뒤 judge()가 null을 반환하면(예: TP1 완료·TP2 미달·SL 미달) 다시 동기화할 경로가
+// 없어 positions.json이 영구히 어긋난다 (2026-08-13 SMCI TP1: 잔량 0.317인데 0.634로 남음).
+// 여기 등록된 심볼은 유예 시간이 지난 첫 틱에서 한 번 더 reconcile한다.
+const pendingSettleCheck = new Map<string, number>();
+const SETTLE_RECHECK_MS = 60 * 1000; // 토스 반영 유예 — 1분이면 충분(실측 기준)
+
 /**
  * 체결 지연 자가 치유 (매분, 정규장 중)
  *
@@ -125,6 +133,22 @@ export function judge(position: Position, price: number):
 export async function checkPositionsOnce(): Promise<void> {
   if (!(await isUsRegularSessionOpen())) return;
 
+  // 체결 정착 재확인 — 직전 매도의 reconcile이 너무 일렀을 수 있으므로 유예 후 1회 더 맞춘다.
+  // 포지션 조회보다 먼저 해야 이번 틱의 판정이 정정된 수량을 쓴다.
+  if (pendingSettleCheck.size > 0) {
+    const due = [...pendingSettleCheck.entries()].filter(([, at]) => Date.now() - at >= SETTLE_RECHECK_MS);
+    if (due.length > 0) {
+      for (const [symbol] of due) pendingSettleCheck.delete(symbol);
+      try {
+        await reconcileWithToss();
+        console.log(`🔄 체결 정착 재확인 완료: ${due.map(([s]) => s).join(', ')}`);
+      } catch (error: any) {
+        console.warn('⚠️ 체결 정착 재확인 실패 (다음 틱에 재시도):', error.message);
+        for (const [symbol, at] of due) pendingSettleCheck.set(symbol, at); // 되돌려 재시도
+      }
+    }
+  }
+
   const positions = (await getOpenPositions()).filter(p =>
     p.currency !== 'KRW' &&                       // 미국 주식만 감시
     (p.stop_loss || p.take_profit_1 || p.take_profit_2) &&
@@ -171,9 +195,11 @@ export async function checkPositionsOnce(): Promise<void> {
         if (action.type === 'TP1') {
           await updatePosition(position.symbol, { tp1_done: true });
         }
-        // 실주문이면 보유 수량 변동을 즉시 동기화 (dry-run은 잔고가 안 변하므로 생략)
+        // 실주문이면 보유 수량 변동을 즉시 동기화 (dry-run은 잔고가 안 변하므로 생략).
+        // 이 시점 reconcile은 토스 반영 전일 수 있으므로 정착 재확인도 함께 예약한다.
         if (!result.dryRun) {
           await reconcileWithToss();
+          pendingSettleCheck.set(position.symbol, Date.now());
         }
       } else {
         console.warn(`⚠️ ${position.symbol} ${action.type} 주문 거부: ${result.error}`);
