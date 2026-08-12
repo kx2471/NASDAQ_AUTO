@@ -200,9 +200,13 @@ router.get('/api/status', async (req, res) => {
           ? { start: new Date(calendar.today.regular.start).toISOString(), end: new Date(calendar.today.regular.end).toISOString() }
           : null;
         status.nextBusinessDay = calendar.next.date;
-        if (!calendar.today.regular && calendar.next.regular) {
-          status.nextRegularStart = new Date(calendar.next.regular.start).toISOString();
-        }
+        // 다음 개장 시각 — 휴장일뿐 아니라 "영업일이지만 아직 개장 전"일 때도 표시한다.
+        // (예전엔 today.regular가 있으면 건너뛰어, 개장 대기 중인 낮 시간대에 값이 비었다)
+        const nowMs = Date.now();
+        const upcoming = calendar.today.regular && nowMs < calendar.today.regular.start
+          ? calendar.today.regular.start
+          : calendar.next.regular?.start;
+        if (upcoming) status.nextRegularStart = new Date(upcoming).toISOString();
       } catch (tossError: any) {
         status.tossAuthOk = false;
         // IP 차단은 대표적 원인 — 메시지에서 식별해 사용자 안내에 활용

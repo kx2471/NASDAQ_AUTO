@@ -223,6 +223,45 @@ export async function buildDecisionOutcomes(): Promise<string> {
 }
 
 /**
+ * 이번 주 결정 로그 — 종목별 액션과 **당시 제시한 근거 원문**.
+ *
+ * 주간회고의 '규칙 준수 감사'가 자기 정당화를 검증하려면 근거 텍스트가 있어야 한다.
+ * buildDecisionOutcomes는 체결 결과만 주므로 "왜 그렇게 판단했는지"가 빠져 있어,
+ * 감사를 지시해도 회고가 추측으로 답하게 된다 (2026-08-09 회고가 규칙3 위반을
+ * 적발하지 못하고 오히려 상한을 완화한 배경).
+ *
+ * @param days 조회 기간(일). 기본 8일 — 주간회고가 한 주를 온전히 덮도록
+ * @returns 결정별 액션·근거 요약 (없으면 안내 문구)
+ */
+export async function buildDecisionRationales(days: number = 8): Promise<string> {
+  const decisions = await getRecentDecisions(20);
+  const cutoff = Date.now() - days * 86400000;
+  const recent = decisions.filter(d => new Date(d.decided_at).getTime() >= cutoff);
+  if (recent.length === 0) return '기간 내 결정 없음.';
+
+  const kst = (iso: string) => new Date(iso).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+
+  // 오래된 순으로 — 규칙 위반 판정은 시간 흐름을 따라가야 "그 시점 규칙"과 대조할 수 있다
+  return recent
+    .slice()
+    .sort((a, b) => new Date(a.decided_at).getTime() - new Date(b.decided_at).getTime())
+    .map(d => {
+      // HOLD는 감사 가치가 낮아 심볼만, BUY/SELL은 근거 원문을 붙인다
+      const moves = d.actions.filter(a => a.action !== 'HOLD');
+      const holds = d.actions.filter(a => a.action === 'HOLD').map(a => a.symbol);
+      const lines = moves.map(a =>
+        `  ${a.action} ${a.symbol}${a.amount ? ` $${a.amount}` : ''}${a.qty ? ` ${a.qty}주` : ''}\n` +
+        `    근거: ${(a.rationale || '(없음)').trim()}`
+      );
+      if (holds.length) lines.push(`  HOLD: ${holds.join(', ')}`);
+      return `[${d.report_id} · ${kst(d.decided_at)}]\n${lines.join('\n') || '  (액션 없음)'}`;
+    })
+    .join('\n\n');
+}
+
+/**
  * 규칙 판정에 필요한 "확정 사실" 블록.
  *
  * 모델이 일반 상식으로 추론하다 틀리는 항목을 시스템이 계산해 못박는다.

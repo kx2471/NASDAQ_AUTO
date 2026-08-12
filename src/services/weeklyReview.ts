@@ -16,22 +16,36 @@ import path from 'path';
 import {
   buildRealizedLedger, buildPerformanceTrajectory, buildDecisionOutcomes,
   readJournal, appendJournalFromReport, readPlaybook, replacePlaybookFromReview,
+  buildDecisionRationales, buildTradingWindowFacts,
 } from './managerRecords';
 
 const REVIEW_SYSTEM_PROMPT = `당신은 자동매매 시스템의 수석 전략가입니다. 지난 한 주의 매매 기록 전체를 보고 "주간 전략 회고"를 작성하세요.
 
 이 문서는 매매 지시가 아닙니다 — 패턴 진단과 전략 조정, 그리고 **매매 규칙서 재작성**입니다. 일일 결정 Manager가 다음 주에 이 규칙서를 최우선으로 따릅니다.
 
-## 출력 구조 (마크다운, 2,500토큰 이내)
+## 출력 구조 (마크다운, 3,500토큰 이내 — 규칙 준수 감사 추가로 상향)
 # 📆 주간 전략 회고
 ## 1. 한 주 성과 요약 (3-4줄)
 ## 2. 잘한 결정 vs 잘못한 결정 (각 1-3개, 구체적 종목·숫자 인용)
 ## 3. 패턴 진단
 - 청산 사유 분포(손절발동 비율이 높으면 SL 설정 문제), 승률·평균 손익폭·보유일의 함의
 - 반복되는 실수 또는 확인된 강점
-## 4. 저널 교훈 검증
+## 4. ⚖️ 규칙 준수 감사 (생략 금지)
+이번 주 각 결정을 **그 시점에 유효했던 규칙서**와 대조해, 어긋난 건을 빠짐없이 적어라.
+- 형식: \`[위반] <종목/일자> — <어긴 규칙 번호와 내용> · <당시 제시된 사유> · <결과 손익>\`
+- 어긋난 건이 없으면 "위반 없음"이라고 명시하라 (침묵은 감사 미수행으로 간주한다).
+- **판정 원칙**: 결정 근거에 적힌 자기 정당화를 그대로 받아들이지 마라. 특히
+  "요건에 해당하지 않는다"는 식의 **재해석**은, 그 전제가 사실인지 원장·체결 기록으로 검증하라.
+  (실제 사례: 2026-08-07 "금요일 야간 주문은 다음 주 체결"이라며 주간 상한을 넘겼으나,
+   체결은 같은 주 금요일 세션이었다. 전제가 틀렸으므로 위반이다.)
+
+**규칙 완화 금지 조항**: 어떤 규칙을 어긴 사례를, 그 규칙을 느슨하게 바꾸는 **근거로 삼지 마라**.
+"상한 때문에 기회를 놓쳤다"는 논리는 상한을 지킨 사례에서만 성립한다. 어긴 사례는 먼저 위반으로
+기록하고, 규칙 자체를 바꿔야 한다고 판단되면 **위반과 무관한 독립 근거**를 따로 제시하라.
+
+## 5. 저널 교훈 검증
 - 기존 저널 교훈 중 이번 주 데이터로 확인/반박된 것
-## 5. 🎯 매매 규칙서 재작성 (핵심 산출물)
+## 6. 🎯 매매 규칙서 재작성 (핵심 산출물)
 아래 입력의 "현재 규칙서"를 이번 주 데이터로 **재작성**하라. 단순 추가가 아니라 증류·교체다:
 - 데이터로 **확인된 규칙은 유지·강화**, **반박된 규칙은 삭제**, **새 패턴은 규칙으로 승격**
 - 각 규칙에 반드시 **근거를 한 구절**로 달 것 (실현원장 통계·청산사유 분포·저널 관찰 등)
@@ -71,18 +85,23 @@ export async function runWeeklyReview(): Promise<string | null> {
     }
 
     console.log(`📆 주간 전략 회고 시작... (${model})`);
-    const [ledger, trajectory, outcomes, journal, playbook] = await Promise.all([
+    const [ledger, trajectory, outcomes, journal, playbook, rationales, windowFacts] = await Promise.all([
       buildRealizedLedger().catch(() => '조회 실패'),
       buildPerformanceTrajectory().catch(() => '조회 실패'),
       buildDecisionOutcomes().catch(() => '조회 실패'),
       readJournal(50).catch(() => '조회 실패'),
       readPlaybook().catch(() => '조회 실패'),
+      buildDecisionRationales(8).catch(() => '조회 실패'),
+      buildTradingWindowFacts().catch(() => '조회 실패'),
     ]);
 
     const userContext = [
       '## 📒 실현 손익 원장 (전체 통계 + 최근 청산)', ledger,
       '\n## 📈 자산 궤적 + 목표 페이스', trajectory,
       '\n## ⚡ 최근 결정 → 실제 결과', outcomes,
+      // 규칙 준수 감사용 증거 — 근거 원문과 확정 사실이 있어야 자기 정당화를 검증할 수 있다
+      '\n## 📝 이번 주 결정 로그 (근거 원문 — 규칙 준수 감사의 1차 증거)', rationales,
+      '\n## 📅 매매 창 확정 사실 (시스템 계산값 — 감사 시 이 숫자를 기준으로 판정하라)', windowFacts,
       '\n## 🧠 누적 의사결정 저널 (검증 대상)', journal,
       '\n## 🎯 현재 매매 규칙서 (이걸 재작성하라 — 없으면 새로 세워라)', playbook,
     ].join('\n');
