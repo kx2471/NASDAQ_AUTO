@@ -1648,5 +1648,205 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 2/2 공동 '중' — RSI 67.3, EMA20 상회 안정 상승, 방산 섹터 분산. (mepWQ6ZOlVrtLoLoX5FM_ptOruZQhxSKNyUia-LT83_P7_928SLiOAOmDHXhtfqS) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 169
+  },
+  {
+    "traded_at": "2026-07-27T13:30:21.576Z",
+    "symbol": "VG",
+    "side": "SELL",
+    "qty": 3,
+    "price": 13.94,
+    "fee": 0,
+    "note": "손절: 현재가 $13.94 ≤ SL $13.95 (p2DzWhgR-PMXycd7Bq8CNGpKtnTOJ6i40MRtTLkfLTrKJz1cxuX90-HhaJBL1XX4) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 170
+  },
+  {
+    "traded_at": "2026-07-27T13:30:21.684Z",
+    "symbol": "VG",
+    "side": "SELL",
+    "qty": 3,
+    "price": 13.94,
+    "fee": 0,
+    "note": "Manager 결정 매도 — SL $13.95 이탈(-6.5%) + 5일 패자 상한 초과 + 지표 부재. 2/2 SELL 방향 일치. (p2DzWhgR-PMXycd7Bq8CNGpKtnTOJ6i40MRtTLkfLTrKJz1cxuX90-HhaJBL1XX4) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 171
+  },
+  {
+    "traded_at": "2026-07-27T13:30:22.106Z",
+    "symbol": "CIFR",
+    "side": "SELL",
+    "qty": 3.144042,
+    "price": 23.47,
+    "fee": 0,
+    "note": "손절: 현재가 $23.44 ≤ SL $23.77 (AizQSq0Ls7q09LKdjRZ23ujpDt-_aMWiqLxEknPP5mjHABtCalMxjaCfD0wwvi7n) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 172
+  },
+  {
+    "traded_at": "2026-07-27T13:30:23.598Z",
+    "symbol": "CVE",
+    "side": "SELL",
+    "qty": 0.940392,
+    "price": 28.27,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 3일차 패자 상한(규칙12) + 지표 2사이클 부재 + 스크리닝 탈락 — 데이터부재 종목 원장 전패 패턴 재현 차단. (s_Q3Wi_q3YyEMGnI5Hg54VezOqMDNiaJDDNhIznClFuxEM6iF0GZrYqJ3SIpWI1z) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 173
+  },
+  {
+    "traded_at": "2026-07-28T13:30:21.235Z",
+    "symbol": "TEAM",
+    "side": "BUY",
+    "qty": 1,
+    "price": 98.2,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 수주 만의 첫 2/2 합의 '상'(규칙2 충족) — score 0.79, RSI 58.6 비과열 정배열. 정수 1주로 소수점 거부·미체결 재발  (-GG_WAVLVq-cNcEmJERKNTJehMVEwbMZQBoP1M0oEdZLSC1Vx7pvEH1PpJP7axC-)",
+    "id": 174
+  },
+  {
+    "traded_at": "2026-07-29T13:30:18.013Z",
+    "symbol": "DRS",
+    "side": "SELL",
+    "qty": 0.826656,
+    "price": 49.02,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 지표 부재 2사이클째 — 지난 사이클 사전 약속('차기 부재 시 기계적 정리') 집행, +1.8%에서 위험 제거. (mepWQ6ZOlVrtLoLoX5FM_g6Zi2fyfQh37r_aHHQudDU2vXCrX5QnUoDU2x4jm7ax) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 175
+  },
+  {
+    "traded_at": "2026-07-29T13:30:20.059Z",
+    "symbol": "ARWR",
+    "side": "SELL",
+    "qty": 1.212847,
+    "price": 85.495,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 지표 부재 2사이클 + 패자 7일차(규칙12 초과) + 근거 검증 불능(규칙8) — 얕은 -1.9%에서 절단. (7JHY08DIFocmGs8AHmNgw2YTMFD2P--KDEHVZWHirlfE4V1NluaYlQudzTMz61lV) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 176
+  },
+  {
+    "traded_at": "2026-07-29T13:30:36.834Z",
+    "symbol": "FIG",
+    "side": "BUY",
+    "qty": 6,
+    "price": 24.45,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 2/2 공동 1순위(GPT 상·Claude 중), score 0.79, RSI 59.9 비과열 정배열, 데이터 완비 — 표준 예외로 신규 자금  (ZiDA2FSQnDlXOHEdL5CkxoDbBJv-a91NBjaSPyvhXICeWbQhqaR1pW5HtTGzF-BF)",
+    "id": 177
+  },
+  {
+    "traded_at": "2026-07-30T13:30:12.637Z",
+    "symbol": "GPN",
+    "side": "SELL",
+    "qty": 0.618676,
+    "price": 86.86,
+    "fee": 0,
+    "note": "Manager 결정 매도 — TP1 $88.00 사실상 도달(+8.8%, 원장 평균익절 +8.4%와 일치) + 지표·뉴스 부재로 2/2 '확신도 낮음' 자인 = 저널 기준  (fVz1ogqXKqNs4DjMxHszS3xfAaL0tfXMrPNGffd8MiTYAAsZa7N_mTTgA8oJm7HP) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 178
+  },
+  {
+    "traded_at": "2026-07-30T13:30:29.438Z",
+    "symbol": "WDAY",
+    "side": "BUY",
+    "qty": 0.5525208764990268,
+    "price": 159.27,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 이번 사이클 유일 2/2 공동 추천(Claude 상·GPT 중), score 0.79·RSI 63.4 비과열·EMA20>EMA50 정배열·거래대 (H8ebmUpADZYhmjbhBibratPOT1vSUtUutUFwPU9F7Qw5Dn7iJcWNBBjiC0g-djLQ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 179
+  },
+  {
+    "traded_at": "2026-07-31T13:30:16.774Z",
+    "symbol": "FIG",
+    "side": "SELL",
+    "qty": 6,
+    "price": 23.5,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 패자 15일차로 규칙12 상한(3일) 대폭 초과 + 지표·뉴스 부재로 최초 근거(RSI 정배열) 검증 불능(규칙8) + 2/2 확신 소멸 — 원 (ZiDA2FSQnDlXOHEdL5CkxoOa-06C0bdqjzg8XCjhIUI9U9VetnTgvt_nX641mLAw) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 180
+  },
+  {
+    "traded_at": "2026-07-31T15:20:31.649Z",
+    "symbol": "TEAM",
+    "side": "SELL",
+    "qty": 1,
+    "price": 98.65,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 직전 리포트 사전공약 집행 — 지표·뉴스 부재 2사이클 확정으로 최초 근거 검증 불능(규칙8), 2/2 HOLD이나 양측 '확신도 낮음' 자인은 (-GG_WAVLVq-cNcEmJERKNQer5juQmRuo2ZtpkIweY6W_V0qFwtRquR-8SiY1J0Yj) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 181
+  },
+  {
+    "traded_at": "2026-07-31T15:20:48.458Z",
+    "symbol": "CORT",
+    "side": "BUY",
+    "qty": 1.7736786094359702,
+    "price": 112.76,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 이번 사이클 유일한 2/2 '상' 합의(GPT·Claude 동시 최고확신) · 종합점수 0.76 스크린 최고 · EMA20 $95.15>EMA5 (9Czf6mjYkXHFXmjWAMlA4ZEOeVA4qFxHHWN_L_7orjG5MvCC3W8HmZtXtLYx8rI7) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 182
+  },
+  {
+    "traded_at": "2026-08-03T13:30:00.949Z",
+    "symbol": "CHRD",
+    "side": "BUY",
+    "qty": 0.3508771929824561,
+    "price": 139.65,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양 에이전트 공동 1순위 유일 교집합(GPT '상'/Claude '중') · RSI 62.3으로 후보 중 유일한 비과열 · EMA20 $131. (eoJqk9qOvq0n09cY5RWjojXWsactF1k0pYfHcwTZl7bTAej1_qZb6mJV2R6wEBLV) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 183
+  },
+  {
+    "traded_at": "2026-08-04T13:30:07.471Z",
+    "symbol": "WDAY",
+    "side": "SELL",
+    "qty": 0.551075,
+    "price": 162.16,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 규칙14 발동 — 두 에이전트 모두 '지표 없어 확신 낮음'을 자인해 보유 근거가 아닌 정리 신호. 지표부재 4사이클째이며 +4.17%→+0.3 (H8ebmUpADZYhmjbhBibrahTXX-IUFyzPG52lEk1aZPB6ItGkZN7Eb65rXKjBxYUg) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 184
+  },
+  {
+    "traded_at": "2026-08-04T13:30:24.349Z",
+    "symbol": "HPE",
+    "side": "BUY",
+    "qty": 1.643416778138735,
+    "price": 52.33,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 이번 사이클 유일한 '상' 확신(GPT 종합점수 0.79 1순위) + Claude도 BUY로 2/2 교집합 · RSI 64.0 비과열 · EMA (P6orxuLJmzpzti92bdN8d5H394a8JHd902SkmA2HjKVXViphmrbVQh-cBprJJoPo) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 185
+  },
+  {
+    "traded_at": "2026-08-05T13:30:22.521Z",
+    "symbol": "CORT",
+    "side": "SELL",
+    "qty": 1.770123,
+    "price": 111,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 규칙11·12·14 3중 발동 전량 청산 — ① 손실 종목 보유 4일차로 규칙12(패자 3일 상한) 초과 ② GPT '지표 없음'·Claude  (9Czf6mjYkXHFXmjWAMlA4X7i6XOohe1EPGnO9nuGk6-Hml8cp1_YUYsgeUKObmeU) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 186
+  },
+  {
+    "traded_at": "2026-08-05T15:20:36.250Z",
+    "symbol": "CHRD",
+    "side": "SELL",
+    "qty": 0.357445,
+    "price": 132.24,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 규칙11·14 동시 발동 전량 청산 — 지표·뉴스 공급이 2사이클 연속 끊긴 상태에서 -3.33% 손실 구간이므로 규칙11의 '즉시 정리' 대상 (eoJqk9qOvq0n09cY5RWjovRNFfE_Q-_KVDKYHQreE4MuwpioL1cFQ3sQWu9Eg32c) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 187
+  },
+  {
+    "traded_at": "2026-08-06T15:10:21.435Z",
+    "symbol": "HPE",
+    "side": "SELL",
+    "qty": 1.644257,
+    "price": 53.135,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 규칙11·14 동시 발동 전량 청산 — ①지표·뉴스 공급이 8/6·8/7 2사이클 연속 부재(GPT '지표·뉴스가 없어 확신도는 낮다', Cla (P6orxuLJmzpzti92bdN8dzj3ExNhf_FjVS0XLjnIfmivwyYWVcLub_l83X4iD3S2) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 188
+  },
+  {
+    "traded_at": "2026-08-07T13:30:06.396Z",
+    "symbol": "W",
+    "side": "BUY",
+    "qty": 3.006724303554275,
+    "price": 104.1,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 규칙1을 형식·실질 모두 충족한 최고품질 신호 — GPT '확신도: 상'·Claude '확신도: 상'의 진짜 2/2 합의이고, 양측이 각자 진입 (NLCHAEvl7t8Ds54e_FQvza85cNbivWvRBaEj8oFxlPQRNaHNL3G9XxwhE7JtoYQN) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 189
   }
 ]
