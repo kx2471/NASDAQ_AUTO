@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { isNasdaqOpen } from '../utils/marketday';
 import { generateManagerReport, saveManagerReport } from '../services/manager';
-import { parseManagerDecision, saveDecision, isDecisionExecuted, markDecisionExecuted } from '../services/decision';
+import { parseManagerDecision, saveDecision, isDecisionExecuted, markDecisionExecuted, saveExecutionOutcomes } from '../services/decision';
 import { reconcileWithToss, applyDecisionToPositions } from '../storage/positions';
 
 // 환경변수 로드
@@ -97,10 +97,22 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
               const summary = await executeDecision(decision);
               // 실주문 체결이 있었으면 집행 마킹 + 결과 저장 + 포지션 재동기화
               // (dry-run은 마킹 안 함 — 테스트 반복 허용). 집행 결과는 다음 사이클 Manager 피드백.
-              if (summary.executed.some(r => !r.dryRun)) {
-                await markDecisionExecuted(reportId, buildExecutionOutcomes(decision, summary));
+              // 결과 기록과 실집행 마킹은 목적이 다르므로 조건을 분리한다.
+              //  - 실집행 마킹: 이중 매매 방지용 → 실제 체결이 있을 때만
+              //  - 결과 기록: Manager 학습 피드백용 → 거부·실패도 반드시 남겨야 한다
+              // (2026-08-14: CRDO가 일일 한도로 두 번 거부됐는데 성공 0건이라 결과가
+              //  통째로 누락됐고, Manager는 그 사실을 모른 채 같은 요청을 더 큰 금액으로
+              //  반복했다. "거부 원인을 분석하고 실행 가능한 형태로 제시하라"는 지시가
+              //  피드백 부재로 무력화된 사례)
+              const outcomes = buildExecutionOutcomes(decision, summary);
+              const hasRealFill = summary.executed.some(r => !r.dryRun);
+              if (hasRealFill) {
+                await markDecisionExecuted(reportId, outcomes);
                 await reconcileWithToss();
                 await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
+              } else if (summary.failed.length > 0) {
+                await saveExecutionOutcomes(reportId, outcomes);
+                console.warn(`⚠️ 체결 0건 — 거부·실패 ${summary.failed.length}건을 결과로 기록 (다음 사이클 Manager 입력)`);
               }
             } else {
               console.warn('⚠️ 정규장이 90분 내에 열리지 않아 결정 집행을 건너뜁니다 (휴장일 가능성).');

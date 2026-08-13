@@ -1,5 +1,5 @@
 import { ManagerDecision, DecisionItem, ExecutionOutcome } from './decision';
-import { executeBuy, executeSell, TradeResult, getMaxOrderUsd } from './trading';
+import { executeBuy, executeSell, TradeResult, getMaxOrderUsd, getRemainingDailyBuyUsd } from './trading';
 import { isUsRegularSessionOpen, getSellableQuantity, getPrices } from './toss';
 
 /**
@@ -69,6 +69,37 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
         };
       }
       console.warn(`⚠️ ${item.symbol}: ${qty}주×$${refPrice.toFixed(2)}=$${(qty * refPrice).toFixed(2)} > 한도 $${maxOrder} — ${clamped}주로 축소`);
+      qty = clamped;
+    }
+  }
+
+  // 일일 누적 한도 클램프: 종목당 한도와 같은 원리로, 남은 여력을 넘으면 거부 대신 축소한다.
+  // (2026-08-14 CRDO: $150·$295 두 번 요청 → 두 번 다 전량 거부. 남은 여력 $133로 줄였으면
+  //  체결됐다. 게다가 거부는 execution_outcomes에 안 남아 Manager가 학습도 못 했다)
+  // 한도 자체는 그대로이며, executeOrder의 최후 검사도 유지된다 — 여기선 사전 축소만 한다.
+  const remainingDaily = await getRemainingDailyBuyUsd();
+  const MIN_ORDER_USD = 5; // 남은 여력이 이보다 작으면 의미 있는 주문이 안 된다
+  if (remainingDaily < MIN_ORDER_USD) {
+    return {
+      success: false, dryRun: false, symbol: item.symbol, side: 'BUY',
+      error: `일일 매수 한도 소진 — 남은 여력 $${remainingDaily.toFixed(2)} (최소 주문 $${MIN_ORDER_USD} 미만).`
+    };
+  }
+  if (amount !== undefined && amount > remainingDaily) {
+    console.warn(`⚠️ ${item.symbol}: 결정 금액 $${amount} > 일일 잔여 한도 $${remainingDaily.toFixed(2)} — 잔여 한도로 축소`);
+    amount = Math.floor(remainingDaily * 100) / 100; // 부동소수 오차로 한도를 넘지 않도록 내림
+  }
+  if (qty !== undefined) {
+    const refPrice = item.limit_price ?? (await getPrices([item.symbol]))[item.symbol];
+    if (refPrice && qty * refPrice > remainingDaily) {
+      const clamped = Math.floor(remainingDaily / refPrice);
+      if (clamped < 1) {
+        return {
+          success: false, dryRun: false, symbol: item.symbol, side: 'BUY',
+          error: `1주 가격 $${refPrice.toFixed(2)}이 일일 잔여 한도 $${remainingDaily.toFixed(2)}를 초과해 매수 불가.`
+        };
+      }
+      console.warn(`⚠️ ${item.symbol}: ${qty}주×$${refPrice.toFixed(2)} > 일일 잔여 $${remainingDaily.toFixed(2)} — ${clamped}주로 축소`);
       qty = clamped;
     }
   }

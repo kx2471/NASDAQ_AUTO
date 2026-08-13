@@ -64,6 +64,20 @@ function getMaxDailyBuyUsd(): number {
 }
 
 /**
+ * 이번 세션에 남은 매수 여력(USD) 조회 — 집행기의 사전 클램프용.
+ *
+ * 한도 자체는 바꾸지 않는다. executeOrder의 최후 검사는 그대로 유지되고,
+ * 이 값은 "거부당할 금액으로 주문을 보내지 않기 위해" 미리 줄이는 데만 쓴다.
+ * (2026-08-14: CRDO를 $150·$295로 두 번 요청해 두 번 다 거부됐다. 남은 여력
+ *  $133로 줄였으면 체결됐을 건이다 — 종목당 한도에는 이미 같은 클램프가 있다)
+ * @returns 남은 매수 가능 금액(USD, 0 이상)
+ */
+export async function getRemainingDailyBuyUsd(): Promise<number> {
+  const spent = await getRecentBuyNotional();
+  return Math.max(0, getMaxDailyBuyUsd() - spent);
+}
+
+/**
  * LIMIT 가격이 현재가에서 벗어날 수 있는 최대 비율(%) 조회
  * - TOSS_MAX_PRICE_DEVIATION_PCT 미설정 시 기본값 20%
  * - LLM이 환각으로 엉뚱한 지정가를 내는 것을 차단

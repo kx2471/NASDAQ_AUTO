@@ -287,8 +287,21 @@ export async function buildTradingWindowFacts(): Promise<string> {
     ? weekBuys.map(t => `  - ${kstDate(new Date(t.traded_at))}(${kstWd(new Date(t.traded_at))}) ${t.symbol} @$${t.price}`).join('\n')
     : '  (없음)';
 
+  // 일일 매수 여력 — 현금과 별개로 걸리는 제약이라 모르면 매번 거부당한다.
+  // (2026-08-14 CRDO: 현금 $330을 보고 $295를 요청했으나 남은 여력은 $133이었다)
+  let dailyLine = '';
+  try {
+    const { getRemainingDailyBuyUsd } = await import('./trading');
+    const remaining = await getRemainingDailyBuyUsd();
+    dailyLine = `**이번 세션 남은 매수 여력: $${remaining.toFixed(2)}** — 보유 현금과 별개 제약이다. ` +
+      `이 금액을 넘겨 요청하면 집행기가 이 금액으로 축소하므로, 배분은 처음부터 이 안에서 계획하라.`;
+  } catch {
+    dailyLine = '남은 매수 여력 조회 실패 — 보수적으로 배분할 것.';
+  }
+
   return [
     `오늘: ${kstDate(now)}(${kstWd(now)}, KST 기준) · 이번 주 시작: ${monday}(Mon)`,
+    dailyLine,
     `**이번 주 매수 집행 ${weekBuys.length}건** — 규칙3(주간 상한) 판정은 이 숫자를 그대로 쓸 것:`,
     list,
     `주문·체결 타이밍(확정 사실, 추론하지 말 것):`,

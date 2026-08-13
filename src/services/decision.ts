@@ -160,6 +160,28 @@ export async function markDecisionExecuted(reportId: string, outcomes?: Executio
 }
 
 /**
+ * 집행 결과만 기록 (executed_at은 건드리지 않음)
+ *
+ * 체결이 0건이라 '실집행'으로 마킹하면 안 되지만, 거부·실패 사실은 다음 사이클
+ * Manager 입력에 반드시 들어가야 하는 경우에 쓴다. executed_at을 세우지 않으므로
+ * 이중 매매 방지 판정(isDecisionExecuted)에는 영향이 없다.
+ * @param reportId 대상 결정의 report_id
+ * @param outcomes 종목별 집행 결과
+ */
+export async function saveExecutionOutcomes(reportId: string, outcomes: ExecutionOutcome[]): Promise<void> {
+  await db.withLock(DECISIONS_FILE, async () => {
+    const all = await db.read<ManagerDecision>(DECISIONS_FILE);
+    for (let i = all.length - 1; i >= 0; i--) {
+      if (all[i].report_id === reportId) {
+        all[i].execution_outcomes = outcomes;
+        break;
+      }
+    }
+    await db.write(DECISIONS_FILE, all);
+  });
+}
+
+/**
  * 최근 결정 조회
  * @param limit 최대 개수
  */
