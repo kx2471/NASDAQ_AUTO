@@ -201,9 +201,28 @@ export async function applyDecisionToPositions(decision: ManagerDecision): Promi
       const p = bySymbol.get(action.symbol);
       if (!p || p.status !== 'OPEN') continue; // 미보유 신규매수는 decisions.json에만 기록
 
-      if (action.stop_loss !== undefined) p.stop_loss = action.stop_loss;
-      if (action.take_profit_1 !== undefined) p.take_profit_1 = action.take_profit_1;
-      if (action.take_profit_2 !== undefined) p.take_profit_2 = action.take_profit_2;
+      // 신규 매수의 SL/TP는 '계획 진입가(limit_price)' 기준으로 계산된 절대가다.
+      // 실체결가가 다르면 의도한 손절폭·목표폭이 그대로 어긋난다 — 특히 금액(amount)
+      // 주문은 토스 스펙상 MARKET으로 보정되므로 지정가를 넘겨 체결될 수 있다.
+      // 실측(2026-08-13 NBIS): 계획 $253 → 실체결 $261.26. TP1 $270.54가 의도상
+      // +8%인데 실체결 대비 +3.55%가 되어 매수 3분 만에 익절이 발동했고,
+      // SL은 -8% 의도가 -11.77%로 벌어져 리스크가 계획보다 커졌다.
+      // 계획 기준가가 있고 1% 넘게 벌어졌으면 비율을 보존해 재정렬한다.
+      // (HOLD는 Manager가 현재 평단을 보고 정한 값이므로 손대지 않는다)
+      const planned = action.limit_price ?? 0;
+      const actual = p.avg_cost ?? 0;
+      const needsRescale = action.action === 'BUY' && planned > 0 && actual > 0
+        && Math.abs(actual - planned) / planned > 0.01;
+      const rescale = needsRescale
+        ? (v: number) => Math.round((v / planned) * actual * 100) / 100
+        : null;
+      if (needsRescale) {
+        console.log(`📐 ${action.symbol} SL/TP 재정렬: 계획 $${planned} → 실체결 $${actual.toFixed(2)} (${((actual - planned) / planned * 100).toFixed(2)}%)`);
+      }
+
+      if (action.stop_loss !== undefined) p.stop_loss = rescale ? rescale(action.stop_loss) : action.stop_loss;
+      if (action.take_profit_1 !== undefined) p.take_profit_1 = rescale ? rescale(action.take_profit_1) : action.take_profit_1;
+      if (action.take_profit_2 !== undefined) p.take_profit_2 = rescale ? rescale(action.take_profit_2) : action.take_profit_2;
       if (action.time_horizon) p.time_horizon = action.time_horizon;
       if (action.rationale) p.rationale = action.rationale;
       p.source_report_id = decision.report_id;
