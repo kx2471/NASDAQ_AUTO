@@ -1868,5 +1868,55 @@
     "fee": 0,
     "note": "1차 익절: 현재가 $37.3355 ≥ TP1 $37.26 (2SIpZoL0sttxQlQSjeHRfzVGasAflniUMrvgrAvQOSR0Pno4wJxbTeQxBlh1WwiS) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 191
+  },
+  {
+    "traded_at": "2026-08-13T13:30:25.370Z",
+    "symbol": "W",
+    "side": "SELL",
+    "qty": 2.951025,
+    "price": 102.045,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 3사이클 연속 기각해온 GPT의 전량매도 권고를 이번에 채택한다. 과거 기각의 3대 근거가 오늘 모두 소멸했다: ①3사이클간 HOLD를 주장했던 (NLCHAEvl7t8Ds54e_FQvzVwPN1VXWFQia7GIrz-EL__-WN_94rhCj5NZaXs4WHx3) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 192
+  },
+  {
+    "traded_at": "2026-08-13T13:30:42.197Z",
+    "symbol": "NBIS",
+    "side": "BUY",
+    "qty": 1.021970450891832,
+    "price": 261.26,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 5사이클 만에 규칙1의 3조건을 온전히 충족한 첫 진짜 2/2 '상' 신호다. ①GPT '확신도: 상'·Claude '확신도: 상'으로 양측이  (AG9xMLu6jj7lhXzLem2dA4KyWz0TeYgfguzpfL074SB4J0VBD5TEadZmQHyhen6i) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 193
+  },
+  {
+    "traded_at": "2026-08-13T13:33:17.579Z",
+    "symbol": "NBIS",
+    "side": "SELL",
+    "qty": 0.511005,
+    "price": 270.9603,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $270.7349 ≥ TP1 $270.54 (AG9xMLu6jj7lhXzLem2dA4KyWz0TeYgfguzpfL074SCc9k0wqD23t-1nCMLLa0xg) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 194
+  },
+  {
+    "traded_at": "2026-08-13T14:19:19.580Z",
+    "symbol": "SMCI",
+    "side": "SELL",
+    "qty": 0.317206,
+    "price": 41.1499,
+    "fee": 0,
+    "note": "2차 익절: 현재가 $41.145 ≥ TP2 $41.06 (2SIpZoL0sttxQlQSjeHRfz8dBOrmTBU47FVofsvIKKSvfj_v2Ygy3E_dmuNXDVFB) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 195
+  },
+  {
+    "traded_at": "2026-08-13T15:49:19.869Z",
+    "symbol": "NBIS",
+    "side": "SELL",
+    "qty": 0.511007,
+    "price": 259.3101,
+    "fee": 0,
+    "note": "손절: 현재가 $259.47 ≤ SL $260.12 (AG9xMLu6jj7lhXzLem2dA4KyWz0TeYgfguzpfL074SDp2LzAnlqimr2Qc2-SM-Z4) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 196
   }
 ]
