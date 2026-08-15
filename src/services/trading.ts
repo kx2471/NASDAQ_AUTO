@@ -72,8 +72,8 @@ function getMaxDailyBuyUsd(): number {
  *  $133로 줄였으면 체결됐을 건이다 — 종목당 한도에는 이미 같은 클램프가 있다)
  * @returns 남은 매수 가능 금액(USD, 0 이상)
  */
-export async function getRemainingDailyBuyUsd(): Promise<number> {
-  const spent = await getRecentBuyNotional();
+export async function getRemainingDailyBuyUsd(sessionStart?: number): Promise<number> {
+  const spent = await getRecentBuyNotional(sessionStart);
   return Math.max(0, getMaxDailyBuyUsd() - spent);
 }
 
@@ -100,7 +100,13 @@ function isUsTicker(symbol: string): boolean {
  * 최근 24시간 실집행 매수 총액(USD) 계산 (trades.json 기준)
  * - dry-run 주문은 기록되지 않으므로 한도를 소모하지 않는다.
  */
-async function getRecentBuyNotional(): Promise<number> {
+async function getRecentBuyNotional(cutoffOverride?: number): Promise<number> {
+  if (cutoffOverride !== undefined) {
+    const trades = await db.find<Trade>('trades', t =>
+      t.side === 'BUY' && new Date(t.traded_at).getTime() >= cutoffOverride
+    );
+    return trades.reduce((sum, t) => sum + t.qty * t.price, 0);
+  }
   // "일일" 한도의 창은 오늘 정규장 세션 시작부터 — 롤링 24시간을 쓰면
   // 전일 매수가 창에 남아 당일 매도 대금 재투자까지 막는다 (2026-07-14 실사고).
   // 캘린더 조회 실패 시에만 보수적으로 24시간 롤링으로 폴백.

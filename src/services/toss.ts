@@ -510,6 +510,27 @@ export async function getLatestSessionStart(): Promise<number | null> {
 }
 
 /**
+ * 집행이 일어날 세션의 시작 시각 — **판단(계획) 시점용**.
+ *
+ * getLatestSessionStart()는 "이미 시작된" 세션만 보므로 개장 전에는 어제 세션을
+ * 가리킨다. 그런데 리포트 파이프라인은 개장 40분 전(REPORT_LEAD_MINUTES)에 돌고
+ * 집행은 개장 후에 일어나므로, 판단 시점에 그 값을 쓰면 어제 매수액을 차감한
+ * 잘못된 여력을 계산한다.
+ * (2026-08-14 실측: 21:57 판단 시점에 "남은 여력 $133"이 주입됐으나 22:30 집행
+ *  시점의 실제 여력은 $400이었다. Manager가 쓸 수 있는 돈의 1/3만 배분했고,
+ *  한도 안이라 거부·클램프 어느 쪽도 걸리지 않아 조용히 지나갔다)
+ * @returns 개장 중이면 그 세션, 개장 전이면 곧 열릴 세션의 시작 epoch ms
+ */
+export async function getExecutionSessionStart(): Promise<number | null> {
+  const active = await getActiveRegularSession();
+  if (active) return active.start;
+  const { today, next } = await getUsMarketCalendar();
+  const now = Date.now();
+  if (today.regular && now < today.regular.start) return today.regular.start;
+  return next.regular?.start ?? null;
+}
+
+/**
  * 지금이 미국 정규장 시간인지 확인
  * - 프리마켓/애프터마켓/휴장은 모두 false — "정규장 전용 거래" 정책의 기준 함수
  * @returns 정규장 개장 중이면 true

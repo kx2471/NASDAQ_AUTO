@@ -289,10 +289,14 @@ export async function buildTradingWindowFacts(): Promise<string> {
 
   // 일일 매수 여력 — 현금과 별개로 걸리는 제약이라 모르면 매번 거부당한다.
   // (2026-08-14 CRDO: 현금 $330을 보고 $295를 요청했으나 남은 여력은 $133이었다)
+  // ⚠️ 기준은 '집행이 일어날 세션'이다. 파이프라인은 개장 40분 전에 도는데
+  // 그때 "이미 시작된 세션"을 쓰면 어제 매수액이 차감돼 여력을 과소 보고한다.
   let dailyLine = '';
   try {
     const { getRemainingDailyBuyUsd } = await import('./trading');
-    const remaining = await getRemainingDailyBuyUsd();
+    const { getExecutionSessionStart } = await import('./toss');
+    const sessionStart = await getExecutionSessionStart();
+    const remaining = await getRemainingDailyBuyUsd(sessionStart ?? undefined);
     dailyLine = `**이번 세션 남은 매수 여력: $${remaining.toFixed(2)}** — 보유 현금과 별개 제약이다. ` +
       `이 금액을 넘겨 요청하면 집행기가 이 금액으로 축소하므로, 배분은 처음부터 이 안에서 계획하라.`;
   } catch {
