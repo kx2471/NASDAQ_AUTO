@@ -1918,5 +1918,15 @@
     "fee": 0,
     "note": "손절: 현재가 $259.47 ≤ SL $260.12 (AG9xMLu6jj7lhXzLem2dA4KyWz0TeYgfguzpfL074SDp2LzAnlqimr2Qc2-SM-Z4) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 196
+  },
+  {
+    "traded_at": "2026-08-14T13:30:11.301Z",
+    "symbol": "TER",
+    "side": "BUY",
+    "qty": 0.3257030655760267,
+    "price": 408.3474,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 규칙1의 3조건을 온전히 충족한 진짜 2/2 '상' 신호다. ①GPT '확신도 상'·Claude '확신도 상'으로 양측이 나란히 최고 확신과 1 (6AXDmAOoVbT-adlBuI8c0BfoWWDofCIWwv3tbDb4tKmY5GdR0HCHZSg-uLdfXnZZ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 197
   }
 ]

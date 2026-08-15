@@ -310,5 +310,18 @@
     "daily_return_krw": 0,
     "daily_return_percent": 0,
     "target_progress": 3.93
+  },
+  {
+    "date": "2026-08-14",
+    "total_investment_krw": 188548,
+    "current_value_krw": 465729,
+    "total_return_krw": 277181,
+    "total_return_percent": 147.01,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -117336,
+    "total_return_from_initial_percent": -20.12,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 3.9
   }
 ]
