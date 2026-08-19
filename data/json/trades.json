@@ -1928,5 +1928,55 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 규칙1의 3조건을 온전히 충족한 진짜 2/2 '상' 신호다. ①GPT '확신도 상'·Claude '확신도 상'으로 양측이 나란히 최고 확신과 1 (6AXDmAOoVbT-adlBuI8c0BfoWWDofCIWwv3tbDb4tKmY5GdR0HCHZSg-uLdfXnZZ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 197
+  },
+  {
+    "traded_at": "2026-08-17T13:30:17.490Z",
+    "symbol": "NBIS",
+    "side": "BUY",
+    "qty": 0.6532626841837845,
+    "price": 275.54,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 규칙1의 3조건을 온전히 충족한 진짜 2/2 '상' 신호로, 3사이클 연속 '2/2 상 0종' 흐름을 깬 유일 종목이다. ①GPT '확신도 상' (AG9xMLu6jj7lhXzLem2dA6as1oBCfxgBbjcSYDq_DARTA7RHeTYoSjq0r2apzVZe) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 198
+  },
+  {
+    "traded_at": "2026-08-17T17:58:11.757Z",
+    "symbol": "TER",
+    "side": "SELL",
+    "qty": 0.162439,
+    "price": 441.76,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $441.76 ≥ TP1 $441.67 (6AXDmAOoVbT-adlBuI8c0GkXsG7zwMzXkTRWlX4W9z6R_rjzYClfcsP6g3Hn7WuB) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 199
+  },
+  {
+    "traded_at": "2026-08-18T13:45:14.197Z",
+    "symbol": "TER",
+    "side": "SELL",
+    "qty": 0.16244,
+    "price": 410.54,
+    "fee": 0,
+    "note": "손절: 현재가 $410.54 ≤ SL $410.84 (6AXDmAOoVbT-adlBuI8c0Iz1m1gop3h_o3Y3jYjN6SioOiZOGusGyHi3FbnRxBUl) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 200
+  },
+  {
+    "traded_at": "2026-08-18T15:09:10.313Z",
+    "symbol": "NBIS",
+    "side": "SELL",
+    "qty": 0.652265,
+    "price": 256,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 어제 리포트에서 '$261.90(-5%) 이탈 시 규칙10 조기경보를 다른 종목보다 엄격히 적용해 즉시 청산한다'고 사전 확약했고, 오늘 현재가 (AG9xMLu6jj7lhXzLem2dA_SYCzy4xc6iCJdLTYumABr_HFDnuss2U5M0_etYiW-X) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 201
+  },
+  {
+    "traded_at": "2026-08-18T17:27:44.341Z",
+    "symbol": "WDAY",
+    "side": "BUY",
+    "qty": 1.450100989176032,
+    "price": 193.09,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 규칙1의 3조건을 온전히 충족한 4사이클 만의 진짜 신호다. ①GPT '확신도 상'(1순위, 핵심 한줄 요약 '가장 강한 확신: WDAY BUY (H8ebmUpADZYhmjbhBibrarxGB8Qj3pmCVkuqCSGvT_0Z0J5D1GTXvF943Yzrm7jZ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 202
   }
 ]
