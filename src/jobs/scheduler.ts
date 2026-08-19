@@ -28,6 +28,18 @@ let lastWeeklyReviewDate = ''; // 주간 회고를 실행한 KST 일요일 (메�
 let pipelineRunning = false;  // 리포트 파이프라인 동시 실행 방지
 let watcherRunning = false;   // 감시 틱 겹침 방지
 
+// 개장 전 파이프라인 재시도 (LLM 일시 장애 대비)
+// 중복 방지 플래그(lastReportDate)를 실행 "전"에 확정하므로, 파이프라인이 실패하면
+// 되돌리지 않는 한 그날 매매가 통째로 사라진다.
+// (2026-08-19 02:13 Anthropic 529 overloaded_error로 Manager 단계 실패. 장중 재배치는
+//  10분마다 조건을 재검사해 우연히 재시도됐고 그 두 번째 시도가 WDAY $280 매수를 냈다.
+//  정규 사이클엔 그 안전망이 없어 같은 529 한 번에 그날이 날아간다)
+// 리드타임 40분 안에서만 재시도하며(개장 후엔 트리거 조건 자체가 거짓), 영구 실패로
+// 토큰을 태우지 않도록 횟수를 제한한다.
+let reportRetryCount = 0;
+let reportRetryDate = '';
+const MAX_REPORT_RETRIES = 2; // 최초 1회 + 재시도 2회 = 최대 3회
+
 // 마지막 실행일을 디스크에 보존 — 서버가 리포트 후 재시작돼도 같은 날 중복 실행
 // (LLM 비용 2배 + 결정 이중 집행 위험)을 막는다
 const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.json');
@@ -147,10 +159,10 @@ async function getCashRatio(): Promise<number> {
  * @param reportIdSuffix 결정 report_id 접미사 — 장중 재배치는 '-i1'로 구분해
  *                       개장 전 결정의 이중 집행 가드와 충돌하지 않게 한다
  */
-export async function runReportPipeline(reportIdSuffix: string = ''): Promise<void> {
+export async function runReportPipeline(reportIdSuffix: string = ''): Promise<boolean> {
   if (pipelineRunning) {
     console.warn('⚠️ 리포트 파이프라인이 이미 실행 중입니다 — 이번 실행을 건너뜁니다.');
-    return;
+    return false;
   }
   pipelineRunning = true;
   const startedAt = Date.now();
@@ -160,8 +172,10 @@ export async function runReportPipeline(reportIdSuffix: string = ''): Promise<vo
     await runWeekly();
     await runManager(reportIdSuffix);
     console.log(`🎉 리포트 파이프라인 완료 (${Math.round((Date.now() - startedAt) / 1000)}초 소요)`);
+    return true;
   } catch (error) {
     console.error('❌ 리포트 파이프라인 실패:', error);
+    return false;
   } finally {
     pipelineRunning = false;
   }
@@ -215,10 +229,23 @@ async function tick(): Promise<void> {
         lastReportDate = today.date; // 재시작 전 이미 실행됨 — 메모리 캐시만 복구
         return;
       }
+      if (reportRetryDate !== today.date) { reportRetryDate = today.date; reportRetryCount = 0; }
       lastReportDate = today.date;
       await saveState({ lastReportDate: today.date });
       console.log(`⏰ 개장 ${Math.round((today.regular.start - now) / 60000)}분 전 — 리포트 파이프라인 트리거 (영업일 ${today.date})`);
-      void runReportPipeline();
+      // 실패 시 중복 방지 플래그를 되돌려 다음 틱이 재시도하게 한다.
+      // 이미 집행까지 끝난 뒤의 실패라면 재실행돼도 isDecisionExecuted 가드가 이중 집행을 막는다.
+      void runReportPipeline().then(async ok => {
+        if (ok) return;
+        if (reportRetryCount >= MAX_REPORT_RETRIES) {
+          console.error(`❌ 리포트 파이프라인 ${reportRetryCount + 1}회 실패 — 오늘(${today.date})은 더 재시도하지 않습니다.`);
+          return;
+        }
+        reportRetryCount++;
+        lastReportDate = '';
+        await saveState({ lastReportDate: '' });
+        console.warn(`🔁 파이프라인 실패 — 재시도 예약 (${reportRetryCount}/${MAX_REPORT_RETRIES}), 다음 틱에 재실행 (개장 전까지만)`);
+      });
     }
 
   } catch (error: any) {
