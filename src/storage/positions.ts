@@ -97,15 +97,26 @@ async function deriveOpenedAt(symbol: string): Promise<string> {
 
   trades.sort((a, b) => new Date(a.traded_at).getTime() - new Date(b.traded_at).getTime());
 
+  // ⚠️ "전량 매도"가 실제로는 전량이 아니다. 매도 수량은 getSellableQuantity로 보정되며
+  // 소수점이 잘려, 산 수량보다 미세하게 적게 팔린다(실측 0.001~0.0015주 잔여).
+  // 절대 임계값 0.0001은 이 먼지보다 10배 이상 작아 사이클이 닫히지 않았다.
+  // (2026-08-24 WDAY: 7/30 매수 → 8/4 매도 후 0.00145주 잔여 → 8/19 재진입이
+  //  7/30 사이클의 추가매수로 처리돼 held_days가 5일 대신 25일로 주입됐다)
+  // 종목 가격대에 무관하도록 "그 사이클 최대 보유량의 1%" 비율 기준으로 판정한다.
+  const DUST_RATIO = 0.01;
   let shares = 0;
+  let cyclePeak = 0;
   let cycleStart: string | null = null;
+  const isDust = () => shares < Math.max(cyclePeak * DUST_RATIO, 1e-9);
+
   for (const t of trades) {
     if (t.side === 'BUY') {
-      if (shares < 0.0001) cycleStart = t.traded_at; // 잔량 0에서의 매수 = 새 사이클 시작
+      if (isDust()) { cycleStart = t.traded_at; cyclePeak = 0; } // 먼지만 남은 상태에서의 매수 = 새 사이클
       shares += t.qty;
+      cyclePeak = Math.max(cyclePeak, shares);
     } else {
       shares -= t.qty;
-      if (shares < 0.0001) cycleStart = null; // 전량 매도 → 사이클 종료
+      if (isDust()) cycleStart = null; // 사실상 전량 매도 → 사이클 종료
     }
   }
 
@@ -145,6 +156,16 @@ export async function reconcileWithToss(): Promise<Position[]> {
         delete prev.rationale;
         delete prev.source_report_id;
         prev.opened_at = await deriveOpenedAt(h.symbol);
+      }
+      // opened_at은 매번 원장에서 재도출한다. status가 CLOSED를 거치지 않은
+      // 재진입(먼지 잔량이 남아 계속 OPEN으로 보인 경우)에서는 위 초기화 블록이
+      // 실행되지 않아 이전 사이클의 진입 시각이 그대로 남기 때문이다.
+      // (2026-08-24 WDAY: 8/4 매도 후 0.00145주가 남아 CLOSED가 안 됐고,
+      //  8/19 재진입에도 opened_at이 7/30으로 유지돼 held_days가 26일로 주입됐다)
+      const derived = await deriveOpenedAt(h.symbol);
+      if (derived !== prev.opened_at) {
+        console.log(`🗓️ ${h.symbol} 진입시각 정정: ${prev.opened_at.slice(0, 10)} → ${derived.slice(0, 10)}`);
+        prev.opened_at = derived;
       }
       prev.shares = h.shares;
       prev.avg_cost = h.avg_cost;
