@@ -1978,5 +1978,25 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 규칙1의 3조건을 온전히 충족한 4사이클 만의 진짜 신호다. ①GPT '확신도 상'(1순위, 핵심 한줄 요약 '가장 강한 확신: WDAY BUY (H8ebmUpADZYhmjbhBibrarxGB8Qj3pmCVkuqCSGvT_0Z0J5D1GTXvF943Yzrm7jZ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 202
+  },
+  {
+    "traded_at": "2026-08-26T13:30:09.736Z",
+    "symbol": "WDAY",
+    "side": "SELL",
+    "qty": 1.447171,
+    "price": 188.98,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 8/25 리포트에서 규칙5가 유효하다고 명시한 유일한 사전확약 형태('매도 만료일 확약')로 못박은 조건이 오늘 성립했으므로 기계 집행한다. 확 (H8ebmUpADZYhmjbhBibran4CO2GBSily9d-srljoYdOG8UoMKfPBxn9J_DFS8lCg) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 203
+  },
+  {
+    "traded_at": "2026-08-26T13:30:26.589Z",
+    "symbol": "MP",
+    "side": "BUY",
+    "qty": 4.168726314055034,
+    "price": 60.69,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 3사이클 연속으로 규칙1과 규칙2를 온전히 충족한 유일한 신호이며, 오늘 처음으로 규칙12의 자금 하한까지 충족해 집행 조건이 완성됐다. ①GP (ic5yDNKRSByd5dj19f-7D2o874pRnBZG9uoWg2cpABYmL_tmZEGL4WLsXDzk96Tn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 204
   }
 ]
