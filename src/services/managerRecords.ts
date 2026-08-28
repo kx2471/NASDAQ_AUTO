@@ -45,6 +45,23 @@ function classifyExit(note: string | undefined): ExitReason {
   return '기타';
 }
 
+/**
+ * 현재 자동매매 시스템의 가동 시작일 (KST). 이전 기록은 학습 대상에서 제외한다.
+ *
+ * trades.json에는 2025-09~12월 구 시스템(수동/GitHub Actions 시절, 다른 프롬프트·
+ * 다른 모델·다른 집행 방식) 기록 123건이 남아 있다. 이걸 섞어 통계를 내면
+ * Manager가 자기 성적을 오판한다 — 실측(2026-08-28): 혼합 시 승률 47%·"기타 55건
+ * 평균 +1.9%"로 보이지만, 현재 시스템만 보면 승률 34%·금액가중 -1.70%다.
+ * 6주간 규칙서가 "데이터로 확인됐다"며 인용해 온 근거의 상당수가 구 시스템 것이었다.
+ */
+const SYSTEM_START_AT = '2026-07-13T00:00:00+09:00';
+
+/** 현재 시스템 가동 이후의 거래만 남긴다 (학습 통계 오염 차단). */
+function onlyCurrentSystem<T extends { traded_at: string }>(rows: T[]): T[] {
+  const cutoff = new Date(SYSTEM_START_AT).getTime();
+  return rows.filter(r => new Date(r.traded_at).getTime() >= cutoff);
+}
+
 /** JSON 파일을 안전하게 배열로 읽는다 (없거나 깨지면 빈 배열). */
 async function readJsonArray<T>(file: string): Promise<T[]> {
   try {
@@ -103,7 +120,7 @@ function reconstructRoundTrips(trades: RawTrade[]): RoundTrip[] {
 
 /** ① 실현 손익 원장 — 완료 매매의 승률·평균 익절/손절폭·평균 보유일 + 최근 청산 표. */
 export async function buildRealizedLedger(): Promise<string> {
-  const trades = await readJsonArray<RawTrade>('trades');
+  const trades = onlyCurrentSystem(await readJsonArray<RawTrade>('trades'));
   const trips = reconstructRoundTrips(trades);
   if (trips.length === 0) return '완료된(청산) 매매 없음 — 아직 실현 손익 이력 없음. 첫 회전 매매의 결과가 여기 쌓인다.';
 
@@ -191,7 +208,7 @@ export async function buildPerformanceTrajectory(): Promise<string> {
 export async function buildDecisionOutcomes(): Promise<string> {
   const [decisions, trades] = await Promise.all([
     getRecentDecisions(6),
-    readJsonArray<RawTrade>('trades'),
+    readJsonArray<RawTrade>('trades').then(onlyCurrentSystem),
   ]);
   const withOutcomes = decisions.filter(d => d.execution_outcomes && d.execution_outcomes.length > 0);
   if (withOutcomes.length === 0) return '집행 결과 기록 없음 (첫 실집행 대기).';
