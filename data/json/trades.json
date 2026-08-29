@@ -1998,5 +1998,15 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 3사이클 연속으로 규칙1과 규칙2를 온전히 충족한 유일한 신호이며, 오늘 처음으로 규칙12의 자금 하한까지 충족해 집행 조건이 완성됐다. ①GP (ic5yDNKRSByd5dj19f-7D2o874pRnBZG9uoWg2cpABYmL_tmZEGL4WLsXDzk96Tn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 204
+  },
+  {
+    "traded_at": "2026-08-28T16:16:25.799Z",
+    "symbol": "MP",
+    "side": "SELL",
+    "qty": 4.155882,
+    "price": 55.77,
+    "fee": 0,
+    "note": "손절: 현재가 $55.77 ≤ SL $55.95 (ic5yDNKRSByd5dj19f-7D-5m6daKu72WerKxG3ygi4daRT8YIu91L3uK9XAp1sQ1) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 205
   }
 ]
