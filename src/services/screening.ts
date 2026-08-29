@@ -18,7 +18,29 @@ export interface ScreeningResult {
   recommendation: 'BUY' | 'HOLD' | 'SELL';
   reason: string;
   avg_dollar_volume?: number; // 20일 평균 거래대금 (USD) — 유동성/거래가능성 판단용
+  setup?: SetupType;          // 어떤 진입 셋업으로 후보에 올랐는지 (성과 세그먼트용)
 }
+
+/**
+ * 진입 셋업 유형 — 서로 다른 시장 상황을 대표하도록 나눈다.
+ *
+ * 계기(2026-08-29 실측): 7/13 이후 진입 33건의 진입 시점 프로필이 사실상 동일했다.
+ *   승 10건 평균: 20일 모멘텀 +26.5% · 20일 고점 근접 96.3%
+ *   패 23건 평균: 20일 모멘텀 +23.3% · 20일 고점 근접 94.7%
+ * 승패가 구분되지 않는데, 원인은 점수식이 나빠서가 아니라 **모든 진입이 같은 유형**
+ * 이었기 때문이다. 설명변수에 분산이 없으면 무엇이 결과를 만드는지 학습할 수 없다.
+ * 규칙서를 6주간 다듬어도 성과가 안 바뀐 근본 이유다.
+ *
+ * 따라서 "더 좋은 팩터"를 추측해 넣는 대신, 서로 다른 셋업을 **동시에 공급**해
+ * 비교 가능한 표본을 만든다. 어느 셋업이 유효한지는 원장이 답하게 한다.
+ */
+export type SetupType = 'CONTINUATION' | 'PULLBACK' | 'STEADY';
+
+export const SETUP_LABEL: Record<SetupType, string> = {
+  CONTINUATION: '추세지속(고점 근접·강모멘텀)',
+  PULLBACK: '눌림목(중기 상승 중 단기 조정)',
+  STEADY: '저변동 추세(완만한 상승·낮은 변동성)',
+};
 
 /**
  * 종목 스크리닝 엔진
@@ -413,7 +435,8 @@ interface QuickScanResult {
   mom20: number;          // 20일 수익률
   avgDollarVolume: number; // 20일 평균 거래대금 (USD)
   nearHigh: number;       // 20일 고점 대비 현재가 비율 (0~1)
-  quickScore: number;     // 후보 순위용 점수
+  quickScore: number;     // 후보 순위용 점수 (추세지속 풀 정렬에만 사용)
+  vol20: number;          // 20일 일간수익률 표준편차 (%) — 저변동 풀 선별용
 }
 
 /**
@@ -445,6 +468,11 @@ async function mapWithConcurrency<T, R>(
  * 30일 캔들로 빠른 모멘텀/유동성 스캔
  * @returns 통과 시 스캔 결과, 데이터 부족/유동성 미달 시 null
  */
+/** 위험조정 모멘텀 — 저변동 추세 풀 정렬용 (변동성 대비 20일 상승폭) */
+function riskAdj(r: QuickScanResult): number {
+  return r.mom20 / Math.max(r.vol20, 0.5);
+}
+
 async function quickScan(stock: UniverseStock, minDollarVolume: number): Promise<QuickScanResult | null> {
   try {
     const candles: TossCandle[] = await getCandles(stock.symbol, '1d', 30);
@@ -467,7 +495,18 @@ async function quickScan(stock: UniverseStock, minDollarVolume: number): Promise
     const high20 = Math.max(...recent20.map(c => c.high));
     const nearHigh = high20 > 0 ? last / high20 : 0;
 
-    // 후보 순위 점수: 중기 모멘텀 위주 + 단기 가속 + 고점 근접(추세 지속) 가산
+    // 20일 일간수익률 표준편차(%) — 저변동 추세 풀 선별에 쓴다
+    const rets: number[] = [];
+    for (let i = closes.length - 20; i < closes.length; i++) {
+      const prev = closes[i - 1];
+      if (prev > 0) rets.push((closes[i] - prev) / prev);
+    }
+    const mu = rets.length ? rets.reduce((s, r) => s + r, 0) / rets.length : 0;
+    const vol20 = rets.length
+      ? Math.sqrt(rets.reduce((s, r) => s + (r - mu) ** 2, 0) / rets.length) * 100
+      : 0;
+
+    // 추세지속 풀 정렬 점수: 중기 모멘텀 위주 + 단기 가속 + 고점 근접
     const quickScore = mom20 * 0.6 + mom5 * 0.4 + (nearHigh - 0.9) * 0.5;
 
     return {
@@ -478,7 +517,8 @@ async function quickScan(stock: UniverseStock, minDollarVolume: number): Promise
       mom20,
       avgDollarVolume,
       nearHigh,
-      quickScore
+      quickScore,
+      vol20
     };
   } catch {
     return null; // 캔들 조회 실패(404 등) — 조용히 제외
@@ -527,13 +567,59 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
 
   // ---- 3단계: 30일 캔들 모멘텀/유동성 스캔 (동시성 4) ----
   const scanned = await mapWithConcurrency(candidates, 4, c => quickScan(c, minDollarVolume));
-  const ranked = scanned
-    .filter((r): r is QuickScanResult => r !== null && r.mom20 > 0) // 중기 상승 추세만
-    .sort((a, b) => b.quickScore - a.quickScore);
-  const finalists = ranked.slice(0, finalistCount);
-  console.log(`🔎 [3/4] 모멘텀 스캔: ${ranked.length}개 상승추세 확인 → 정밀 분석 대상 ${finalists.length}개`);
+  const uptrend = scanned.filter((r): r is QuickScanResult => r !== null && r.mom20 > 0); // 중기 상승 추세만
+
+  // 셋업별 풀 — 단일 점수로 상위 40개를 뽑으면 후보군이 "가장 많이 오른, 가장 고점에
+  // 붙은" 종목으로만 채워져, 에이전트·Manager가 보기도 전에 진입 유형이 하나로 고정된다.
+  // (2026-08-29 실측: 진입 33건이 전부 20일 모멘텀 +23%·고점 근접 95% 구간)
+  // 각 풀에서 균등하게 뽑아 진입 조건에 분산을 만들고, setup 태그로 성과를 세그먼트한다.
+  const share = Math.max(1, Math.floor(finalistCount / 3));
+  const pools: Array<{ setup: SetupType; rows: QuickScanResult[] }> = [
+    {
+      setup: 'CONTINUATION',
+      rows: [...uptrend].sort((a, b) => b.quickScore - a.quickScore)
+    },
+    {
+      // 눌림목: 중기 상승 추세는 살아있으나 단기 조정 중 (고점 대비 5~20% 아래)
+      setup: 'PULLBACK',
+      rows: uptrend
+        .filter(r => r.mom5 < 0 && r.nearHigh >= 0.80 && r.nearHigh <= 0.95)
+        .sort((a, b) => b.mom20 - a.mom20)
+    },
+    {
+      // 저변동 추세: 완만하게 오르는 종목 — 지금까지 표본이 1건뿐인 미탐색 영역.
+      // 변동성 대비 상승폭(위험조정 모멘텀)이 큰 순으로 정렬한다.
+      setup: 'STEADY',
+      rows: uptrend
+        .filter(r => r.vol20 > 0 && r.vol20 < 2.5)
+        .sort((a, b) => riskAdj(b) - riskAdj(a))
+    },
+  ];
+
+  const finalists: Array<QuickScanResult & { setup: SetupType }> = [];
+  const taken = new Set<string>();
+  for (const { setup, rows } of pools) {
+    for (const r of rows) {
+      if (finalists.length >= finalistCount) break;
+      if (taken.has(r.symbol)) continue;
+      taken.add(r.symbol);
+      finalists.push({ ...r, setup });
+      if (finalists.filter(f => f.setup === setup).length >= share) break;
+    }
+  }
+  // 셋업 풀이 얇아 정원이 남으면 추세지속에서 채운다 (총량 유지)
+  for (const r of pools[0].rows) {
+    if (finalists.length >= finalistCount) break;
+    if (taken.has(r.symbol)) continue;
+    taken.add(r.symbol);
+    finalists.push({ ...r, setup: 'CONTINUATION' });
+  }
+
+  const counts = finalists.reduce((acc, f) => { acc[f.setup] = (acc[f.setup] || 0) + 1; return acc; }, {} as Record<string, number>);
+  console.log(`🔎 [3/4] 모멘텀 스캔: ${uptrend.length}개 상승추세 → 정밀 분석 ${finalists.length}개`);
+  console.log(`   셋업 구성: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
   finalists.slice(0, 10).forEach((f, i) =>
-    console.log(`   ${i + 1}. ${f.symbol} (20일 ${(f.mom20 * 100).toFixed(1)}%, 5일 ${(f.mom5 * 100).toFixed(1)}%, 거래대금 $${(f.avgDollarVolume / 1e6).toFixed(1)}M)`)
+    console.log(`   ${i + 1}. ${f.symbol} [${f.setup}] (20일 ${(f.mom20 * 100).toFixed(1)}%, 5일 ${(f.mom5 * 100).toFixed(1)}%, 고점근접 ${(f.nearHigh * 100).toFixed(0)}%, 변동성 ${f.vol20.toFixed(1)}%)`)
   );
 
   // ---- 4단계: 정밀 분석 (기존 분석기 재사용) ----
@@ -548,6 +634,7 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
       );
       if (result) {
         result.avg_dollar_volume = finalist.avgDollarVolume; // 유동성 전달 (스캔 단계 계산값)
+        result.setup = finalist.setup;                       // 진입 셋업 태그 (성과 세그먼트용)
         results.push(result);
       }
     } catch (error) {
@@ -555,12 +642,34 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
     }
   }
 
-  // 진짜 오를 것 같은 종목만: 종합점수 상위 + 최소 점수 기준
-  const final = results
-    .filter(r => r.overall_score >= 0.55)
-    .sort((a, b) => b.overall_score - a.overall_score)
-    .slice(0, topPicks);
+  // 진짜 오를 것 같은 종목만: 종합점수 상위 + 최소 점수 기준.
+  // 단 셋업 분산을 여기서 다시 잃지 않도록 라운드로빈으로 뽑는다 —
+  // 종합점수만으로 상위 N개를 자르면 점수 체계가 선호하는 한 유형으로 되쏠린다.
+  const passed = results.filter(r => r.overall_score >= 0.55);
+  const bySetup = new Map<string, ScreeningResult[]>();
+  for (const r of passed) {
+    const k = r.setup || 'CONTINUATION';
+    (bySetup.get(k) || bySetup.set(k, []).get(k)!).push(r);
+  }
+  for (const arr of bySetup.values()) arr.sort((a, b) => b.overall_score - a.overall_score);
 
+  const final: ScreeningResult[] = [];
+  const order: SetupType[] = ['CONTINUATION', 'PULLBACK', 'STEADY'];
+  for (let round = 0; final.length < topPicks; round++) {
+    let added = false;
+    for (const s of order) {
+      const arr = bySetup.get(s);
+      if (arr && arr[round]) { final.push(arr[round]); added = true; }
+      if (final.length >= topPicks) break;
+    }
+    if (!added) break; // 모든 풀 소진
+  }
+  final.sort((a, b) => b.overall_score - a.overall_score); // 소비부 호환: 점수 내림차순
+
+  const finalCounts = final.reduce((acc, r) => {
+    const k = r.setup || 'CONTINUATION'; acc[k] = (acc[k] || 0) + 1; return acc;
+  }, {} as Record<string, number>);
   console.log(`🔎 [4/4] 정밀 분석 완료: ${results.length}개 중 최종 추천 ${final.length}개 (점수 ≥ 0.55)`);
+  console.log(`   최종 셋업 구성: ${Object.entries(finalCounts).map(([k, v]) => `${k} ${v}`).join(' · ') || '없음'}`);
   return { US_MARKET: final };
 }
