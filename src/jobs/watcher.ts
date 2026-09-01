@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { getOpenPositions, updatePosition, reconcileWithToss, applyDecisionToPositions, Position } from '../storage/positions';
-import { getPrices, isUsRegularSessionOpen, getSellableQuantity } from '../services/toss';
+import { getPrices, getActiveRegularSession, getSellableQuantity } from '../services/toss';
 import { executeSell } from '../services/trading';
 import { ManagerDecision } from '../services/decision';
 
@@ -29,6 +29,10 @@ const inFlight = new Set<string>();
 // 여기 등록된 심볼은 유예 시간이 지난 첫 틱에서 한 번 더 reconcile한다.
 const pendingSettleCheck = new Map<string, number>();
 const SETTLE_RECHECK_MS = 60 * 1000; // 토스 반영 유예 — 1분이면 충분(실측 기준)
+
+// 마감 1시간 전 소수점 주문 차단을 이미 알린 심볼 (세션당 1회만 로그)
+const fractionalWarned = new Set<string>();
+let fractionalWarnedSession = 0;
 
 /**
  * 체결 지연 자가 치유 (매분, 정규장 중)
@@ -131,7 +135,21 @@ export function judge(position: Position, price: number):
  * - 정규장이 아니면 아무것도 하지 않는다
  */
 export async function checkPositionsOnce(): Promise<void> {
-  if (!(await isUsRegularSessionOpen())) return;
+  // 소수점 수량 주문은 토스 정책상 **정규장 종료 1시간 전까지만** 접수된다.
+  // (2026-09-02 04:05 MRNA TP1 실측: 422 fractional-quantity-outside-regular-hours,
+  //  orderableHours가 22:30~04:00으로 정규장 05:00보다 1시간 짧다)
+  // 소액 계좌는 대부분 포지션이 소수점이라, 이 구간에 트리거가 걸리면 판정은 되는데
+  // 집행이 안 되고 매분 422를 반복한다. 헛된 재시도로 API를 두드리지 않도록 스킵한다.
+  const session = await getActiveRegularSession();
+  if (!session) return;
+  const now = Date.now();
+  const fractionalCutoff = session.end - 60 * 60 * 1000;
+  const fractionalBlocked = now >= fractionalCutoff;
+  // 세션이 바뀌면 경고 기록 초기화 (안 그러면 다음 날 알림이 뜨지 않는다)
+  if (fractionalWarnedSession !== session.start) {
+    fractionalWarnedSession = session.start;
+    fractionalWarned.clear();
+  }
 
   // 체결 정착 재확인 — 직전 매도의 reconcile이 너무 일렀을 수 있으므로 유예 후 1회 더 맞춘다.
   // 포지션 조회보다 먼저 해야 이번 틱의 판정이 정정된 수량을 쓴다.
@@ -166,6 +184,18 @@ export async function checkPositionsOnce(): Promise<void> {
 
     const action = judge(position, price);
     if (!action) continue;
+
+    // 소수점 수량 + 마감 1시간 이내 = 토스가 접수하지 않는다. 세션당 1회만 알리고 건너뛴다.
+    if (fractionalBlocked && !Number.isInteger(action.qty)) {
+      if (!fractionalWarned.has(position.symbol)) {
+        fractionalWarned.add(position.symbol);
+        console.warn(
+          `⏸️ ${position.symbol} ${action.reason} — 소수점 수량(${action.qty})은 마감 1시간 전(${new Date(fractionalCutoff).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false })} KST) 이후 주문 불가. ` +
+          `이번 세션 집행 보류 — 다음 개장 후 재판정한다.`
+        );
+      }
+      continue;
+    }
 
     console.log(`🔔 ${position.symbol} ${action.reason} → ${action.qty}주 시장가 매도`);
     inFlight.add(position.symbol);
