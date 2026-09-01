@@ -141,6 +141,48 @@ export async function buildRealizedLedger(): Promise<string> {
       return `${r} ${arr.length}건(평균 ${avg(arr) >= 0 ? '+' : ''}${avg(arr).toFixed(1)}%)`;
     }).join(' · ');
 
+  // 셋업별 성과 — 진입 로직 재설계(2026-08-29)의 핵심 산출물.
+  // 세 셋업을 동시에 공급한 이유가 "어느 유형이 통하는지"를 원장이 답하게 하려는 것이므로,
+  // 여기서 갈라 보여줘야 회고가 근거 있는 비교를 할 수 있다.
+  // 셋업 태그는 decisions.json의 BUY 액션에 있으므로 심볼+시점으로 매칭한다.
+  let setupLine = '';
+  try {
+    const decisions = await getRecentDecisions(60);
+    const buys: Array<{ symbol: string; at: number; setup: string }> = [];
+    for (const d of decisions) {
+      for (const a of d.actions) {
+        if (a.action === 'BUY' && (a as any).setup) {
+          buys.push({ symbol: a.symbol, at: new Date(d.decided_at).getTime(), setup: (a as any).setup });
+        }
+      }
+    }
+    const setupOf = (t: RoundTrip): string | null => {
+      const sold = new Date(t.sellDate).getTime();
+      const cand = buys.filter(b => b.symbol === t.symbol && b.at <= sold).sort((x, y) => y.at - x.at);
+      return cand.length ? cand[0].setup : null;
+    };
+    const bySetup = new Map<string, RoundTrip[]>();
+    for (const t of trips) {
+      const s = setupOf(t);
+      if (s) (bySetup.get(s) || bySetup.set(s, []).get(s)!).push(t);
+    }
+    if (bySetup.size > 0) {
+      const parts = ['CONTINUATION', 'PULLBACK', 'STEADY']
+        .filter(s => bySetup.has(s))
+        .map(s => {
+          const arr = bySetup.get(s)!;
+          const w = arr.filter(t => t.realizedPct > 0).length;
+          return `${s} ${arr.length}건(승률 ${Math.round(w / arr.length * 100)}% · 평균 ${avg(arr) >= 0 ? '+' : ''}${avg(arr).toFixed(1)}%)`;
+        });
+      const tagged = [...bySetup.values()].reduce((s, a) => s + a.length, 0);
+      setupLine = `셋업별 성과(태그된 ${tagged}/${trips.length}건): ${parts.join(' · ')}`;
+    } else {
+      setupLine = '셋업별 성과: 태그된 청산 없음 — 2026-08-31 이후 신규 진입부터 집계된다.';
+    }
+  } catch {
+    setupLine = '셋업별 성과: 집계 실패.';
+  }
+
   const kst = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
   const recent = trips.slice(-12).reverse().map(t => {
     const sign = t.realizedPct >= 0 ? '+' : '';
@@ -151,6 +193,7 @@ export async function buildRealizedLedger(): Promise<string> {
     `총 청산 ${trips.length}건 · 승률 ${winRate.toFixed(0)}% (승 ${wins.length}/패 ${losses.length}) · ` +
     `평균 익절 +${avg(wins).toFixed(1)}% · 평균 손절 ${avg(losses).toFixed(1)}% · 평균 보유 ${avgHold.toFixed(0)}일`,
     `청산 사유별: ${reasonLine}`,
+    setupLine,
     `최근 청산 매매:`,
     recent,
   ].join('\n');

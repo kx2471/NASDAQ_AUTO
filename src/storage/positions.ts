@@ -31,6 +31,7 @@ export interface Position {
   time_horizon?: string;       // 보유 예정 기간 (예: '2-4주')
   planned_exit?: string;       // 매도 계획/조건 메모
   rationale?: string;          // 매수/보유 근거
+  setup?: string;              // 진입 셋업 유형 (CONTINUATION/PULLBACK/STEADY) — 성과 세그먼트용
 
   updated_at: string;
 }
@@ -246,6 +247,7 @@ export async function applyDecisionToPositions(decision: ManagerDecision): Promi
       if (action.take_profit_2 !== undefined) p.take_profit_2 = rescale ? rescale(action.take_profit_2) : action.take_profit_2;
       if (action.time_horizon) p.time_horizon = action.time_horizon;
       if (action.rationale) p.rationale = action.rationale;
+      if (action.setup) p.setup = action.setup; // 셋업 태그 보존 (청산 후 원장 세그먼트에 사용)
       p.source_report_id = decision.report_id;
       p.updated_at = now;
     }

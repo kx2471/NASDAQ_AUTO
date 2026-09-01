@@ -26,6 +26,10 @@ export interface DecisionItem {
   take_profit_2?: number;    // 2차 익절가 (전량 매도)
   time_horizon?: string;     // 보유 예정 기간
   rationale?: string;        // 결정 근거
+  // 진입 셋업 유형 — 스크리닝이 붙여준 태그를 그대로 옮겨 적는다.
+  // 근거 텍스트에만 의존하면 기록에 남지 않아(2026-08-31·09-01 이틀 연속 무언급)
+  // 원장을 셋업별로 나눌 수 없다. 구조화 필드로 받아야 성과 비교가 가능하다.
+  setup?: 'CONTINUATION' | 'PULLBACK' | 'STEADY';
 }
 
 /** 집행 결과 1건 (Manager 피드백용) */
