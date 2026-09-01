@@ -2008,5 +2008,25 @@
     "fee": 0,
     "note": "손절: 현재가 $55.77 ≤ SL $55.95 (ic5yDNKRSByd5dj19f-7D-5m6daKu72WerKxG3ygi4daRT8YIu91L3uK9XAp1sQ1) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 205
+  },
+  {
+    "traded_at": "2026-08-31T14:41:17.415Z",
+    "symbol": "ZETA",
+    "side": "BUY",
+    "qty": 3.8020321206161913,
+    "price": 30.51,
+    "fee": 0,
+    "note": "Manager 결정 매수 — GPT '상'·Claude '상'으로 규칙1의 2/2 합의가 성립하고 RSI 63.9(컷 1.1p 여유), 스코어 0.74, EMA20 $27. (FHpHTmYSUMbWWh4mHz0pwlaD0FYBaXy34ObGmCEHqZ095aDlUNLI3hE0DE4gBVA_) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 206
+  },
+  {
+    "traded_at": "2026-08-31T14:41:19.188Z",
+    "symbol": "MRNA",
+    "side": "BUY",
+    "qty": 0.6161036753770979,
+    "price": 141.21,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 1순위 '상'으로 규칙1 성립(RSI 61.6, 스코어 0.79 1위, EMA20 $110.47>EMA50 $85.52, 거래대금 $43. (kvvf3Ryp2TOHXG65WkxZOMXxAiUn2dv8PqXJs34_ep3fh9IuF_5LkT_aMdCuQxiG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 207
   }
 ]
