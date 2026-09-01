@@ -42,6 +42,24 @@ export async function waitForRegularSession(maxWaitMinutes: number = 90): Promis
 async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
   // 금액(amount) 주문은 토스 스펙상 MARKET 전용 — LLM이 LIMIT+amount 조합을 내면
   // 주문을 거부(기회 상실)하는 대신 금액 의도를 우선해 MARKET으로 보정한다
+  // 소수점 수량 매수는 토스 미지원(매도 전용) — 거부하지 말고 금액 주문으로 환산한다.
+  // executor는 이미 같은 철학의 보정을 두 방향으로 하고 있는데(LIMIT+amount→MARKET,
+  // amount 거부→정수 qty) 이 방향만 비어 있어 매수가 통째로 유실됐다.
+  // (2026-08-31 실측: ZETA qty 3.9 · MRNA qty 0.67 두 건 전량 거부 → 그날 매매 0건)
+  if (item.amount === undefined && item.qty !== undefined && !Number.isInteger(item.qty)) {
+    const ref = item.limit_price ?? (await getPrices([item.symbol]))[item.symbol];
+    if (ref && ref > 0) {
+      const converted = Math.round(item.qty * ref * 100) / 100;
+      console.warn(`⚠️ ${item.symbol}: 소수점 수량 ${item.qty}주는 매수 미지원 — $${converted} 금액 주문으로 환산 (기준가 $${ref})`);
+      item = { ...item, amount: converted, qty: undefined };
+    } else {
+      return {
+        success: false, dryRun: false, symbol: item.symbol, side: 'BUY',
+        error: `소수점 수량 ${item.qty}주 매수는 금액 주문으로 환산해야 하나 기준가 조회에 실패했습니다.`
+      };
+    }
+  }
+
   const useAmount = item.amount !== undefined;
   const orderType = useAmount ? 'MARKET' : (item.order_type || 'MARKET');
   if (useAmount && item.order_type === 'LIMIT') {

@@ -420,6 +420,12 @@ $8,000 목표 달성 경로
 - `MARKET`이면 `limit_price` 생략, `LIMIT`이면 `limit_price` 필수.
 - `stop_loss`(손절가), `take_profit_1`(1차 익절), `take_profit_2`(2차 익절)는 위 리포트의 손절/익절가와 **반드시 일치**시킬 것.
 - 매수는 수량(`qty`) 또는 금액(`amount`, USD, 소수점 매수) 중 하나로 지정.
+  - ⚠️ **`qty`는 정수만 가능**하다 (토스는 소수점 수량 매수를 지원하지 않는다).
+    1주 미만이거나 소수점이 필요하면 **반드시 `amount`(금액)로 지정**하라.
+    소액 계좌에서는 `amount` 사용이 기본이다. (2026-08-31 소수점 qty로 매수 2건 전량 거부)
+- **`setup` 필수 (BUY 한정)**: 스크리닝 결과의 `setup` 값(`CONTINUATION`/`PULLBACK`/`STEADY`)을
+  **그대로 복사**해 넣을 것. 임의로 판단하거나 생략하지 마라 — 이 값으로 셋업별 성과를 집계해
+  다음 회고가 "어떤 진입 유형이 통하는가"를 판정한다. 후보 데이터에 없으면 생략한다.
 - 이 블록 외에 다른 `json` 코드블록은 출력하지 말 것.
 
 ```json
@@ -428,13 +434,13 @@ $8,000 목표 달성 경로
     {
       "symbol": "NVDA",
       "action": "BUY",
-      "order_type": "LIMIT",
-      "qty": 2,
-      "limit_price": 178.50,
+      "order_type": "MARKET",
+      "amount": 150.00,
       "stop_loss": 165.00,
       "take_profit_1": 195.00,
       "take_profit_2": 215.00,
       "time_horizon": "2-4주",
+      "setup": "CONTINUATION",
       "rationale": "한 줄 근거"
     },
     {
