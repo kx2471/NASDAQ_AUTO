@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { isNasdaqOpen } from '../utils/marketday';
+import { isUsBusinessDayNow } from '../utils/marketday';
 import { generateManagerReport, saveManagerReport } from '../services/manager';
 import { parseManagerDecision, saveDecision, isDecisionExecuted, markDecisionExecuted, saveExecutionOutcomes } from '../services/decision';
 import { reconcileWithToss, applyDecisionToPositions } from '../storage/positions';
@@ -34,7 +34,7 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
 
   try {
     // 1. 미국 시장 휴장일 확인
-    if (!isNasdaqOpen(today)) {
+    if (!(await isUsBusinessDayNow())) {
       console.log('📅 미국 시장 휴장일입니다. Manager_Agent 실행을 건너뜁니다.');
       return;
     }

@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { isNasdaqOpen } from '../utils/marketday';
+import { isUsBusinessDayNow } from '../utils/marketday';
 import { db, getHoldings, getCashBalance, saveReportRecord } from '../storage/database';
 import { fetchDailyPrices, computeIndicators, computeIndicatorsPartial } from '../services/market';
 import { fetchNews } from '../services/news';
@@ -31,7 +31,7 @@ export async function runWeekly(): Promise<void> {
 
   try {
     // 1. 미국 시장 휴장일 확인 (월요일이 휴장이면 건너뛰기)
-    if (!isNasdaqOpen(today)) {
+    if (!(await isUsBusinessDayNow())) {
       console.log('📅 미국 시장 휴장일입니다. 다음 개장일까지 대기합니다.');
       return;
     }

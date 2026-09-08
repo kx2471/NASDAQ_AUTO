@@ -19,6 +19,39 @@ import { utcToZonedTime } from 'date-fns-tz';
  *
  * 주의: Columbus Day, Veterans Day는 나스닥 개장일입니다!
  */
+/**
+ * 나스닥 영업일 여부 — **토스 공식 캘린더 기준** (단일 진실 소스).
+ *
+ * 기존 isNasdaqOpen(하드코딩 휴장일 + utcToZonedTime)은 두 가지 결함이 있었다:
+ *  ① utcToZonedTime 결과에 .toISOString()을 부르면 뉴욕 오프셋이 두 번 적용돼
+ *     날짜가 하루 밀린다. 2026-09-08 21:50 KST 실행에서 "휴장일 2026-09-07"(노동절)로
+ *     오판해 파이프라인이 0초 만에 종료, 그날 매매가 통째로 사라졌다.
+ *  ② 휴장일이 하드코딩이라 매년 갱신이 필요하고, 스케줄러가 쓰는 토스 캘린더와
+ *     서로 다른 답을 낼 수 있다(같은 파이프라인 안에서 진실 소스가 둘).
+ * 토스 캘린더는 previousBusinessDay/today/nextBusinessDay를 KST 기준으로 주므로
+ * "지금 리포트를 돌려야 하는 영업일인가"를 그대로 답할 수 있다.
+ *
+ * @returns 오늘(또는 곧 열릴) 정규장이 있으면 true. 조회 실패 시 true(파이프라인을
+ *          막지 않는다 — 실제 주문은 trading.executeOrder의 정규장 가드가 최종 차단)
+ */
+export async function isUsBusinessDayNow(): Promise<boolean> {
+  try {
+    const { getUsMarketCalendar, getActiveRegularSession } = await import('../services/toss');
+    if (await getActiveRegularSession()) return true; // 이미 개장 중
+    const { today } = await getUsMarketCalendar();
+    if (today.regular) {
+      console.log(`📈 나스닥 영업일입니다: ${today.date} (토스 캘린더)`);
+      return true;
+    }
+    console.log(`📅 나스닥 휴장일입니다: ${today.date} (토스 캘린더)`);
+    return false;
+  } catch (error: any) {
+    console.warn('⚠️ 영업일 조회 실패 — 파이프라인은 진행하고 주문 관문에서 최종 판정:', error.message);
+    return true;
+  }
+}
+
+/** @deprecated 날짜가 하루 밀리는 결함이 있다. isUsBusinessDayNow()를 쓸 것. */
 export function isNasdaqOpen(date: Date): boolean {
   try {
     // UTC 시간을 뉴욕 시간으로 변환
