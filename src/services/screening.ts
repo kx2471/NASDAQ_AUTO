@@ -671,5 +671,37 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
   }, {} as Record<string, number>);
   console.log(`🔎 [4/4] 정밀 분석 완료: ${results.length}개 중 최종 추천 ${final.length}개 (점수 ≥ 0.55)`);
   console.log(`   최종 셋업 구성: ${Object.entries(finalCounts).map(([k, v]) => `${k} ${v}`).join(' · ') || '없음'}`);
+
+  await saveScreenSetups(results);
   return { US_MARKET: final };
+}
+/**
+ * 이번 사이클 후보들의 진입 셋업 태그를 파일로 남긴다.
+ *
+ * 왜 파일인가: 스크리닝(weekly 잡)과 Manager(manager 잡)는 서로 다른 실행 단위라
+ * 메모리를 공유하지 않는다. Manager 프롬프트는 "스크리닝의 setup 값을 그대로 복사하라"고
+ * 지시하지만, 실제로 Manager에게 전달되는 것은 에이전트 메모·포트폴리오·환율뿐이라
+ * setup 값을 볼 방법이 없었다. 그 결과 "후보 데이터에 없으면 생략" 예외가 매번 발동해
+ * BUY 결정에 setup이 비었고(2026-09-04 CRCL), 셋업별 성과 세그먼트가 불가능했다.
+ *
+ * 정밀 분석을 통과한 전체(final 컷 이전)를 담는다 — 에이전트가 최종 15개 밖 종목을
+ * 추천하는 경우에도 태그가 해석되도록.
+ *
+ * @param results 정밀 분석을 마친 후보들 (setup 태그 부착 상태)
+ */
+async function saveScreenSetups(results: ScreeningResult[]): Promise<void> {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const setups: Record<string, string> = {};
+    for (const r of results) {
+      if (r.setup) setups[r.symbol] = r.setup;
+    }
+    const file = path.join(process.cwd(), 'data', 'json', 'screen_setups.json');
+    await fs.writeFile(file, JSON.stringify({ generated_at: new Date().toISOString(), setups }, null, 2), 'utf8');
+    console.log(`🏷️ 셋업 태그 저장: ${Object.keys(setups).length}개 (Manager 결정 JSON의 setup 필드 입력)`);
+  } catch (e) {
+    // 태그 저장 실패가 파이프라인을 막지 않는다 (세그먼트 분석만 손실)
+    console.warn('⚠️ 셋업 태그 저장 실패(무시):', (e as Error).message);
+  }
 }

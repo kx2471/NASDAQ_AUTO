@@ -473,7 +473,25 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       processed: exchangeRateValue
     });
 
+    // 이번 사이클 후보의 진입 셋업 태그 (screening.saveScreenSetups가 남긴 것).
+    // Manager는 스크리닝 원본을 받지 않으므로, 이 주입이 없으면 결정 JSON의 setup을
+    // 채울 근거 자체가 없다 (2026-09-04 CRCL BUY에 setup 누락 → 셋업별 성과 집계 불가).
+    const screenSetups = await (async () => {
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'screen_setups.json'), 'utf8');
+        const parsed = JSON.parse(raw) as { generated_at?: string; setups?: Record<string, string> };
+        const entries = Object.entries(parsed.setups || {});
+        if (entries.length === 0) return '(셋업 태그 없음 — setup 필드는 생략하라)';
+        return entries.map(([sym, s]) => `${sym}=${s}`).join(', ');
+      } catch {
+        return '(셋업 태그 없음 — setup 필드는 생략하라)';
+      }
+    })();
+
     const processedPrompt = prompt
+      .replace(/{screen_setups}/g, screenSetups)
       .replace(/{gpt_strategy}/g, gptData.strategy)
       .replace(/{claude_strategy}/g, claudeData.strategy)
       .replace(/{gpt_recommendations}/g, gptData.recommendations)
