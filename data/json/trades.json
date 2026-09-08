@@ -2028,5 +2028,35 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 1순위 '상'으로 규칙1 성립(RSI 61.6, 스코어 0.79 1위, EMA20 $110.47>EMA50 $85.52, 거래대금 $43. (kvvf3Ryp2TOHXG65WkxZOMXxAiUn2dv8PqXJs34_ep3fh9IuF_5LkT_aMdCuQxiG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 207
+  },
+  {
+    "traded_at": "2026-09-02T13:30:25.442Z",
+    "symbol": "MRNA",
+    "side": "SELL",
+    "qty": 0.307518,
+    "price": 154.41,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $154.41 ≥ TP1 $152.61 (kvvf3Ryp2TOHXG65WkxZOLzDTSR3m6IutNxvlYtMpWI9zwo7_5kjuYp9o2wz2Dci) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 208
+  },
+  {
+    "traded_at": "2026-09-03T14:39:36.970Z",
+    "symbol": "MRNA",
+    "side": "SELL",
+    "qty": 0.307518,
+    "price": 144.11,
+    "fee": 0,
+    "note": "손절: 현재가 $144.11 ≤ SL $144.14 (kvvf3Ryp2TOHXG65WkxZOBoMb31cMujzoX79Ln8VYAB238EQ2vAvUvtlI02KCKj2) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 209
+  },
+  {
+    "traded_at": "2026-09-04T13:30:19.449Z",
+    "symbol": "CRCL",
+    "side": "BUY",
+    "qty": 1.2275292220878677,
+    "price": 99.24,
+    "fee": 0,
+    "note": "Manager 결정 매수 — GPT와 Claude 모두 확신도 상으로 이번 사이클 유일한 2/2 합의이며 RSI 62.6, EMA20 이격 약 +14.2%로 규칙1·2를 완 (9bBoxsW3lIIlJXivvCtAxFtbfj6jA7IgAPSfICeMxQnBSzZXInxXzdzIhaGDMhLI) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 210
   }
 ]
