@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { runWeekly } from './weekly';
-import { runManager } from './manager';
+import { runManager, getKoreanDateString } from './manager';
 import { checkPositionsOnce, syncPendingFills } from './watcher';
 import { getUsMarketCalendar, getActiveRegularSession, isTossEnabled } from '../services/toss';
 
@@ -171,7 +171,26 @@ export async function runReportPipeline(reportIdSuffix: string = ''): Promise<bo
     console.log(`🚀 리포트 파이프라인 시작 (에이전트 리포트 → Manager → 결정 집행)${reportIdSuffix ? ` [장중 재배치${reportIdSuffix}]` : ''}`);
     await runWeekly();
     await runManager(reportIdSuffix);
-    console.log(`🎉 리포트 파이프라인 완료 (${Math.round((Date.now() - startedAt) / 1000)}초 소요)`);
+
+    // 사후 검증: 파이프라인의 목적은 "결정을 남기는 것"이다. 예외 없이 끝났다는 것만으로
+    // 성공으로 간주하면, 내부 early-return이 조용히 전부를 건너뛴 경우를 잡지 못한다.
+    // (2026-09-08: 휴장일 오판으로 weekly·manager가 즉시 반환했는데 로그 마지막 줄은
+    //  "🎉 리포트 파이프라인 완료 (0초 소요)"였다. 그날 매매가 통째로 사라졌지만
+    //  에러는 한 줄도 없었다.)
+    // false를 반환하면 기존 재시도 경로를 그대로 태운다 — 새 복구 로직이 필요 없다.
+    const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+    const { getRecentDecisions } = await import('../services/decision');
+    const expectedId = getKoreanDateString() + reportIdSuffix;
+    const produced = (await getRecentDecisions(20)).some(d => d.report_id === expectedId);
+    if (!produced) {
+      console.error(
+        `❌ 파이프라인이 예외 없이 끝났지만 결정(${expectedId})이 남지 않았습니다 (${elapsedSec}초 소요) — ` +
+        `내부 단계가 조용히 건너뛰었을 가능성. 실패로 처리해 재시도합니다.`
+      );
+      return false;
+    }
+
+    console.log(`🎉 리포트 파이프라인 완료 (${elapsedSec}초 소요)`);
     return true;
   } catch (error) {
     console.error('❌ 리포트 파이프라인 실패:', error);

@@ -9,8 +9,13 @@ dotenv.config();
 
 /**
  * 한국 시간 기준 날짜 문자열 생성 (YYYYMMDD 형식)
+ *
+ * export한 이유: scheduler의 사후 검증이 "오늘 결정이 남았는가"를 확인할 때
+ * 반드시 **여기서 만든 것과 같은** report_id를 봐야 한다. 같은 계산을 양쪽에
+ * 복사하면 한국 자정 경계에서 서로 다른 답을 내는, 오늘 고친 것과 똑같은
+ * 이중 진실 소스 결함이 재발한다.
  */
-function getKoreanDateString(): string {
+export function getKoreanDateString(): string {
   const now = new Date();
   const koreanTime = new Date(now.getTime() + (9 * 60 * 60 * 1000)); // UTC + 9시간
   return koreanTime.toISOString().split('T')[0].replace(/-/g, '');
