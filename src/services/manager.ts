@@ -653,10 +653,13 @@ ${previousReportsSummary}
       ];
 
       console.log('📡 OpenAI API 호출 중...');
+      // max_completion_tokens는 추론 토큰까지 함께 소진하는 상한이다(Claude의 max_tokens와 동일).
+      // 15000은 리포트 본문 + 맨 끝 결정 JSON을 담기에 빠듯해, 잘리면 그날 매매가 사라진다
+      // (2026-07-31 Claude 경로에서 실제로 겪은 사고). 여유를 크게 둔다.
       const openaiResponse = await openaiClient.chat.completions.create({
         model: managerModel,
         messages,
-        max_completion_tokens: 15000
+        max_completion_tokens: 32000
       });
 
       console.log('📊 OpenAI 응답 구조 디버깅:', {
@@ -667,6 +670,15 @@ ${previousReportsSummary}
           finish_reason: openaiResponse.choices[0].finish_reason
         } : null
       });
+
+      // Anthropic 경로와 동일한 방어 — 잘림·필터를 조용히 통과시키지 않는다.
+      const finish = openaiResponse.choices[0]?.finish_reason;
+      if (finish === 'content_filter') {
+        throw new Error('Manager 모델 콘텐츠 필터 차단(content_filter) — 이번 사이클 결정 생성 실패');
+      }
+      if (finish === 'length') {
+        console.error(`❌ Manager 응답이 max_completion_tokens에서 잘림 — 결정 JSON 유실 가능 (모델 ${managerModel})`);
+      }
 
       const responseContent = openaiResponse.choices[0]?.message?.content;
       if (!responseContent) {

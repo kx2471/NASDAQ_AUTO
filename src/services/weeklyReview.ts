@@ -157,15 +157,22 @@ export async function runWeeklyReview(): Promise<string | null> {
       }
     } else {
       // OpenAI 계열 — effort/사고 요약은 지원 경로가 달라 생략 (회고 본문만 생성)
+      // 회고는 규칙 준수 감사 + 규칙서 전문까지 출력하므로 12000은 부족하다.
+      // 잘리면 [PLAYBOOK] 블록이 유실돼 규칙서가 조용히 갱신 안 된다.
       const client = new OpenAI({ apiKey });
       const resp = await client.chat.completions.create({
         model,
-        max_completion_tokens: 12000,
+        max_completion_tokens: 32000,
         messages: [
           { role: 'system', content: REVIEW_SYSTEM_PROMPT },
           { role: 'user', content: userContext },
         ],
       });
+      const finish = resp.choices[0]?.finish_reason;
+      if (finish === 'content_filter') throw new Error('콘텐츠 필터 차단(content_filter) — 회고 생성 중단');
+      if (finish === 'length') {
+        console.error(`❌ 주간회고 응답이 max_completion_tokens에서 잘림 — 규칙서/저널 블록 유실 가능 (모델 ${model})`);
+      }
       const text = resp.choices[0]?.message?.content;
       if (!text) throw new Error('빈 응답');
       content = text;
