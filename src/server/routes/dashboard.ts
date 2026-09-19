@@ -128,8 +128,36 @@ router.get('/api/trades', async (req, res) => {
   try {
     const limit = Math.min(parseInt(String(req.query.limit || ''), 10) || 100, 500);
     const trades = await db.find<Trade>('trades');
+
+    // 매도 행에 실현 손익을 붙인다 — FIFO 매칭은 managerRecords(원장과 같은 계산)에 위임.
+    // 손익은 정렬·자르기 **전에** 전체 기록으로 계산해야 한다: FIFO는 과거 매수 로트가
+    // 있어야 성립하므로, 최근 100건만 넘기면 그 밖의 매수와 짝지어진 매도의 손익이 사라진다.
+    const { computeRealizedBySellId } = await import('../../services/managerRecords');
+    const realized = computeRealizedBySellId(trades as any);
+
+    // 원화 환산용 환율. 조회 실패가 거래내역 자체를 막지 않도록 USD만 내려보낸다.
+    let usdKrw: number | null = null;
+    try {
+      usdKrw = (await getCachedExchangeRate()).usd_to_krw;
+    } catch (e) {
+      console.warn('⚠️ 거래내역 환율 조회 실패 — 원화 손익 생략:', (e as Error).message);
+    }
+
     trades.sort((a, b) => new Date(b.traded_at).getTime() - new Date(a.traded_at).getTime());
-    res.json({ success: true, data: trades.slice(0, limit), total: trades.length });
+    const data = trades.slice(0, limit).map(t => {
+      const r = t.id !== undefined ? realized.get(t.id) : undefined;
+      if (!r) return t;
+      return {
+        ...t,
+        realized_usd: r.realizedUsd,
+        realized_pct: r.realizedPct,
+        realized_krw: usdKrw !== null ? r.realizedUsd * usdKrw : undefined,
+        buy_avg: r.buyAvg,
+        hold_days: r.holdDays,
+      };
+    });
+
+    res.json({ success: true, data, total: trades.length, exchangeRate: usdKrw });
   } catch (error) {
     console.error('❌ 거래 내역 조회 실패:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });

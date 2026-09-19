@@ -25,6 +25,7 @@ const PLAYBOOK_MAX_CHARS = 4000;
 
 interface RawTrade {
   traded_at: string; symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; note?: string;
+  id?: number;
 }
 /** 청산 사유 — SELL 주문의 note에서 분류 (watcher/Manager가 남기는 형식 기반) */
 type ExitReason = '손절발동' | 'TP1익절' | 'TP2익절' | 'Manager매도' | '기타';
@@ -33,6 +34,8 @@ interface RoundTrip {
   symbol: string; buyAvg: number; sellPrice: number; qty: number;
   buyDate: string; sellDate: string; holdDays: number; realizedPct: number;
   exitReason: ExitReason;
+  sellId?: number;       // 이 청산을 만든 SELL 거래의 id (대시보드가 행에 손익을 붙일 때 사용)
+  realizedUsd: number;   // 실현 손익 (USD) = (매도가 - 매수평단) × 매칭수량
 }
 
 /** SELL note → 청산 사유 분류. watcher는 "손절:/1차 익절:/2차 익절:", Manager는 "Manager 결정 매도"로 시작. */
@@ -110,12 +113,53 @@ function reconstructRoundTrips(trades: RawTrade[]): RoundTrip[] {
             holdDays: Math.round(weightedDays / matchedQty),
             realizedPct: buyAvg > 0 ? ((t.price - buyAvg) / buyAvg) * 100 : 0,
             exitReason: classifyExit(t.note),
+            sellId: t.id,
+            realizedUsd: (t.price - buyAvg) * matchedQty,
           });
         }
       }
     }
   }
   return trips.sort((a, b) => new Date(a.sellDate).getTime() - new Date(b.sellDate).getTime());
+}
+
+/** SELL 거래 1건의 실현 손익 (대시보드 거래내역 행에 표시) */
+export interface SellRealized {
+  realizedUsd: number;   // 실현 손익 (USD)
+  realizedPct: number;   // 실현 수익률 (%)
+  buyAvg: number;        // FIFO로 매칭된 매수 평단
+  matchedQty: number;    // 손익 계산에 실제로 매칭된 수량
+  holdDays: number;      // 가중 평균 보유일
+}
+
+/**
+ * SELL 거래별 실현 손익을 id로 찾을 수 있게 만든다 (대시보드 거래내역용).
+ *
+ * 왜 여기에 두는가: FIFO 로트 매칭은 이미 reconstructRoundTrips가 하고 있다.
+ * 대시보드가 같은 계산을 따로 구현하면 화면의 손익과 Manager가 학습에 쓰는 원장이
+ * 서로 다른 답을 낼 수 있다 — 오늘(2026-09-08) 고친 휴장일 결함과 정확히 같은
+ * 이중 진실 소스 구조다. 계산은 하나만 두고 표현만 나눈다.
+ *
+ * 학습 통계와 달리 **전체 기간**을 대상으로 한다. onlyCurrentSystem 필터는 통계
+ * 오염을 막기 위한 것이고, 화면은 구 시스템 거래도 있는 그대로 보여주는 게 맞다.
+ *
+ * @param trades 거래 원장 전체 (BUY/SELL 혼재, 정렬 불문)
+ * @returns SELL 거래 id → 실현 손익. id가 없거나 매칭할 매수 로트가 없으면 항목 없음
+ *          (매수 기록 이전부터 보유하던 수량의 매도 등 — 손익을 알 수 없으므로 추정하지 않는다)
+ */
+export function computeRealizedBySellId(trades: RawTrade[]): Map<number, SellRealized> {
+  const out = new Map<number, SellRealized>();
+  for (const t of reconstructRoundTrips(trades)) {
+    if (t.sellId === undefined) continue;
+    out.set(t.sellId, {
+      realizedUsd: t.realizedUsd,
+      realizedPct: t.realizedPct,
+      buyAvg: t.buyAvg,
+      matchedQty: t.qty,
+      holdDays: t.holdDays,
+    });
+  }
+  return out;
 }
 
 /** ① 실현 손익 원장 — 완료 매매의 승률·평균 익절/손절폭·평균 보유일 + 최근 청산 표. */

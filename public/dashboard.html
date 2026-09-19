@@ -653,6 +653,27 @@ async function loadJournal() {
   }
 }
 
+/**
+ * 거래내역 '손익' 칸 — 매도 행에만 실현 손익을 원화로 표시한다.
+ *
+ * 서버가 FIFO로 매수 로트와 짝지어 계산한 값(realized_krw)을 그대로 쓴다.
+ * 매수 행이나, 매칭할 매수 기록이 없는 매도(기록 이전부터 보유하던 수량 등)는
+ * 빈 칸으로 둔다 — 모르는 손익을 0이나 추정치로 채우지 않는다.
+ * 색은 대시보드 전체 관례를 따른다(이익=빨강 .up / 손실=파랑 .down).
+ */
+function realizedCell(t) {
+  if (t.side !== 'SELL' || t.realized_krw === undefined || t.realized_krw === null) {
+    return '<span style="color:var(--text-3)">—</span>';
+  }
+  const krw = Math.round(t.realized_krw);
+  const sign = krw > 0 ? '+' : krw < 0 ? '−' : '';
+  const cls = krw > 0 ? 'up' : krw < 0 ? 'down' : '';
+  const pct = typeof t.realized_pct === 'number' ? fmtPct(t.realized_pct) : '';
+  const tip = `평단 ${fmtUsd(t.buy_avg)} → 매도 ${fmtUsd(t.price)}${t.hold_days !== undefined ? ` · ${t.hold_days}일 보유` : ''}`;
+  return `<span class="${cls}" title="${esc(tip)}">${sign}${Math.abs(krw).toLocaleString('ko-KR')}원`
+       + `${pct ? `<span style="font-size:.72rem;opacity:.7"> (${esc(pct)})</span>` : ''}</span>`;
+}
+
 async function loadTrades() {
   try {
     const r = await fetch('/dashboard/api/trades?limit=100');
@@ -667,10 +688,11 @@ async function loadTrades() {
       <td class="num">${t.qty}</td>
       <td class="num">${fmtUsd(t.price)}</td>
       <td class="num">${fmtUsd(t.qty * t.price)}</td>
+      <td class="num">${realizedCell(t)}</td>
       <td class="note" title="${esc(t.note || '')}">${esc(t.note || '')}</td>
     </tr>`).join('');
     $('trades').innerHTML = `<table>
-      <thead><tr><th>일시</th><th>구분</th><th>종목</th><th>수량</th><th>가격</th><th>금액</th><th>메모</th></tr></thead>
+      <thead><tr><th>일시</th><th>구분</th><th>종목</th><th>수량</th><th>가격</th><th>금액</th><th>손익</th><th>메모</th></tr></thead>
       <tbody>${rows}</tbody></table>`;
   } catch (e) {
     $('trades').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
