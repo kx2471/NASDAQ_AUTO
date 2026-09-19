@@ -35,6 +35,26 @@ const fractionalWarned = new Set<string>();
 let fractionalWarnedSession = 0;
 
 /**
+ * 소수점 주문 마감(정규장 종료 -1h) 직전에 '마지막 출구'를 열어두는 시간.
+ * 이 구간 동안 손절선에 근접한 소수점 포지션은 선제 청산 대상이 된다.
+ * 5분: 매분 틱이므로 한 번 실패해도 4번 더 기회가 있고, 정상 매매를 방해할 만큼 길지 않다.
+ */
+const PRE_CUTOFF_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * 선제 청산 발동 거리 — 현재가가 손절선 위 이 비율 이내면 "위험"으로 본다.
+ * 기본 2%. 마감 1시간 동안 2% 더 빠지면 어차피 손절이었을 포지션을,
+ * 주문이 가능한 마지막 순간에 정리한다. FRACTIONAL_EXIT_BUFFER_PCT로 조정 가능.
+ */
+function getFractionalExitBufferPct(): number {
+  const v = parseFloat(process.env.FRACTIONAL_EXIT_BUFFER_PCT || '');
+  return Number.isFinite(v) && v >= 0 ? v : 2;
+}
+
+// 이번 세션에 선제 청산을 이미 시도한 심볼 (반복 주문 방지)
+const preCutoffExited = new Set<string>();
+
+/**
  * 체결 지연 자가 치유 (매분, 정규장 중)
  *
  * 시장가 주문도 체결→보유 반영에 지연이 있어, 집행 직후 1회 동기화만으로는
@@ -131,6 +151,47 @@ export function judge(position: Position, price: number):
 }
 
 /**
+ * 소수점 주문 마감 직전, 손절선에 근접한 소수점 포지션의 선제 청산 판정 (순수 함수).
+ *
+ * 왜 필요한가: 토스는 소수점 매도를 **정규장 종료 1시간 전까지만** 접수한다.
+ * 04:00~05:00 KST에 손절선이 깨지면 판정은 되는데 집행이 불가능하고, 포지션은
+ * 다음 개장(다음 날 22:30)까지 무방비로 남는다 — 갭다운을 그대로 맞는다.
+ * 소액 계좌는 1주 가격이 보유액을 넘는 종목이 많아 대부분 포지션이 소수점이라
+ * 이 구멍이 상시 열려 있다.
+ *
+ * 무엇을 하는가: 주문이 가능한 마지막 몇 분에, 이미 손절선 코앞(기본 2% 이내)까지
+ * 온 포지션만 정리한다. 이익 중이거나 손절선에서 먼 포지션은 건드리지 않는다 —
+ * "마감 전 전량 청산"은 승자까지 끊어 규칙 9(승자 보유 연장)와 정면으로 충돌한다.
+ *
+ * 트레이드오프(의도적): 마감 1시간 동안 반등해 손절을 면했을 포지션도 정리된다.
+ * 대신 밤새 갭다운 노출을 없앤다. 손절선 2% 이내까지 밀린 상태라면 후자의 손실
+ * 기대값이 더 크다고 보고 방어를 택했다.
+ *
+ * @param position 보유 포지션 (stop_loss 계획 포함)
+ * @param price    현재가
+ * @param bufferPct 손절선 위 몇 %까지를 '위험'으로 볼지
+ * @returns 청산할 액션 (해당 없으면 null)
+ */
+export function judgePreCutoffExit(position: Position, price: number, bufferPct: number):
+  { type: 'STOP_LOSS'; qty: number; reason: string } | null {
+
+  if (!position.stop_loss || position.stop_loss <= 0) return null;
+  if (Number.isInteger(position.shares)) return null;  // 정수 포지션은 마감까지 매도 가능 — 서두를 이유 없음
+  if (price <= position.stop_loss) return null;        // 이미 손절선 아래 = judge()가 정규 손절로 처리
+
+  const threshold = position.stop_loss * (1 + bufferPct / 100);
+  if (price > threshold) return null;                  // 아직 여유 있음 — 보유 유지
+
+  const gapPct = ((price - position.stop_loss) / position.stop_loss) * 100;
+  return {
+    type: 'STOP_LOSS',
+    qty: position.shares,
+    reason: `마감 전 선제 청산: 현재가 $${price}가 SL $${position.stop_loss} +${gapPct.toFixed(1)}% 이내 — ` +
+            `소수점 매도 마감 이후에는 손절 집행이 불가능하다`
+  };
+}
+
+/**
  * 전체 OPEN 포지션 1회 점검 — 조건 도달 시 매도 주문
  * - 정규장이 아니면 아무것도 하지 않는다
  */
@@ -145,10 +206,14 @@ export async function checkPositionsOnce(): Promise<void> {
   const now = Date.now();
   const fractionalCutoff = session.end - 60 * 60 * 1000;
   const fractionalBlocked = now >= fractionalCutoff;
+  // 마감 직전 '마지막 출구' 구간 — 소수점 주문이 아직 접수되는 마지막 몇 분.
+  // 여기서 손절선에 근접한 소수점 포지션을 선제 청산한다 (아래 preCloseExit 참조).
+  const lastExitWindow = now >= fractionalCutoff - PRE_CUTOFF_WINDOW_MS && now < fractionalCutoff;
   // 세션이 바뀌면 경고 기록 초기화 (안 그러면 다음 날 알림이 뜨지 않는다)
   if (fractionalWarnedSession !== session.start) {
     fractionalWarnedSession = session.start;
     fractionalWarned.clear();
+    preCutoffExited.clear();
   }
 
   // 체결 정착 재확인 — 직전 매도의 reconcile이 너무 일렀을 수 있으므로 유예 후 1회 더 맞춘다.
@@ -182,19 +247,40 @@ export async function checkPositionsOnce(): Promise<void> {
     const price = prices[position.symbol];
     if (!price) continue;
 
-    const action = judge(position, price);
+    let action = judge(position, price);
+
+    // 소수점 매도 마감 직전 — 손절선 코앞까지 온 소수점 포지션을 마지막으로 정리한다.
+    // (정규 판정에 걸린 게 없을 때만. 손절/익절이 이미 걸렸으면 그쪽이 우선)
+    if (!action && lastExitWindow && !preCutoffExited.has(position.symbol)) {
+      const exit = judgePreCutoffExit(position, price, getFractionalExitBufferPct());
+      if (exit) {
+        preCutoffExited.add(position.symbol);
+        action = exit;
+      }
+    }
     if (!action) continue;
 
-    // 소수점 수량 + 마감 1시간 이내 = 토스가 접수하지 않는다. 세션당 1회만 알리고 건너뛴다.
+    // 소수점 수량 + 마감 1시간 이내 = 토스가 접수하지 않는다.
     if (fractionalBlocked && !Number.isInteger(action.qty)) {
-      if (!fractionalWarned.has(position.symbol)) {
-        fractionalWarned.add(position.symbol);
+      // 정수부가 1주 이상이면 그만큼이라도 던져 손실을 줄인다 (부분 방어).
+      // 손절에만 적용한다 — 익절을 놓치는 건 기회 손실이지만, 손절을 놓치는 건 실손실이다.
+      const wholeShares = Math.floor(action.qty);
+      if (action.type === 'STOP_LOSS' && wholeShares >= 1) {
         console.warn(
-          `⏸️ ${position.symbol} ${action.reason} — 소수점 수량(${action.qty})은 마감 1시간 전(${new Date(fractionalCutoff).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false })} KST) 이후 주문 불가. ` +
-          `이번 세션 집행 보류 — 다음 개장 후 재판정한다.`
+          `⚠️ ${position.symbol} ${action.reason} — 소수점 매도 마감 이후. ` +
+          `정수분 ${wholeShares}주만 부분 손절하고 잔량 ${(action.qty - wholeShares).toFixed(6)}주는 다음 개장에 재판정한다.`
         );
+        action = { ...action, qty: wholeShares };
+      } else {
+        if (!fractionalWarned.has(position.symbol)) {
+          fractionalWarned.add(position.symbol);
+          console.warn(
+            `⏸️ ${position.symbol} ${action.reason} — 소수점 수량(${action.qty})은 마감 1시간 전(${new Date(fractionalCutoff).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false })} KST) 이후 주문 불가. ` +
+            `이번 세션 집행 보류 — 다음 개장 후 재판정한다.`
+          );
+        }
+        continue;
       }
-      continue;
     }
 
     console.log(`🔔 ${position.symbol} ${action.reason} → ${action.qty}주 시장가 매도`);

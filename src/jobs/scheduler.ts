@@ -28,6 +28,11 @@ let lastWeeklyReviewDate = ''; // 주간 회고를 실행한 KST 일요일 (메�
 let pipelineRunning = false;  // 리포트 파이프라인 동시 실행 방지
 let watcherRunning = false;   // 감시 틱 겹침 방지
 
+// 장중 재배치 안전핀 — 매수 0건으로 끝난 횟수를 세션 단위로 센다.
+// 상한(REDEPLOY_MAX_NO_ACTION)에 닿으면 그날 재배치를 중단한다.
+let redeployNoActionCount = 0;
+let redeploySession = 0;      // 카운터가 속한 세션 시작 시각 (날이 바뀌면 초기화)
+
 // 개장 전 파이프라인 재시도 (LLM 일시 장애 대비)
 // 중복 방지 플래그(lastReportDate)를 실행 "전"에 확정하므로, 파이프라인이 실패하면
 // 되돌리지 않는 한 그날 매매가 통째로 사라진다.
@@ -91,13 +96,63 @@ async function saveState(patch: SchedulerState): Promise<void> {
  */
 export function shouldRedeployCash(p: {
   msToClose: number; cashRatio: number; msSinceLastDecision: number; pipelineRunning: boolean;
+  openPositions?: number;   // 현재 보유 종목 수 (규칙서 동시보유 상한과 대조)
+  noActionCount?: number;   // 이번 세션에 '매수 0건'으로 끝난 재배치 횟수
 }): boolean {
   const threshold = parseFloat(process.env.REDEPLOY_CASH_RATIO || '') || 0.3;
   const cooldownMs = (parseFloat(process.env.REDEPLOY_COOLDOWN_HOURS || '') || 2) * 60 * 60 * 1000;
+
+  // 무행동 상한 — 재배치가 연속으로 매수 0건이면 그날은 포기한다.
+  // 재배치 1회 = 에이전트 2개 + Manager 1개 = 전체 파이프라인 비용이다. 시장에 살 게
+  // 없는 날 이걸 반복하면 아무 효과 없이 LLM 비용만 쌓인다 (2026-08-29 '재배치 3회 무행동').
+  if ((p.noActionCount ?? 0) >= getRedeployMaxNoAction()) return false;
+
+  // 규칙서 동시보유 상한에 이미 도달했으면 애초에 살 수 없다 — 비싼 파이프라인을 돌리기 전에 막는다.
+  // (규칙서 12번: 동시 보유 최대 3종. REDEPLOY_MAX_POSITIONS로 맞춘다)
+  if (p.openPositions !== undefined && p.openPositions >= getRedeployMaxPositions()) return false;
+
   return !p.pipelineRunning
     && p.msSinceLastDecision > cooldownMs  // 최근 결정 후 2시간 초과 (REDEPLOY_COOLDOWN_HOURS)
     && p.msToClose > 60 * 60 * 1000        // 마감까지 1시간 초과 남음
     && p.cashRatio >= threshold;           // 현금 비중 30% 이상 (REDEPLOY_CASH_RATIO)
+}
+
+/**
+ * 두 에이전트(Claude·GPT)의 리포트가 '방금' 만들어져 재사용 가능한지 확인한다.
+ *
+ * 재시도에서 스크리닝·에이전트 단계를 건너뛰기 위한 판정이다. 기준은 두 가지:
+ *  ① 두 리포트가 **모두** 있을 것 (한쪽만 있으면 Manager 입력이 반쪽이 된다)
+ *  ② 둘 다 신선할 것 — 낡은 분석으로 매매를 결정하지 않는다
+ *
+ * @returns 재사용 가능하면 true
+ */
+async function hasFreshAgentReports(): Promise<boolean> {
+  const maxAgeMs = (parseFloat(process.env.AGENT_REPORT_REUSE_MINUTES || '') || 90) * 60 * 1000;
+  try {
+    const dir = path.join(process.cwd(), 'data', 'report');
+    const files = await fs.readdir(dir);
+    for (const tag of ['weekly_agent_gpt.md', 'weekly_agent_claude.md']) {
+      const latest = files.filter(f => f.endsWith(tag)).sort().pop();
+      if (!latest) return false;
+      const { mtimeMs } = await fs.stat(path.join(dir, latest));
+      if (Date.now() - mtimeMs > maxAgeMs) return false;
+    }
+    return true;
+  } catch {
+    return false; // 확인 불가 = 재사용하지 않는다 (안전 방향: 다시 만든다)
+  }
+}
+
+/** 재배치가 연속 '매수 0건'으로 끝날 수 있는 최대 횟수 (세션당). 초과하면 그날 재배치 중단. */
+function getRedeployMaxNoAction(): number {
+  const v = parseInt(process.env.REDEPLOY_MAX_NO_ACTION || '', 10);
+  return Number.isFinite(v) && v > 0 ? v : 2;
+}
+
+/** 재배치를 시도할 동시보유 상한 — 규칙서의 동시 보유 제한과 같은 값으로 맞춘다. */
+function getRedeployMaxPositions(): number {
+  const v = parseInt(process.env.REDEPLOY_MAX_POSITIONS || '', 10);
+  return Number.isFinite(v) && v > 0 ? v : 3;
 }
 
 /**
@@ -159,7 +214,7 @@ async function getCashRatio(): Promise<number> {
  * @param reportIdSuffix 결정 report_id 접미사 — 장중 재배치는 '-i1'로 구분해
  *                       개장 전 결정의 이중 집행 가드와 충돌하지 않게 한다
  */
-export async function runReportPipeline(reportIdSuffix: string = ''): Promise<boolean> {
+export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentReports = false): Promise<boolean> {
   if (pipelineRunning) {
     console.warn('⚠️ 리포트 파이프라인이 이미 실행 중입니다 — 이번 실행을 건너뜁니다.');
     return false;
@@ -169,7 +224,17 @@ export async function runReportPipeline(reportIdSuffix: string = ''): Promise<bo
 
   try {
     console.log(`🚀 리포트 파이프라인 시작 (에이전트 리포트 → Manager → 결정 집행)${reportIdSuffix ? ` [장중 재배치${reportIdSuffix}]` : ''}`);
-    await runWeekly();
+
+    // 재시도 시 에이전트 리포트 재사용 — 파이프라인 비용의 약 2/3가 여기서 나온다
+    // (전시장 스크리닝 + 에이전트 2개 LLM 호출). 실패는 대부분 Manager 단계에서 나므로
+    // 몇 분 전에 성공한 리포트를 버리고 다시 만드는 건 순수한 낭비다.
+    // 재사용은 '방금 만든 것'일 때만 — 낡은 분석으로 매매를 결정하지 않는다.
+    const fresh = reuseAgentReports && (await hasFreshAgentReports());
+    if (fresh) {
+      console.log('♻️ 직전 에이전트 리포트 재사용 — 스크리닝·에이전트 단계 생략 (Manager만 재시도)');
+    } else {
+      await runWeekly();
+    }
     await runManager(reportIdSuffix);
 
     // 사후 검증: 파이프라인의 목적은 "결정을 남기는 것"이다. 예외 없이 끝났다는 것만으로
@@ -254,7 +319,8 @@ async function tick(): Promise<void> {
       console.log(`⏰ 개장 ${Math.round((today.regular.start - now) / 60000)}분 전 — 리포트 파이프라인 트리거 (영업일 ${today.date})`);
       // 실패 시 중복 방지 플래그를 되돌려 다음 틱이 재시도하게 한다.
       // 이미 집행까지 끝난 뒤의 실패라면 재실행돼도 isDecisionExecuted 가드가 이중 집행을 막는다.
-      void runReportPipeline().then(async ok => {
+      // 재시도(reportRetryCount > 0)에서는 직전 에이전트 리포트를 재사용해 비용을 줄인다
+      void runReportPipeline('', reportRetryCount > 0).then(async ok => {
         if (ok) return;
         if (reportRetryCount >= MAX_REPORT_RETRIES) {
           console.error(`❌ 리포트 파이프라인 ${reportRetryCount + 1}회 실패 — 오늘(${today.date})은 더 재시도하지 않습니다.`);
@@ -292,25 +358,55 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
   // 매매 직후 현금이 다시 30%를 넘어도 쿨다운이 지나면 재시도된다.
   if (new Date().getMinutes() % 10 !== 0) return;
   try {
+    // 세션이 바뀌면 무행동 카운터 초기화 (전날 상한이 오늘을 막지 않도록)
+    if (redeploySession !== session.start) {
+      redeploySession = session.start;
+      redeployNoActionCount = 0;
+    }
+
     const msSinceLastDecision = now - (await getLastDecisionTime());
     const cheap = shouldRedeployCash({
       msToClose: session.end - now,
       cashRatio: 1, // 일단 통과값 — 비싼 API 검사는 아래에서
       msSinceLastDecision,
-      pipelineRunning
+      pipelineRunning,
+      noActionCount: redeployNoActionCount
     });
     if (!cheap) return;
 
+    // 보유 종목 수는 로컬 파일 조회 — 비싼 잔고 API 전에 상한 도달 여부를 먼저 거른다
+    const { getOpenPositions } = await import('../storage/positions');
+    const { getRecentDecisions } = await import('../services/decision');
+    const openCount = (await getOpenPositions()).length;
     const ratio = await getCashRatio();
     if (shouldRedeployCash({
       msToClose: session.end - now,
       cashRatio: ratio,
       msSinceLastDecision,
-      pipelineRunning
+      pipelineRunning,
+      openPositions: openCount,
+      noActionCount: redeployNoActionCount
     })) {
       const hhmm = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false, hour: '2-digit', minute: '2-digit' }).replace(':', '');
-      console.log(`💸 장중 현금 재배치 트리거: 현금 ${(ratio * 100).toFixed(0)}% ≥ 30%, 마지막 결정 후 ${Math.round(msSinceLastDecision / 3600000 * 10) / 10}시간, 마감까지 ${Math.round((session.end - now) / 60000)}분`);
-      void runReportPipeline('-i' + hhmm);
+      const reportId = getKoreanDateString() + '-i' + hhmm;
+      console.log(`💸 장중 현금 재배치 트리거: 현금 ${(ratio * 100).toFixed(0)}% ≥ 30%, 보유 ${openCount}종, 마지막 결정 후 ${Math.round(msSinceLastDecision / 3600000 * 10) / 10}시간, 마감까지 ${Math.round((session.end - now) / 60000)}분`);
+      void runReportPipeline('-i' + hhmm).then(async () => {
+        // 매수 0건으로 끝났으면 무행동으로 집계한다. 상한에 닿으면 그날 재배치를 멈춘다 —
+        // 살 게 없는 날 전체 파이프라인을 반복하는 비용을 막는 안전핀.
+        try {
+          const bought = (await getRecentDecisions(10))
+            .find(d => d.report_id === reportId)?.actions.some(a => a.action === 'BUY');
+          if (bought) return;
+          redeployNoActionCount++;
+          const max = getRedeployMaxNoAction();
+          console.warn(
+            `💤 재배치 무행동 ${redeployNoActionCount}/${max} (매수 0건)` +
+            (redeployNoActionCount >= max ? ' — 이번 세션 재배치를 중단합니다.' : '')
+          );
+        } catch (e) {
+          console.warn('⚠️ 재배치 결과 확인 실패(무시):', (e as Error).message);
+        }
+      });
     }
   } catch (error: any) {
     console.warn('⚠️ 현금 재배치 검사 실패 (10분 후 재시도):', error.message);
