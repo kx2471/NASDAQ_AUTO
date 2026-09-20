@@ -33,6 +33,11 @@ let watcherRunning = false;   // 감시 틱 겹침 방지
 let redeployNoActionCount = 0;
 let redeploySession = 0;      // 카운터가 속한 세션 시작 시각 (날이 바뀌면 초기화)
 
+// 틱 오류 로그 중복 억제 — 같은 오류가 매분 반복되면 정상 로그를 덮는다
+let lastTickErrorKey = '';
+let lastTickErrorAt = 0;
+let tickErrorCount = 0;
+
 // 개장 전 파이프라인 재시도 (LLM 일시 장애 대비)
 // 중복 방지 플래그(lastReportDate)를 실행 "전"에 확정하므로, 파이프라인이 실패하면
 // 되돌리지 않는 한 그날 매매가 통째로 사라진다.
@@ -270,6 +275,11 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
  */
 async function tick(): Promise<void> {
   try {
+    // 오류가 반복되다 멎으면 복구를 한 줄로 알린다 — 조용히 멎으면 복구인지 죽은 건지 모른다
+    if (lastTickErrorKey) {
+      console.log(`✅ 스케줄러 틱 복구 (직전 오류 ${tickErrorCount}회: ${lastTickErrorKey})`);
+      lastTickErrorKey = ''; tickErrorCount = 0;
+    }
     // 0) 주간 전략 회고: KST 일요일 10시 이후 1회 (미장 휴장일이라 매매와 완전 분리)
     //    휴장일 early-return보다 앞에 있어야 함 — 일요일엔 today.regular가 없다.
     const kstNow = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', weekday: 'short', hour: '2-digit', hour12: false });
@@ -334,7 +344,18 @@ async function tick(): Promise<void> {
     }
 
   } catch (error: any) {
-    console.error('⚠️ 스케줄러 틱 오류:', error.message);
+    // 같은 오류가 매분 반복되면 로그가 실제 신호를 덮는다 (2026-09-20 429 스톰에서
+    // 수백 줄이 쌓여 정상 로그를 밀어냈다). 첫 발생과 5분 주기로만 남기고,
+    // 복구되면 몇 번 만에 복구됐는지 한 줄로 알린다.
+    const key = String(error.message).slice(0, 80);
+    const nowMs = Date.now();
+    if (key !== lastTickErrorKey || nowMs - lastTickErrorAt > 5 * 60 * 1000) {
+      const repeat = key === lastTickErrorKey ? ` (같은 오류 ${tickErrorCount}회째)` : '';
+      console.error(`⚠️ 스케줄러 틱 오류${repeat}:`, error.message);
+      lastTickErrorAt = nowMs;
+    }
+    if (key === lastTickErrorKey) tickErrorCount++;
+    else { lastTickErrorKey = key; tickErrorCount = 1; }
   }
 }
 

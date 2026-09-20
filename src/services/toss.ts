@@ -438,6 +438,26 @@ interface UsCalendarCache {
 let usCalendarCache: UsCalendarCache | null = null;
 const US_CALENDAR_TTL_MS = 10 * 60 * 1000; // 10분 캐시 (스케줄러가 매분 조회해도 콜 낭비 없도록)
 
+// 병렬 호출이 캘린더를 중복 조회하지 않도록 single-flight (토큰·/accounts와 같은 방식).
+// 한 틱에서 getActiveRegularSession()과 tick()이 각각 부르므로 최소 2배로 증폭된다.
+let usCalendarInFlight: Promise<UsCalendarCache> | null = null;
+
+// 조회 실패 후 재시도를 미루는 시각 — 실패 폭주(429 스톰) 차단용.
+// 캐시는 '성공했을 때만' 채워지므로, 실패 시 캐시가 비어 매 틱이 재조회하고
+// 각 조회는 내부적으로 4회까지 재시도한다. 실패가 부하를 키워 다시 실패를 부르는
+// 자기강화 루프가 된다 (2026-09-20 실측: socket hang up → 429 rate-limit 수백 건).
+let usCalendarRetryAfter = 0;
+const US_CALENDAR_FAIL_BACKOFF_MS = 60 * 1000; // 실패 후 1분간 재조회 금지
+
+// 실패 시 낡은 캐시를 최대 얼마나 오래 재사용할지.
+// 캘린더는 하루 단위로만 바뀌는 데이터라, 몇 시간 낡은 값이 '아무것도 모르는 상태'보다
+// 압도적으로 낫다 — 캘린더를 못 읽으면 감시기가 세션을 판정하지 못해 SL/TP가 통째로 죽는다.
+// 다만 날짜가 넘어가면 틀린 답이 되므로 상한을 둔다.
+const US_CALENDAR_MAX_STALE_MS = 6 * 60 * 60 * 1000;
+
+// 낡은 캐시 경고를 마지막으로 남긴 시각 (5분 스로틀)
+let staleWarnedAt = 0;
+
 /** 캘린더 응답의 세션 파싱 (null 허용) */
 function parseSession(session: { startTime: string; endTime: string } | null): UsMarketSession | null {
   if (!session) return null;
@@ -457,23 +477,70 @@ function parseSession(session: { startTime: string; endTime: string } | null): U
  * @returns 전일·오늘·다음 영업일의 정규장 구간
  */
 export async function getUsMarketCalendar(): Promise<{ previous: UsMarketDayInfo; today: UsMarketDayInfo; next: UsMarketDayInfo }> {
-  if (usCalendarCache && Date.now() - usCalendarCache.fetchedAt < US_CALENDAR_TTL_MS) {
+  const now = Date.now();
+  if (usCalendarCache && now - usCalendarCache.fetchedAt < US_CALENDAR_TTL_MS) {
     return { previous: usCalendarCache.previous, today: usCalendarCache.today, next: usCalendarCache.next };
   }
 
-  const result = await tossRequest<{
-    previousBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
-    today: { date: string; regularMarket: { startTime: string; endTime: string } | null };
-    nextBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
-  }>('get', '/api/v1/market-calendar/US');
+  // 직전 조회가 실패했으면 백오프 구간 동안은 아예 때리지 않는다.
+  // 낡은 캐시가 있으면 그걸 쓰고, 없으면 실패를 그대로 전달한다.
+  if (now < usCalendarRetryAfter) {
+    const stale = useStaleCalendar(now, '조회 실패 백오프 중');
+    if (stale) return stale;
+    throw new Error('토스 캘린더 조회 실패 — 백오프 대기 중 (낡은 캐시도 없음)');
+  }
 
-  usCalendarCache = {
-    fetchedAt: Date.now(),
-    previous: { date: result.previousBusinessDay.date, regular: parseSession(result.previousBusinessDay.regularMarket) },
-    today: { date: result.today.date, regular: parseSession(result.today.regularMarket) },
-    next: { date: result.nextBusinessDay.date, regular: parseSession(result.nextBusinessDay.regularMarket) }
-  };
+  // 동시 호출은 한 번의 네트워크 요청을 공유한다
+  if (!usCalendarInFlight) {
+    usCalendarInFlight = (async () => {
+      const result = await tossRequest<{
+        previousBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
+        today: { date: string; regularMarket: { startTime: string; endTime: string } | null };
+        nextBusinessDay: { date: string; regularMarket: { startTime: string; endTime: string } | null };
+      }>('get', '/api/v1/market-calendar/US');
 
+      return {
+        fetchedAt: Date.now(),
+        previous: { date: result.previousBusinessDay.date, regular: parseSession(result.previousBusinessDay.regularMarket) },
+        today: { date: result.today.date, regular: parseSession(result.today.regularMarket) },
+        next: { date: result.nextBusinessDay.date, regular: parseSession(result.nextBusinessDay.regularMarket) }
+      };
+    })().finally(() => { usCalendarInFlight = null; });
+  }
+
+  try {
+    usCalendarCache = await usCalendarInFlight;
+    usCalendarRetryAfter = 0;
+    return { previous: usCalendarCache.previous, today: usCalendarCache.today, next: usCalendarCache.next };
+  } catch (error: any) {
+    usCalendarRetryAfter = Date.now() + US_CALENDAR_FAIL_BACKOFF_MS;
+    const stale = useStaleCalendar(Date.now(), error.message);
+    if (stale) return stale;
+    throw error;
+  }
+}
+
+/**
+ * 조회 실패 시 낡은 캐시로 버티기 (stale-while-error).
+ *
+ * 캘린더를 못 읽으면 감시기가 세션을 판정하지 못해 SL/TP가 통째로 죽는다.
+ * 하루 단위로만 바뀌는 데이터이므로, 상한 내의 낡은 값은 '모르는 상태'보다 낫다.
+ * @returns 쓸 수 있는 캐시 (없거나 너무 낡았으면 null)
+ */
+function useStaleCalendar(now: number, reason: string):
+  { previous: UsMarketDayInfo; today: UsMarketDayInfo; next: UsMarketDayInfo } | null {
+  if (!usCalendarCache) return null;
+  const ageMs = now - usCalendarCache.fetchedAt;
+  // 로그는 5분에 한 번만 — 매분(그리고 틱당 여러 번) 호출되므로 그대로 두면
+  // 경고가 정상 로그를 덮는다. 문제를 고치면서 같은 종류의 소음을 새로 만들지 않는다.
+  const shouldLog = now - staleWarnedAt > 5 * 60 * 1000;
+  if (shouldLog) staleWarnedAt = now;
+
+  if (ageMs > US_CALENDAR_MAX_STALE_MS) {
+    if (shouldLog) console.error(`❌ 토스 캘린더 조회 실패 + 캐시가 ${Math.round(ageMs / 60000)}분 경과로 너무 낡음 — 세션 판정 불가 (${reason})`);
+    return null;
+  }
+  if (shouldLog) console.warn(`⚠️ 토스 캘린더 조회 실패 — ${Math.round(ageMs / 60000)}분 전 캐시로 진행 (${reason})`);
   return { previous: usCalendarCache.previous, today: usCalendarCache.today, next: usCalendarCache.next };
 }
 
