@@ -93,10 +93,16 @@ async function createInvestmentPromptFromPayload(reportPayload: any): Promise<st
 **currentPrices**: ${JSON.stringify(reportPayload.currentPrices, null, 2)}
 **market**: ${JSON.stringify(reportPayload.market, null, 2)}
 **scores**: ${JSON.stringify(reportPayload.scores, null, 2)}
+**screening_results**: ${JSON.stringify(reportPayload.screening_results || [], null, 2)}
 **news**: ${JSON.stringify(reportPayload.news?.slice(0, 5), null, 2)}
 **performanceReport**: ${reportPayload.performanceReport}
 
 ${promptTemplate}`;
+    // screening_results를 넣는 이유: prompt.md는 "screening_results[]를 참조하라"고 지시하는데,
+    // 이 경로는 scores(심볼→점수)만 넘기고 있었다. Agent_Claude는 셋업·유동성
+    // (avg_dollar_volume)·선발 사유(reason)를 한 번도 보지 못한 채 추천해 왔다.
+    // Agent_GPT(llm.ts)는 페이로드 전체를 넘기므로 두 에이전트의 입력이 달랐다.
+    // (2026-09-27 셋업 균형(D안) 적용 중 발견)
 
     return dataContext;
 
