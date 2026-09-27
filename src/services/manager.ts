@@ -419,6 +419,14 @@ export async function checkManagerModelReady(): Promise<string | null> {
     return null;
   } catch (e: any) {
     const msg = String(e?.message || e);
+
+    // "출력 한도 도달"은 성공 신호다 — 모델에 닿아서 생성까지 했다는 뜻이다.
+    // 추론 모델은 사고에 토큰을 쓰므로 프로브의 1토큰 예산으로는 본문을 못 만든다.
+    // 우리가 확인하려는 것은 '호출 가능한가'이므로 이건 통과로 처리한다.
+    if (/max_tokens|output limit|max_completion_tokens/i.test(msg)) {
+      return null;
+    }
+
     // 크레딧·쿼터·인증 문제는 재시도로 해결되지 않는다 — 사람이 조치해야 한다
     if (/credit|quota|billing|insufficient|401|invalid[_ ]api[_ ]key/i.test(msg)) {
       return `${managerModel} 호출 불가: ${msg.slice(0, 160)}`;

@@ -57,6 +57,28 @@ function getOpenAIClient(): OpenAI {
 /**
  * OpenAI GPT를 사용한 보고서 생성
  */
+/**
+ * 추론(reasoning) 계열 OpenAI 모델인지 판정한다.
+ *
+ * 추론 모델은 `max_completion_tokens`·`reasoning_effort`를 쓰고 `temperature`를
+ * 받지 않는다. 구형 모델은 그 반대다 — 분기를 잘못 타면 400이 나거나, 더 나쁘게는
+ * max_tokens 4000으로 잘린 반쪽 리포트가 조용히 생성된다.
+ *
+ * 버전 접두사를 직접 비교하지 않는 이유: `startsWith('gpt-5')`로 판정하고 있었는데
+ * 모델을 gpt-6-sol로 올리면 이 검사가 거짓이 되어 신형 모델에 구형 파라미터를
+ * 보내게 된다 (2026-09-27 모델 교체 중 발견 — 교체만 했다면 그날 매매가 깨졌다).
+ * 세대가 올라갈 때마다 고쳐야 하는 검사는 언젠가 반드시 놓친다.
+ *
+ * @param model 모델 ID (예: gpt-6-sol, gpt-5.6-sol, o3-mini, gpt-4o)
+ * @returns 추론 계열이면 true
+ */
+export function isReasoningModel(model: string): boolean {
+  // gpt-5 이상의 모든 세대 (gpt-5.6-sol, gpt-6-sol, gpt-7…) + o 시리즈
+  if (/^o\d/.test(model)) return true;
+  const m = /^gpt-(\d+)/.exec(model);
+  return m ? parseInt(m[1], 10) >= 5 : false;
+}
+
 export async function generateReportWithOpenAI(payload: ReportPayload): Promise<string> {
   try {
     // 시스템 프롬프트 로드
@@ -82,7 +104,7 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     const client = getOpenAIClient();
     
     // GPT-5 모델용 파라미터 설정
-    const isGpt5 = model.startsWith('gpt-5');
+    const isGpt5 = isReasoningModel(model);
     const requestParams: any = {
       model: model,
       messages: messages,
