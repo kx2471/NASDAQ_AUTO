@@ -110,6 +110,39 @@ export async function syncPendingFills(): Promise<void> {
 }
 
 /**
+ * TP1 이후 잔량의 트레일링 보호선 계산 (순수 함수).
+ *
+ * 규칙서 7번 "TP1 후 잔량은 max(고점 −7%, 평단 +2%)로 보호"를 감시기에서 직접 집행한다.
+ * 이전에는 Manager가 결정 JSON으로 SL을 올려줄 때만 적용됐다. 2026-09-22~27 OpenAI
+ * 크레딧 소진으로 Manager가 6일간 멈추자, 9/23 TP1을 친 OKTA·CRWD 잔량의 손절선이
+ * 원래의 −8%에 그대로 남아 +8% 이익이 −8% 손실까지 되돌아갈 수 있는 상태가 됐다.
+ * 규칙서 7번이 생긴 계기(TER: +8.2%에서 +0.5%까지 반납)와 같은 구조다.
+ * 수익 보호는 LLM 가용성에 의존하면 안 된다.
+ *
+ * **하한(floor)으로만 작동한다** — 저장된 SL보다 높을 때만 올리고 절대 내리지 않는다.
+ * Manager가 더 높은 SL을 주면 그 값이 그대로 우선한다.
+ *
+ * @param position TP1 여부·평단·고점·저장된 SL
+ * @returns 실제 적용할 손절가 (보호 대상이 아니면 저장된 SL 그대로)
+ */
+export function effectiveStopLoss(position: Position): number | undefined {
+  const stored = position.stop_loss;
+  if (process.env.TRAIL_AFTER_TP1 === 'false') return stored;
+  if (!position.tp1_done || !(position.avg_cost > 0)) return stored;
+
+  const dropPct = parseFloat(process.env.TRAIL_PEAK_DROP_PCT || '') || 7;
+  const floorGainPct = parseFloat(process.env.TRAIL_FLOOR_GAIN_PCT || '') || 2;
+
+  // 고점 기록이 없으면 TP1 가격을 하한 추정치로 쓴다 — TP1이 체결됐다면 가격은 최소 그만큼 갔다
+  const peak = Math.max(position.peak_price ?? 0, position.take_profit_1 ?? 0);
+  const trail = peak > 0 ? peak * (1 - dropPct / 100) : 0;
+  const breakeven = position.avg_cost * (1 + floorGainPct / 100);
+  const floor = Math.round(Math.max(trail, breakeven) * 100) / 100;
+
+  return stored !== undefined && stored >= floor ? stored : floor;
+}
+
+/**
  * 포지션 1개에 대한 SL/TP 판정 (순수 함수 — 테스트 가능하도록 export)
  * @returns 실행할 액션 (없으면 null)
  */
@@ -117,11 +150,17 @@ export function judge(position: Position, price: number):
   { type: 'STOP_LOSS' | 'TP2' | 'TP1'; qty: number; reason: string } | null {
 
   // 손절 최우선 — 익절가와 동시에 걸리는 비정상 상황에서도 방어적으로 손절
-  if (position.stop_loss && price <= position.stop_loss) {
+  // TP1 이후에는 트레일링 보호선이 저장된 SL보다 높으면 그걸 쓴다 (effectiveStopLoss)
+  const sl = effectiveStopLoss(position);
+  if (sl && price <= sl) {
+    const trailed = sl !== position.stop_loss;
     return {
       type: 'STOP_LOSS',
       qty: position.shares,
-      reason: `손절: 현재가 $${price} ≤ SL $${position.stop_loss}`
+      // '손절'로 시작해야 원장이 청산 사유를 손절발동으로 분류한다 (managerRecords.classifyExit)
+      reason: trailed
+        ? `손절(트레일링): 현재가 $${price} ≤ 보호선 $${sl} — TP1 후 max(고점−7%, 평단+2%)`
+        : `손절: 현재가 $${price} ≤ SL $${sl}`
     };
   }
 
@@ -175,18 +214,20 @@ export function judge(position: Position, price: number):
 export function judgePreCutoffExit(position: Position, price: number, bufferPct: number):
   { type: 'STOP_LOSS'; qty: number; reason: string } | null {
 
-  if (!position.stop_loss || position.stop_loss <= 0) return null;
+  // judge()와 같은 손절선을 봐야 한다 — TP1 이후엔 트레일링 보호선
+  const sl = effectiveStopLoss(position);
+  if (!sl || sl <= 0) return null;
   if (Number.isInteger(position.shares)) return null;  // 정수 포지션은 마감까지 매도 가능 — 서두를 이유 없음
-  if (price <= position.stop_loss) return null;        // 이미 손절선 아래 = judge()가 정규 손절로 처리
+  if (price <= sl) return null;                        // 이미 손절선 아래 = judge()가 정규 손절로 처리
 
-  const threshold = position.stop_loss * (1 + bufferPct / 100);
+  const threshold = sl * (1 + bufferPct / 100);
   if (price > threshold) return null;                  // 아직 여유 있음 — 보유 유지
 
-  const gapPct = ((price - position.stop_loss) / position.stop_loss) * 100;
+  const gapPct = ((price - sl) / sl) * 100;
   return {
     type: 'STOP_LOSS',
     qty: position.shares,
-    reason: `마감 전 선제 청산: 현재가 $${price}가 SL $${position.stop_loss} +${gapPct.toFixed(1)}% 이내 — ` +
+    reason: `마감 전 선제 청산: 현재가 $${price}가 SL $${sl} +${gapPct.toFixed(1)}% 이내 — ` +
             `소수점 매도 마감 이후에는 손절 집행이 불가능하다`
   };
 }
@@ -246,6 +287,18 @@ export async function checkPositionsOnce(): Promise<void> {
   for (const position of positions) {
     const price = prices[position.symbol];
     if (!price) continue;
+
+    // TP1 이후 고점 갱신 — 트레일링 보호선(effectiveStopLoss)의 기준.
+    // 올라갈 때만 기록하므로 파일 쓰기는 신고가일 때만 일어난다.
+    if (position.tp1_done && price > (position.peak_price ?? 0)) {
+      const before = effectiveStopLoss(position);
+      position.peak_price = price;
+      await updatePosition(position.symbol, { peak_price: price });
+      const after = effectiveStopLoss(position);
+      if (after !== undefined && before !== undefined && after > before) {
+        console.log(`📈 ${position.symbol} 트레일링 보호선 상향: $${before} → $${after} (고점 $${price})`);
+      }
+    }
 
     let action = judge(position, price);
 
