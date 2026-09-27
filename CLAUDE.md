@@ -76,7 +76,7 @@ TOSS_MAX_PRICE_DEVIATION_PCT=20  # LIMIT 가격 괴리 허용치
 # LLM (역할별 분리)
 CLAUDE_MODEL=...    # Agent_Claude 리포트용
 LLM_MODEL=...       # Agent_GPT 리포트용
-MANAGER_MODEL=claude-opus-4-8  # 결정권자 — 최상위 모델 유지
+MANAGER_MODEL=gpt-6-sol        # 결정권자 (2026-09 비용 사유로 GPT 운용 — 사용자 결정)
 
 # 스케줄 (선택)
 REPORT_LEAD_MINUTES=40   # 정규장 시작 몇 분 전 파이프라인 시작

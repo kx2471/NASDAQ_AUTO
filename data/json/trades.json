@@ -2058,5 +2058,95 @@
     "fee": 0,
     "note": "Manager 결정 매수 — GPT와 Claude 모두 확신도 상으로 이번 사이클 유일한 2/2 합의이며 RSI 62.6, EMA20 이격 약 +14.2%로 규칙1·2를 완 (9bBoxsW3lIIlJXivvCtAxFtbfj6jA7IgAPSfICeMxQnBSzZXInxXzdzIhaGDMhLI) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 210
+  },
+  {
+    "traded_at": "2026-09-10T13:30:08.106Z",
+    "symbol": "CRCL",
+    "side": "SELL",
+    "qty": 1.224021,
+    "price": 89.75,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 현재가 89.82가 기존 가격 기반 손절가 91.47을 명확히 이탈해 1.224021주 전량을 청산한다. (9bBoxsW3lIIlJXivvCtAxOm_EXlsW7HcmKY0Iiw0N5Zpzl4gpLJ57FPTIhnyRn8h) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 211
+  },
+  {
+    "traded_at": "2026-09-11T13:30:16.310Z",
+    "symbol": "MRNA",
+    "side": "BUY",
+    "qty": 0.8450808177725293,
+    "price": 135.49,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 2/2 상, RSI 58.7, EMA20 이격 +6.8%이며 직전 청산 후 5거래일 경과와 청산가 이하 회귀 조건도 충족한다. (kvvf3Ryp2TOHXG65WkxZOBZQDNw61XV6XizBC5JO9N2y3kV4AKaDovJjYyeGXB4I) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 212
+  },
+  {
+    "traded_at": "2026-09-11T14:54:26.851Z",
+    "symbol": "MRNA",
+    "side": "SELL",
+    "qty": 0.418901,
+    "price": 148.35,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $148.35 ≥ TP1 $147.97 (kvvf3Ryp2TOHXG65WkxZOBZQDNw61XV6XizBC5JO9N1JYPjPaxe8guXf7KhU_0jm) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 213
+  },
+  {
+    "traded_at": "2026-09-14T13:46:35.787Z",
+    "symbol": "MRNA",
+    "side": "SELL",
+    "qty": 0.418901,
+    "price": 139.12,
+    "fee": 0,
+    "note": "손절: 현재가 $139.12 ≤ SL $139.25 (kvvf3Ryp2TOHXG65WkxZOLd64izq5dIzNjQwOyqQDxH4qUCUpWF5JT9unQuLsaQ7) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 214
+  },
+  {
+    "traded_at": "2026-09-16T13:30:18.453Z",
+    "symbol": "ZETA",
+    "side": "SELL",
+    "qty": 1,
+    "price": 30.69,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 현재 비중이 총자산의 40.08%로 절대 상한을 초과했으며 소수점 매도 수량을 사용할 수 없어 최소 실행단위인 1주를 축소한다. (FHpHTmYSUMbWWh4mHz0pwli9leCrWpaRW76bm4bCzXZsF7TxzeYwaiOTWePfyABK) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 215
+  },
+  {
+    "traded_at": "2026-09-17T13:30:05.394Z",
+    "symbol": "OKTA",
+    "side": "BUY",
+    "qty": 0.47784274083383427,
+    "price": 183.01,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 2/2 상, RSI 63.8, 예상 체결가의 EMA20 이격 +9.2%로 모든 신규 진입 조건을 충족한다. (2u3DCObviItgBqFzzZZaQgsO4mXcekdbdkH_TxwTFfW74XoIrr1i5XawtrTExgro) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 216
+  },
+  {
+    "traded_at": "2026-09-17T13:30:07.525Z",
+    "symbol": "CRWD",
+    "side": "BUY",
+    "qty": 0.3157627763452678,
+    "price": 236.57,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 2/2 상, RSI 62.2, EMA20 이격 +9.1%이며 높은 거래대금으로 체결 및 추세 지속 가능성이 우수하다. (fFbD_cfZ7S1Vk093kKsFgzJTlitjbzKvuD-TCDtYHb427pIPpa6R5Spt1cp4PTnQ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 217
+  },
+  {
+    "traded_at": "2026-09-23T13:30:21.614Z",
+    "symbol": "OKTA",
+    "side": "SELL",
+    "qty": 0.237488,
+    "price": 198.97,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $198.97 ≥ TP1 $198.64 (2u3DCObviItgBqFzzZZaQtPtDhrznHJvh3kU9lRrxiRveZGmrhLGWzjYhzqcpV8d) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 218
+  },
+  {
+    "traded_at": "2026-09-23T14:52:25.765Z",
+    "symbol": "CRWD",
+    "side": "SELL",
+    "qty": 0.157384,
+    "price": 256.77,
+    "fee": 0,
+    "note": "1차 익절: 현재가 $256.65 ≥ TP1 $256.03 (fFbD_cfZ7S1Vk093kKsFg49ykTM2Ebp8x75eC6cAeACMvdXfb7VcaDF6TlI4kBUV) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 219
   }
 ]
