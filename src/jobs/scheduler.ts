@@ -230,6 +230,19 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
   try {
     console.log(`🚀 리포트 파이프라인 시작 (에이전트 리포트 → Manager → 결정 집행)${reportIdSuffix ? ` [장중 재배치${reportIdSuffix}]` : ''}`);
 
+    // Manager 모델 사전 점검 — 결정권자가 못 돌면 앞 단계 비용이 전부 버려진다.
+    // 토큰 1개짜리 호출이라 비용은 0에 가깝고, 크레딧이 복구되면 자동으로 통과한다.
+    const { checkManagerModelReady } = await import('../services/manager');
+    const notReady = await checkManagerModelReady();
+    if (notReady) {
+      console.error(
+        `❌ Manager 모델을 호출할 수 없어 파이프라인을 시작하지 않습니다 — ${notReady}\n` +
+        `   조치가 필요합니다 (크레딧 충전 또는 MANAGER_MODEL 변경). ` +
+        `보유 포지션의 손절·익절 감시는 LLM과 무관하게 계속 동작합니다.`
+      );
+      return false;
+    }
+
     // 재시도 시 에이전트 리포트 재사용 — 파이프라인 비용의 약 2/3가 여기서 나온다
     // (전시장 스크리닝 + 에이전트 2개 LLM 호출). 실패는 대부분 Manager 단계에서 나므로
     // 몇 분 전에 성공한 리포트를 버리고 다시 만드는 건 순수한 낭비다.

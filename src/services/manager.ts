@@ -383,6 +383,52 @@ async function prepareManagerPayload(params: {
 /**
  * Manager_Agent 전용 리포트 생성 (새로운 프롬프트 변수 구조 사용)
  */
+/**
+ * Manager 모델이 실제로 호출 가능한지 최소 비용으로 미리 확인한다 (pre-flight).
+ *
+ * 왜 필요한가: 파이프라인은 스크리닝 → 에이전트 2개 → Manager 순서다. Manager가
+ * 크레딧 소진으로 못 돌면 앞 단계에서 쓴 비용이 전부 버려진다 — 결정이 없으면
+ * 에이전트 리포트는 아무 데도 쓰이지 않는다.
+ * (2026-09-22~27 실측: OpenAI 크레딧 소진으로 6일 연속 Manager 실패. 그동안 매일
+ *  Agent_Claude 리포트를 Anthropic 비용으로 만들었지만 한 번도 소비되지 않았다.)
+ *
+ * 토큰 1개만 요청하므로 비용은 사실상 0이고, 크레딧이 복구되면 자동으로 다시 통과한다
+ * (날짜 플래그로 차단해두면 복구를 감지하지 못한다).
+ *
+ * @returns 호출 가능하면 null, 불가능하면 사람이 읽을 사유
+ */
+export async function checkManagerModelReady(): Promise<string | null> {
+  const managerModel = process.env.MANAGER_MODEL || 'claude-opus-5';
+  const isClaudeModel = managerModel.includes('claude');
+  try {
+    if (isClaudeModel) {
+      const apiKey = process.env.CLAUDE_API_KEY;
+      if (!apiKey) return 'CLAUDE_API_KEY 미설정';
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+      await new Anthropic({ apiKey }).messages.create({
+        model: managerModel, max_tokens: 1, messages: [{ role: 'user', content: 'ok' }]
+      });
+    } else {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) return 'OPENAI_API_KEY 미설정';
+      const OpenAI = (await import('openai')).default;
+      await new OpenAI({ apiKey }).chat.completions.create({
+        model: managerModel, max_completion_tokens: 1, messages: [{ role: 'user', content: 'ok' }]
+      });
+    }
+    return null;
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    // 크레딧·쿼터·인증 문제는 재시도로 해결되지 않는다 — 사람이 조치해야 한다
+    if (/credit|quota|billing|insufficient|401|invalid[_ ]api[_ ]key/i.test(msg)) {
+      return `${managerModel} 호출 불가: ${msg.slice(0, 160)}`;
+    }
+    // 그 밖의 일시적 오류(네트워크·과부하 등)는 파이프라인을 막지 않는다
+    console.warn(`⚠️ Manager 사전 점검이 일시적 오류로 실패 — 파이프라인은 계속 진행: ${msg.slice(0, 120)}`);
+    return null;
+  }
+}
+
 async function generateManagerReportDirectly(prompt: string, payload: any): Promise<string> {
   try {
     // Manager Agent 모델 설정 (환경변수 우선, 기본 Claude Opus 5)
