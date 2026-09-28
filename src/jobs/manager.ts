@@ -115,6 +115,20 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
                 await markDecisionExecuted(reportId, outcomes);
                 await reconcileWithToss();
                 await applyDecisionToPositions(decision); // 신규 매수 종목에 SL/TP 계획 반영
+
+                // 체결 정착 재확인 — 주문 직후 reconcile은 토스 반영 전일 수 있다.
+                // (2026-09-28 ZETA 전량 매도 후에도 positions.json에 OPEN으로 남았다.
+                //  감시기 경로는 8/13 SMCI 사고 뒤 60초 재확인을 넣었지만 결정 집행 경로엔 없었다.
+                //  남아 있는 유령 포지션은 대시보드에 보이고, 손절가에 닿으면 매분 매도를 시도한다)
+                // 집행은 이미 끝났으므로 여기서 60초 기다려도 매매 타이밍에 영향이 없다.
+                await new Promise(r => setTimeout(r, 60 * 1000));
+                try {
+                  await reconcileWithToss();
+                  await applyDecisionToPositions(decision);
+                  console.log('🔄 집행 후 체결 정착 재확인 완료');
+                } catch (e) {
+                  console.warn('⚠️ 집행 후 정착 재확인 실패 (다음 사이클 시작 시 재동기화됨):', (e as Error).message);
+                }
               } else if (summary.failed.length > 0) {
                 await saveExecutionOutcomes(reportId, outcomes);
                 console.warn(`⚠️ 체결 0건 — 거부·실패 ${summary.failed.length}건을 결과로 기록 (다음 사이클 Manager 입력)`);
