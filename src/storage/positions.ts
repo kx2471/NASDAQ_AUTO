@@ -29,6 +29,7 @@ export interface Position {
   take_profit_2?: number;      // 2차 익절가 (도달 시 잔량 전량 매도)
   tp1_done?: boolean;          // 1차 익절 체결 여부
   peak_price?: number;         // TP1 이후 관측 최고가 (감시기 트레일링 보호선 계산용)
+  peak_backfilled?: boolean;   // 진입 이후 일봉 종가로 고점을 보충했는지 (포지션당 1회)
   time_horizon?: string;       // 보유 예정 기간 (예: '2-4주')
   planned_exit?: string;       // 매도 계획/조건 메모
   rationale?: string;          // 매수/보유 근거
@@ -154,6 +155,7 @@ export async function reconcileWithToss(): Promise<Position[]> {
         delete prev.take_profit_2;
         delete prev.tp1_done;
         delete prev.peak_price;   // 이전 사이클 고점이 남으면 트레일링 보호선이 즉시 발동한다
+        delete prev.peak_backfilled;
         delete prev.time_horizon;
         delete prev.planned_exit;
         delete prev.rationale;

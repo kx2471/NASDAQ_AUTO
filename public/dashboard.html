@@ -705,17 +705,18 @@ function renderHoldings(d) {
     const slVal = plan.effective_stop_loss ?? plan.stop_loss;
     const trailed = slVal && plan.stop_loss && slVal > plan.stop_loss + 0.005;
     const sl = slVal ? fmtUsd(slVal) + (trailed || plan.tp1_done ? '<span class="trail">트레일링</span>' : '') : '—';
+    const tp2 = plan.effective_take_profit_2 ?? plan.take_profit_2;   // 실제 집행 기준 (+15% 상한 적용)
     const tp = plan.take_profit_1
-      ? fmtUsd(plan.take_profit_1) + (plan.take_profit_2 ? ' / ' + fmtUsd(plan.take_profit_2) : '')
+      ? fmtUsd(plan.take_profit_1) + (tp2 ? ' / ' + fmtUsd(tp2) : '')
       : '—';
     const name = tossLink(h.symbol, h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol))
                + (h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : '');
     const pnl = `${arrow(h.pnl_percent)}${unrealizedKrw(h, d.exchangeRate)}`;
-    return { h, cur, fmt, plan, slVal, sl, tp, name, pnl };
+    return { h, cur, fmt, plan, slVal, tp2, sl, tp, name, pnl };
   });
 
   // 데스크톱: 표
-  const rows = view.map(({ h, cur, fmt, plan, slVal, sl, tp, name, pnl }) => `<tr>
+  const rows = view.map(({ h, cur, fmt, plan, slVal, tp2, sl, tp, name, pnl }) => `<tr>
       <td class="sym">${name}</td>
       <td class="num">${fmtQty(h.shares)}</td>
       <td class="num">${cur}${fmt(h.avg_cost)}</td>
@@ -724,15 +725,15 @@ function renderHoldings(d) {
       <td class="num ${pnlClass(h.pnl_percent)}">${pnl}<span style="font-size:.72rem;opacity:.7"> (${fmtPct(h.pnl_percent)})</span></td>
       <td class="num">${sl}</td>
       <td class="num">${tp}</td>
-      <td class="bar-cell">${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, plan.take_profit_2, plan.tp1_done)}</td>
+      <td class="bar-cell">${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, tp2, plan.tp1_done)}</td>
     </tr>`).join('');
 
   // 모바일: 카드 — 종목·손익을 첫 줄에, 수량·가격은 둘째 줄, 손절~익절 막대
-  const cards = view.map(({ h, cur, fmt, plan, slVal, name, pnl }) => `<div class="h-card">
+  const cards = view.map(({ h, cur, fmt, plan, slVal, tp2, name, pnl }) => `<div class="h-card">
       <div class="row"><span class="sym">${name}</span><span class="pnl num ${pnlClass(h.pnl_percent)}">${pnl}</span></div>
       <div class="row meta num"><span>${Number(h.shares).toFixed(4)}주 · 평단 ${cur}${fmt(h.avg_cost)} → ${cur}${fmt(h.current_price)}</span><span class="${pnlClass(h.pnl_percent)}">${fmtPct(h.pnl_percent)}</span></div>
       <div class="meta num">평가액 ${cur}${fmt(h.current_value)}</div>
-      ${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, plan.take_profit_2, plan.tp1_done)}
+      ${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, tp2, plan.tp1_done)}
     </div>`).join('');
 
   $('holdings').innerHTML = `<table class="desk">

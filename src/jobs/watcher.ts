@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { getOpenPositions, updatePosition, reconcileWithToss, applyDecisionToPositions, Position } from '../storage/positions';
-import { getPrices, getActiveRegularSession, getSellableQuantity } from '../services/toss';
+import { getPrices, getActiveRegularSession, getSellableQuantity, getCandles } from '../services/toss';
 import { executeSell } from '../services/trading';
 import { ManagerDecision } from '../services/decision';
 
@@ -130,7 +130,11 @@ export function effectiveStopLoss(position: Position): number | undefined {
   if (process.env.TRAIL_AFTER_TP1 === 'false') return stored;
   if (!position.tp1_done || !(position.avg_cost > 0)) return stored;
 
-  const dropPct = parseFloat(process.env.TRAIL_PEAK_DROP_PCT || '') || 7;
+  // 고점 대비 −5% (2026-09-29 −7%에서 조정). 실측 7건에서 TP1 이후 추가 상승은 보통 +2~3%p라,
+  // −7%는 고점에서 내려올 때 아무것도 붙잡지 못하고 평단+2% 바닥선까지 미끄러졌다
+  // (MRNA 두 번 모두 +10.5%대 고점 → 잔량 +2%대 청산). −4%는 계산상 더 낫지만 일변동 3~5%
+  // 종목에서 노이즈에 털릴 위험이 커 −5%에서 멈췄다. 표본이 작으니 결과를 보고 재조정할 것.
+  const dropPct = parseFloat(process.env.TRAIL_PEAK_DROP_PCT || '') || 5;
   const floorGainPct = parseFloat(process.env.TRAIL_FLOOR_GAIN_PCT || '') || 2;
 
   // 고점 기록이 없으면 TP1 가격을 하한 추정치로 쓴다 — TP1이 체결됐다면 가격은 최소 그만큼 갔다
@@ -140,6 +144,25 @@ export function effectiveStopLoss(position: Position): number | undefined {
   const floor = Math.round(Math.max(trail, breakeven) * 100) / 100;
 
   return stored !== undefined && stored >= floor ? stored : floor;
+}
+
+/**
+ * 실제 적용할 2차 익절가 — 평단 대비 +15%를 상한으로 둔다 (순수 함수).
+ *
+ * 2026-09-29 조정: 규칙서의 TP2 +19%는 실측 7건 중 1건(SMCI)만 도달했다. TP1 이후 최고치의
+ * 중간값은 약 +10.8%. 먼 TP2와 느슨한 추적이 겹쳐, 잔량이 사실상 '+2% 확정 매도'로 끝났다.
+ * Manager가 더 낮은 TP2를 주면 그 값을 그대로 쓴다 (상한으로만 작동 — 목표를 올리지 않는다).
+ *
+ * @returns 실제 적용할 TP2 (계획 없으면 undefined)
+ */
+export function effectiveTakeProfit2(position: Position): number | undefined {
+  const stored = position.take_profit_2;
+  if (!stored || !(position.avg_cost > 0)) return stored;
+  const capPct = parseFloat(process.env.TP2_MAX_GAIN_PCT || '') || 15;
+  const cap = Math.round(position.avg_cost * (1 + capPct / 100) * 100) / 100;
+  // TP1보다 낮아지면 순서가 뒤집히므로 그땐 상한을 적용하지 않는다
+  if (position.take_profit_1 && cap <= position.take_profit_1) return stored;
+  return Math.min(stored, cap);
 }
 
 /**
@@ -164,11 +187,12 @@ export function judge(position: Position, price: number):
     };
   }
 
-  if (position.take_profit_2 && price >= position.take_profit_2) {
+  const tp2 = effectiveTakeProfit2(position);
+  if (tp2 && price >= tp2) {
     return {
       type: 'TP2',
       qty: position.shares,
-      reason: `2차 익절: 현재가 $${price} ≥ TP2 $${position.take_profit_2}`
+      reason: `2차 익절: 현재가 $${price} ≥ TP2 $${tp2}`
     };
   }
 
@@ -287,6 +311,31 @@ export async function checkPositionsOnce(): Promise<void> {
   for (const position of positions) {
     const price = prices[position.symbol];
     if (!price) continue;
+
+    // 고점 보충 (포지션당 1회) — 감시기는 트레일링을 넣은 2026-09-27부터 고점을 기록해서,
+    // 그 전에 찍은 고점이 빠져 있었다 (OKTA: 9/24 종가 $206.64 → 기록 $199.06).
+    // 진입 이후 일봉 '종가' 최고치로 채운다. 장중 고가 대신 종가를 쓰는 이유: 순간 체결
+    // 한 번에 보호선이 끌려 올라가지 않도록 (감시기가 실제로 그 가격을 봤다는 보장도 없다).
+    if (position.tp1_done && !position.peak_backfilled) {
+      try {
+        const since = position.opened_at ? position.opened_at.slice(0, 10) : '';
+        const candles = await getCandles(position.symbol, '1d', 60);
+        const usDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        const closes = candles.filter(k => !since || usDay(k.date) >= since).map(k => k.close);
+        const maxClose = closes.length ? Math.max(...closes) : 0;
+        const patch: Partial<Position> = { peak_backfilled: true };
+        if (maxClose > (position.peak_price ?? 0)) {
+          const before = effectiveStopLoss(position);
+          position.peak_price = maxClose;
+          patch.peak_price = maxClose;
+          console.log(`📈 ${position.symbol} 고점 보충: 진입 후 종가 최고 $${maxClose} → 보호선 $${before} → $${effectiveStopLoss(position)}`);
+        }
+        position.peak_backfilled = true;
+        await updatePosition(position.symbol, patch);
+      } catch (e: any) {
+        console.warn(`⚠️ ${position.symbol} 고점 보충 실패 (다음 틱 재시도):`, e.message);
+      }
+    }
 
     // TP1 이후 고점 갱신 — 트레일링 보호선(effectiveStopLoss)의 기준.
     // 올라갈 때만 기록하므로 파일 쓰기는 신고가일 때만 일어난다.

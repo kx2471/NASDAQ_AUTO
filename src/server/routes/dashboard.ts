@@ -175,8 +175,8 @@ router.get('/api/positions', async (req, res) => {
     // TP1 이후에는 감시기가 트레일링 하한(max(고점−7%, 평단+2%))으로 끌어올려 집행한다.
     // 저장값만 보여주면 고점이 오를수록 화면과 실제 집행 기준이 벌어진다.
     // 계산은 감시기의 effectiveStopLoss를 그대로 쓴다 — 화면이 별도 공식을 가지면 둘이 갈린다.
-    const { effectiveStopLoss } = await import('../../jobs/watcher');
-    const data = positions.map(p => ({ ...p, effective_stop_loss: effectiveStopLoss(p) }));
+    const { effectiveStopLoss, effectiveTakeProfit2 } = await import('../../jobs/watcher');
+    const data = positions.map(p => ({ ...p, effective_stop_loss: effectiveStopLoss(p), effective_take_profit_2: effectiveTakeProfit2(p) }));
     res.json({ success: true, data });
   } catch (error) {
     console.error('❌ 포지션 조회 실패:', error);
