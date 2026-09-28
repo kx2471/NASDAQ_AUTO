@@ -19,6 +19,7 @@ export interface PerformanceData {
   total_return_percent: number;
   // 초기 자금 기준 수익률 (INITIAL_CAPITAL_KRW 환경변수 기준)
   initial_capital_krw: number;
+  usd_to_krw?: number;           // 그날 적용 환율 (환차손익 분리용)
   total_return_from_initial_krw: number;
   total_return_from_initial_percent: number;
   daily_return_krw: number;
@@ -99,7 +100,11 @@ export function calculateCurrentPerformance(
     total_return_from_initial_percent: Math.round(totalReturnFromInitialPercent * 100) / 100,
     daily_return_krw: Math.round(dailyReturnKRW),
     daily_return_percent: Math.round(dailyReturnPercent * 100) / 100,
-    target_progress: Math.round(targetProgress * 100) / 100
+    target_progress: Math.round(targetProgress * 100) / 100,
+    // 그날 적용한 환율 — 원화 수익률에서 환율 효과를 분리하려면 날짜별 환율이 필요하다.
+    // (2026-09-29까지 저장하지 않아, 입금 당시 1,495원 → 현재 1,364원 하락으로 생긴
+    //  약 −5만원이 매매 손실과 구분되지 않았다. 과거분은 Manager 리포트의 $/₩ 병기로 복원)
+    usd_to_krw: Math.round(exchangeRate * 100) / 100
   };
 }
 

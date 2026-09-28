@@ -97,3 +97,6 @@ data/json/scheduler_state.json
 # 테스트 스위트는 추적 (위 *test*.js 패턴의 예외)
 !tests/
 !tests/**
+
+# 데이터 파일 수동 백업 (수정 전 스냅샷)
+data/json/*.bak.*

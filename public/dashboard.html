@@ -279,6 +279,11 @@
   .act.cand:hover, .act.cand.on { opacity: 1; }
   .chart-filter .seg { margin-left: 0; margin-right: 4px; }
 
+  /* 히어로 타일 손익 분해 (매매 / 환율 / 달러 기준) */
+  .fxsplit { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; padding-top: 8px;
+             border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); font-size: .74rem; color: var(--text-2); cursor: help; }
+  .fxsplit:empty { display: none; }
+
   /* 시스템 상태 칩 줄 */
   .health { display: flex; flex-wrap: wrap; gap: 8px; }
   .health .skeleton { padding: 4px 0; }
@@ -436,7 +441,7 @@
 
   <!-- 스탯 타일 -->
   <section class="stats" id="stats">
-    <div class="stat hero"><div class="label">초기자금 대비 수익률</div><div class="value num" id="stReturn">—</div><div class="delta" id="stReturnKrw"></div></div>
+    <div class="stat hero"><div class="label">초기자금 대비 수익률</div><div class="value num" id="stReturn">—</div><div class="delta" id="stReturnKrw"></div><div class="fxsplit" id="stFxSplit"></div></div>
     <div class="stat"><div class="label">총 자산 (평가액)</div><div class="value num" id="stTotal">—</div><div class="delta" id="stTotalUsd"></div></div>
     <div class="stat"><div class="label">현금 (매수가능 USD)</div><div class="value num" id="stCash">—</div><div class="delta" id="stFx"></div></div>
     <div class="stat"><div class="label">목표 달성률 <span style="font-weight:400">($8,000)</span></div><div class="value num" id="stTarget">—</div><div class="delta" id="stTargetLeft"></div></div>
@@ -609,7 +614,9 @@ async function loadPortfolio() {
     $('stTotal').textContent = fmtKrw(p.current_value_krw);
     $('stTotalUsd').textContent = `보유종목 + 현금 (실계좌 기준)`;
     lastTotalKrw = p.current_value_krw;
+    lastFx = d.exchangeRate;
     renderDayChange();
+    renderFxSplit();
 
     $('stCash').textContent = fmtUsd(d.cash_usd);
     const pending = d.pending_buy_usd || 0;
@@ -627,6 +634,37 @@ async function loadPortfolio() {
 
 let positionsCache = [];
 let lastTotalKrw = null;
+let lastFx = null;
+
+/**
+ * 원화 손익을 '매매 손익'과 '환율 손익'으로 나눈다.
+ * 입금마다 그날 환율로 달러 원금을 구하고(성과 이력의 날짜별 환율), 지금 달러 자산과 비교한다.
+ *   매매 손익 = (현재 달러 − 투입 달러) × 현재 환율   ← 주식이 벌거나 잃은 것
+ *   환율 손익 = 원화 손익 − 매매 손익                  ← 환율 변동으로 생긴 것
+ * 이력과 실시간 값이 모두 준비되면 그린다 (로드 순서 무관).
+ */
+function renderFxSplit() {
+  if (lastTotalKrw == null || !lastFx || chartPtsAll.length < 1) return;
+  const pts = chartPtsAll;
+  if (!(pts[0].fx > 0)) return;
+  let invUsd = pts[0].inv / pts[0].fx, invKrw = pts[0].inv;
+  for (let i = 1; i < pts.length; i++) {
+    const dep = pts[i].inv - pts[i - 1].inv;
+    if (Math.abs(dep) >= 1000) { invUsd += dep / (pts[i].fx || lastFx); invKrw += dep; }
+  }
+  const curUsd = lastTotalKrw / lastFx;
+  const tradeKrw = (curUsd - invUsd) * lastFx;
+  const fxKrw = (lastTotalKrw - invKrw) - tradeKrw;
+  const usdPct = (curUsd / invUsd - 1) * 100;
+  const avgFx = invKrw / invUsd;
+  const sgn = (v) => `${v >= 0 ? '+' : '−'}₩${Math.abs(Math.round(v)).toLocaleString('ko-KR')}`;
+  $('stFxSplit').innerHTML =
+    `<span>매매 <b class="num ${pnlClass(tradeKrw)}">${sgn(tradeKrw)}</b></span>`
+    + `<span>환율 <b class="num ${pnlClass(fxKrw)}">${sgn(fxKrw)}</b></span>`
+    + `<span>달러 기준 <b class="num ${pnlClass(usdPct)}">${fmtPct(usdPct)}</b></span>`;
+  $('stFxSplit').title = `입금 당시 평균 환율 ${avgFx.toFixed(1)}원 → 현재 ${lastFx.toFixed(1)}원 (${fmtPct((lastFx / avgFx - 1) * 100)})\n`
+    + `투입 $${invUsd.toFixed(2)} → 현재 $${curUsd.toFixed(2)}`;
+}
 
 /**
  * 총자산 타일의 '전일 대비' — 성과 이력의 직전 날짜 값과 지금 총자산을 비교한다.
@@ -801,6 +839,26 @@ function twrSeries(pts) {
 }
 
 /**
+ * 달러 기준 누적 수익률 — 원화 수익률에서 환율 효과를 뺀 '주식 매매 자체의 성과'.
+ * 나스닥(QQQ, 달러)과 비교하려면 이것과 비교해야 한다. 원화 수익률과 비교하면
+ * 환율 하락분까지 전략 탓으로 보인다 (2026-09-29 발견: 원화 −30.6% vs 달러 약 −23%).
+ * 하루 수익률 = (오늘 달러자산 − 오늘 입금÷오늘 환율) / 어제 달러자산.
+ * @returns 각 점의 누적 수익률(%) 또는 null (환율 기록 없음)
+ */
+function twrUsdSeries(pts) {
+  if (pts.some(p => !(p.fx > 0))) return null;
+  let cum = 1;
+  return pts.map((p, i) => {
+    if (i > 0) {
+      const dep = (p.inv - pts[i - 1].inv) / p.fx;
+      const prev = pts[i - 1].v / pts[i - 1].fx;
+      if (prev > 0) cum *= (p.v / p.fx - dep) / prev;
+    }
+    return (cum - 1) * 100;
+  });
+}
+
+/**
  * QQQ 누적 수익률 — 성과 기록일 D에는 'D보다 이전의 마지막 QQQ 종가'를 짝짓는다.
  * 성과는 KST 저녁(개장 전)에 기록되므로, 그 시점에 확정된 미국 종가는 전날 것이다.
  * @returns 각 점의 누적 수익률(%) 또는 null (데이터 없음)
@@ -858,10 +916,13 @@ function redrawChart() {
       + (deps.length ? `<span><i class="dash" style="border-color:var(--warn)"></i>입금 (수익 아님)</span>` : '')
       + `<span><b class="mk up">▲</b>매수 <b class="mk down">▼</b>매도</span>`;
   } else {
-    const mine = twrSeries(pts);
+    const krwR = twrSeries(pts);
+    const usdR = twrUsdSeries(pts);
+    const mine = usdR || krwR;            // 비교의 주 계열 = 달러 기준 (없으면 원화)
     const qqq = benchSeries(pts);
-    const series = [{ vals: mine, color: 'var(--accent)', fill: false, label: '내 수익률 (입금 제외)' }];
+    const series = [{ vals: mine, color: 'var(--accent)', fill: false, label: usdR ? '내 수익률 (달러)' : '내 수익률 (원화)' }];
     if (qqq) series.push({ vals: qqq, color: 'var(--text-3)', dashed: true, label: '나스닥100 (QQQ)' });
+    if (usdR) series.push({ vals: krwR, color: 'var(--warn)', thin: true, label: '원화 환산' });
     drawChart($('chartWrap'), {
       dates: pts.map(p => p.date),
       series,
@@ -869,12 +930,15 @@ function redrawChart() {
       zeroLine: true,
       marks,
       tip: (i) => `${esc(pts[i].date)}`
-        + `<b class="num ${pnlClass(mine[i])}">내 수익률 ${fmtPct(mine[i])}</b>`
+        + `<b class="num ${pnlClass(mine[i])}">내 수익률 ${fmtPct(mine[i])}${usdR ? ' (달러)' : ''}</b>`
+        + (usdR ? `<span class="num" style="font-size:.74rem;color:var(--text-2)">원화 환산 ${fmtPct(krwR[i])} · 환율 ${Math.round(pts[i].fx).toLocaleString()}원</span><br>` : '')
         + (qqq && qqq[i] != null ? `<span class="num" style="font-size:.78rem">QQQ ${fmtPct(qqq[i])} · 차이 <span class="${pnlClass(mine[i] - qqq[i])}">${fmtPct(mine[i] - qqq[i])}p</span></span><br>` : '')
         + tradeTip(marks.get(i)),
     });
     const last = mine[mine.length - 1], lq = qqq ? qqq[qqq.length - 1] : null;
-    $('chartLegend').innerHTML = `<span><i style="background:var(--accent)"></i>내 수익률 <b class="num ${pnlClass(last)}">${fmtPct(last)}</b></span>`
+    const lk = krwR[krwR.length - 1];
+    $('chartLegend').innerHTML = `<span><i style="background:var(--accent)"></i>내 수익률${usdR ? '(달러)' : ''} <b class="num ${pnlClass(last)}">${fmtPct(last)}</b></span>`
+      + (usdR ? `<span><i style="background:var(--warn);height:2px"></i>원화 환산 <b class="num ${pnlClass(lk)}">${fmtPct(lk)}</b></span>` : '')
       + (lq != null ? `<span><i class="dash" style="border-color:var(--text-3)"></i>QQQ <b class="num ${pnlClass(lq)}">${fmtPct(lq)}</b></span>
          <span>차이 <b class="num ${pnlClass(last - lq)}">${fmtPct(last - lq)}p</b></span>`
         : `<span style="color:var(--text-3)">나스닥 비교 데이터 없음</span>`);
@@ -897,7 +961,7 @@ async function loadChart() {
     ]);
     chartPtsAll = sanitizeInvested(hist
       .filter(h => Number.isFinite(h.current_value_krw))
-      .map(h => ({ date: h.date, v: h.current_value_krw, inv: h.initial_capital_krw || 0 }))
+      .map(h => ({ date: h.date, v: h.current_value_krw, inv: h.initial_capital_krw || 0, fx: h.usd_to_krw || null }))
       .sort((a, b) => a.date.localeCompare(b.date)));
     benchAll = bench.candles || [];
     tradeMarks = trades.map(t => ({ at: new Date(t.traded_at).getTime(), side: t.side, symbol: t.symbol }));
@@ -937,6 +1001,7 @@ async function loadChart() {
     $('chartMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.m === chartMode));
     redrawChart(); // 기본값: 전체 기간
     renderDayChange();
+    renderFxSplit();
   } catch (e) {
     $('chartWrap').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
   }
@@ -983,7 +1048,7 @@ function drawChart(container, opt) {
     const c = col(s.color);
     const area = s.fill ? `<path d="${d}L${x(n - 1).toFixed(1)},${m.t + ih}L${m.l},${m.t + ih}Z" fill="url(#ag${k})"/>
       <defs><linearGradient id="ag${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="0.22"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>` : '';
-    return area + `<path d="${d}" fill="none" stroke="${c}" stroke-width="${s.dashed ? 1.6 : 2}" ${s.dashed ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
+    return area + `<path d="${d}" fill="none" stroke="${c}" stroke-width="${s.thin ? 1.2 : s.dashed ? 1.6 : 2}" ${s.dashed ? 'stroke-dasharray="5 4"' : ''} ${s.thin ? 'opacity=".8"' : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
   }).join('');
 
   const warn = col('var(--warn)');

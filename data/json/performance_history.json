@@ -10,7 +10,9 @@
     "total_return_from_initial_percent": 0.16,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 2.51
+    "target_progress": 2.51,
+    "usd_to_krw": 1496.66,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-14",
@@ -23,7 +25,9 @@
     "total_return_from_initial_percent": -86.96,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 2.87
+    "target_progress": 2.87,
+    "usd_to_krw": 1492.6,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-15",
@@ -36,7 +40,9 @@
     "total_return_from_initial_percent": -0.48,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.86
+    "target_progress": 4.86,
+    "usd_to_krw": 1492.97,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-16",
@@ -49,7 +55,9 @@
     "total_return_from_initial_percent": -1.19,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.82
+    "target_progress": 4.82,
+    "usd_to_krw": 1485.55,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-17",
@@ -62,7 +70,9 @@
     "total_return_from_initial_percent": -5.01,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.63
+    "target_progress": 4.63,
+    "usd_to_krw": 1492.1,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-20",
@@ -75,7 +85,9 @@
     "total_return_from_initial_percent": -3.82,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.69
+    "target_progress": 4.69,
+    "usd_to_krw": 1485.25,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-21",
@@ -88,7 +100,9 @@
     "total_return_from_initial_percent": -4.81,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.64
+    "target_progress": 4.64,
+    "usd_to_krw": 1481.75,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-22",
@@ -101,7 +115,9 @@
     "total_return_from_initial_percent": -6.78,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.55
+    "target_progress": 4.55,
+    "usd_to_krw": 1483.55,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-23",
@@ -114,7 +130,9 @@
     "total_return_from_initial_percent": -8.61,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.46
+    "target_progress": 4.46,
+    "usd_to_krw": 1477.35,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-24",
@@ -127,7 +145,9 @@
     "total_return_from_initial_percent": -10.81,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.35
+    "target_progress": 4.35,
+    "usd_to_krw": 1465.85,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-27",
@@ -140,7 +160,9 @@
     "total_return_from_initial_percent": -12.11,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.29
+    "target_progress": 4.29,
+    "usd_to_krw": 1473.65,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-28",
@@ -153,7 +175,9 @@
     "total_return_from_initial_percent": -13.04,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.24
+    "target_progress": 4.24,
+    "usd_to_krw": 1461.78,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-29",
@@ -166,7 +190,9 @@
     "total_return_from_initial_percent": -12.43,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.27
+    "target_progress": 4.27,
+    "usd_to_krw": 1456.8,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-30",
@@ -179,7 +205,9 @@
     "total_return_from_initial_percent": -14.62,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.17
+    "target_progress": 4.17,
+    "usd_to_krw": 1437.65,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-07-31",
@@ -192,7 +220,9 @@
     "total_return_from_initial_percent": -16.04,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.1
+    "target_progress": 4.1,
+    "usd_to_krw": 1446.46,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-03",
@@ -205,7 +235,9 @@
     "total_return_from_initial_percent": -14.73,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.16
+    "target_progress": 4.16,
+    "usd_to_krw": 1430.45,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-04",
@@ -218,7 +250,9 @@
     "total_return_from_initial_percent": -15,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.15
+    "target_progress": 4.15,
+    "usd_to_krw": 1430.31,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-05",
@@ -231,7 +265,9 @@
     "total_return_from_initial_percent": -17.07,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.05
+    "target_progress": 4.05,
+    "usd_to_krw": 1427.45,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-06",
@@ -244,7 +280,9 @@
     "total_return_from_initial_percent": -17.55,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4.02
+    "target_progress": 4.02,
+    "usd_to_krw": 1426.55,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-07",
@@ -257,7 +295,9 @@
     "total_return_from_initial_percent": -18.44,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.98
+    "target_progress": 3.98,
+    "usd_to_krw": 1411.5,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-10",
@@ -270,7 +310,9 @@
     "total_return_from_initial_percent": -18.11,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 4
+    "target_progress": 4,
+    "usd_to_krw": 1421.03,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-11",
@@ -283,7 +325,9 @@
     "total_return_from_initial_percent": -19.61,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.92
+    "target_progress": 3.92,
+    "usd_to_krw": 1416.28,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-12",
@@ -296,7 +340,9 @@
     "total_return_from_initial_percent": -19.62,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.92
+    "target_progress": 3.92,
+    "usd_to_krw": 1419.2,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-13",
@@ -309,7 +355,9 @@
     "total_return_from_initial_percent": -19.52,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.93
+    "target_progress": 3.93,
+    "usd_to_krw": 1422.18,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-14",
@@ -322,7 +370,9 @@
     "total_return_from_initial_percent": -20.12,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.9
+    "target_progress": 3.9,
+    "usd_to_krw": 1414.3,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-17",
@@ -335,7 +385,9 @@
     "total_return_from_initial_percent": -18.56,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.97
+    "target_progress": 3.97,
+    "usd_to_krw": 1419.1,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-18",
@@ -348,7 +400,9 @@
     "total_return_from_initial_percent": -21.79,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.82
+    "target_progress": 3.82,
+    "usd_to_krw": 1413.65,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-19",
@@ -361,7 +415,9 @@
     "total_return_from_initial_percent": -23.86,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.72
+    "target_progress": 3.72,
+    "usd_to_krw": 1390.1,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-20",
@@ -374,7 +430,9 @@
     "total_return_from_initial_percent": -21.52,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.83
+    "target_progress": 3.83,
+    "usd_to_krw": 1397.88,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-21",
@@ -387,7 +445,9 @@
     "total_return_from_initial_percent": -21.7,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.82
+    "target_progress": 3.82,
+    "usd_to_krw": 1389.05,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-24",
@@ -400,7 +460,9 @@
     "total_return_from_initial_percent": -21.18,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.85
+    "target_progress": 3.85,
+    "usd_to_krw": 1385.74,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-25",
@@ -413,7 +475,9 @@
     "total_return_from_initial_percent": -21.56,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.83
+    "target_progress": 3.83,
+    "usd_to_krw": 1387.53,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-26",
@@ -426,7 +490,9 @@
     "total_return_from_initial_percent": -24.72,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.67
+    "target_progress": 3.67,
+    "usd_to_krw": 1387.93,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-27",
@@ -439,7 +505,9 @@
     "total_return_from_initial_percent": -26.82,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.57
+    "target_progress": 3.57,
+    "usd_to_krw": 1384.74,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-28",
@@ -452,7 +520,9 @@
     "total_return_from_initial_percent": -30.51,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.39
+    "target_progress": 3.39,
+    "usd_to_krw": 1377.12,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-08-31",
@@ -465,7 +535,9 @@
     "total_return_from_initial_percent": -30.58,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.39
+    "target_progress": 3.39,
+    "usd_to_krw": 1371.55,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-01",
@@ -478,7 +550,9 @@
     "total_return_from_initial_percent": -31.95,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.32
+    "target_progress": 3.32,
+    "usd_to_krw": 1376.5,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-02",
@@ -491,7 +565,9 @@
     "total_return_from_initial_percent": -29.57,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.44
+    "target_progress": 3.44,
+    "usd_to_krw": 1366.25,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-03",
@@ -504,7 +580,9 @@
     "total_return_from_initial_percent": -30.09,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.41
+    "target_progress": 3.41,
+    "usd_to_krw": 1359.04,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-04",
@@ -517,7 +595,9 @@
     "total_return_from_initial_percent": -29.49,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.44
+    "target_progress": 3.44,
+    "usd_to_krw": 1351.57,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-08",
@@ -530,7 +610,9 @@
     "total_return_from_initial_percent": -30.66,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.38
+    "target_progress": 3.38,
+    "usd_to_krw": 1344.28,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-09",
@@ -543,7 +625,9 @@
     "total_return_from_initial_percent": -31.64,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.34
+    "target_progress": 3.34,
+    "usd_to_krw": 1340.09,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-10",
@@ -556,7 +640,9 @@
     "total_return_from_initial_percent": -34.61,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.19
+    "target_progress": 3.19,
+    "usd_to_krw": 1348.89,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-11",
@@ -569,7 +655,9 @@
     "total_return_from_initial_percent": -33.99,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.22
+    "target_progress": 3.22,
+    "usd_to_krw": 1344.27,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-14",
@@ -582,7 +670,9 @@
     "total_return_from_initial_percent": -31.86,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.32
+    "target_progress": 3.32,
+    "usd_to_krw": 1352.37,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-15",
@@ -595,7 +685,9 @@
     "total_return_from_initial_percent": -32.22,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.31
+    "target_progress": 3.31,
+    "usd_to_krw": 1360.43,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-16",
@@ -608,7 +700,9 @@
     "total_return_from_initial_percent": -31.2,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.36
+    "target_progress": 3.36,
+    "usd_to_krw": 1371.14,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-17",
@@ -621,7 +715,9 @@
     "total_return_from_initial_percent": -30.85,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.37
+    "target_progress": 3.37,
+    "usd_to_krw": 1383.52,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-18",
@@ -634,7 +730,9 @@
     "total_return_from_initial_percent": -29.25,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.45
+    "target_progress": 3.45,
+    "usd_to_krw": 1391.15,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-21",
@@ -647,7 +745,9 @@
     "total_return_from_initial_percent": -31.61,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.34
+    "target_progress": 3.34,
+    "usd_to_krw": 1375.44,
+    "usd_to_krw_source": "report"
   },
   {
     "date": "2026-09-22",
@@ -660,7 +760,9 @@
     "total_return_from_initial_percent": -29.13,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.46
+    "target_progress": 3.46,
+    "usd_to_krw": 1375.44,
+    "usd_to_krw_source": "report-nearest"
   },
   {
     "date": "2026-09-23",
@@ -673,7 +775,9 @@
     "total_return_from_initial_percent": -29.31,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.45
+    "target_progress": 3.45,
+    "usd_to_krw": 1375.44,
+    "usd_to_krw_source": "report-nearest"
   },
   {
     "date": "2026-09-24",
@@ -686,7 +790,9 @@
     "total_return_from_initial_percent": -28.83,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.47
+    "target_progress": 3.47,
+    "usd_to_krw": 1375.44,
+    "usd_to_krw_source": "report-nearest"
   },
   {
     "date": "2026-09-25",
@@ -699,6 +805,23 @@
     "total_return_from_initial_percent": -29.2,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
-    "target_progress": 3.45
+    "target_progress": 3.45,
+    "usd_to_krw": 1375.44,
+    "usd_to_krw_source": "report-nearest"
+  },
+  {
+    "date": "2026-09-28",
+    "total_investment_krw": 110444,
+    "current_value_krw": 406946,
+    "total_return_krw": 296502,
+    "total_return_percent": 268.46,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -176119,
+    "total_return_from_initial_percent": -30.21,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 3.41,
+    "usd_to_krw": 1363.5,
+    "usd_to_krw_source": "report"
   }
 ]
