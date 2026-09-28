@@ -295,6 +295,65 @@ export async function buildRealizedLedger(): Promise<string> {
 }
 
 /** ② 자산 궤적 + 목표 페이스 — performance_history.json + 목표/시작일(env). */
+/** 원화 손익의 매매/환율 분해 결과 */
+export interface FxSplit {
+  investedKrw: number; investedUsd: number; avgDepositFx: number;
+  currentKrw: number; currentUsd: number; currentFx: number;
+  tradeKrw: number;      // 매매(주식) 손익 — (현재 달러 − 투입 달러) × 현재 환율
+  fxKrw: number;         // 환율 손익 — 원화 손익 − 매매 손익
+  krwPct: number; usdPct: number;
+}
+
+/**
+ * 원화 손익을 '매매 손익'과 '환율 손익'으로 나눈다 (대시보드·Manager 공용 — 계산은 여기 한 곳).
+ * 입금마다 그날 환율로 달러 원금을 구한다. 입금 = 성과 이력의 투입원금 증가분이며,
+ * 하루만 튄 고립 이상값(2026-07-14 ₩2,200,000)은 직전 값으로 보정한다.
+ * @param currentKrw 현재 총자산(원화) / @param currentFx 현재 환율
+ * @returns 분해 결과 (날짜별 환율 기록이 없으면 null)
+ */
+export async function computeFxSplit(currentKrw: number, currentFx: number): Promise<FxSplit | null> {
+  const hist = (await readJsonArray<any>('performance_history'))
+    .filter(h => Number.isFinite(h.current_value_krw))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (!hist.length || !(currentFx > 0) || !(hist[0].usd_to_krw > 0)) return null;
+  const inv = hist.map(h => h.initial_capital_krw || 0);
+  for (let i = 1; i < inv.length - 1; i++) {
+    if (inv[i] !== inv[i - 1] && inv[i] !== inv[i + 1] && inv[i - 1] > 0) inv[i] = inv[i - 1];
+  }
+  let investedUsd = inv[0] / hist[0].usd_to_krw, investedKrw = inv[0];
+  for (let i = 1; i < hist.length; i++) {
+    const dep = inv[i] - inv[i - 1];
+    if (Math.abs(dep) >= 1000) { investedUsd += dep / (hist[i].usd_to_krw || currentFx); investedKrw += dep; }
+  }
+  const currentUsd = currentKrw / currentFx;
+  const tradeKrw = (currentUsd - investedUsd) * currentFx;
+  return {
+    investedKrw, investedUsd, avgDepositFx: investedKrw / investedUsd,
+    currentKrw, currentUsd, currentFx,
+    tradeKrw, fxKrw: (currentKrw - investedKrw) - tradeKrw,
+    krwPct: (currentKrw / investedKrw - 1) * 100,
+    usdPct: (currentUsd / investedUsd - 1) * 100,
+  };
+}
+
+/**
+ * 같은 기간 나스닥100(QQQ) 수익률 — 첫 성과 기록일 이전 마지막 종가 대비 최신 종가.
+ * 성과 자체가 시장 탓인지 전략 탓인지 가르는 기준선. 실패하면 null (없는 기준선을 지어내지 않는다).
+ */
+async function benchmarkSinceStart(firstDate: string): Promise<number | null> {
+  try {
+    const { getCandles } = await import('./toss');
+    const c = (await getCandles('QQQ', '1d', 200))
+      .map(k => ({ d: new Date(new Date(k.date).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10), close: k.close }))
+      .sort((a, b) => a.d.localeCompare(b.d));
+    const base = [...c].reverse().find(k => k.d < firstDate);
+    const last = c[c.length - 1];
+    return base && last ? (last.close / base.close - 1) * 100 : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function buildPerformanceTrajectory(): Promise<string> {
   const hist = await readJsonArray<any>('performance_history');
   if (hist.length === 0) return '성과 기록 없음.';
@@ -329,8 +388,30 @@ export async function buildPerformanceTrajectory(): Promise<string> {
     `  ${d.date}: 초기대비 ${d.total_return_from_initial_percent >= 0 ? '+' : ''}${(d.total_return_from_initial_percent ?? 0).toFixed(2)}%`
   ).join('\n') + (anomalies > 0 ? `\n  (이상치 ${anomalies}건 제외됨 — 스냅샷 글리치)` : '');
 
+  // 매매 성과를 환율과 분리하고 시장과 비교한다 (2026-09-29 추가).
+  // 원화 수익률만 주면 환율 하락분(입금 당시 1,495원 → 1,364원)까지 매매 실패로 읽히고,
+  // 페이스 문구가 '더 공격적 필요'를 권해 원인과 어긋난 대응을 부를 수 있다.
+  let fxLines: string[] = [];
+  try {
+    const cur = latest.current_value_krw, fx = latest.usd_to_krw;
+    const split = cur > 0 && fx > 0 ? await computeFxSplit(cur, fx) : null;
+    if (split) {
+      const won = (v: number) => `${v >= 0 ? '+' : '−'}₩${Math.abs(Math.round(v)).toLocaleString('ko-KR')}`;
+      const q = await benchmarkSinceStart(clean[0].date);
+      fxLines = [
+        `손익 분해: 원화 ${won(split.tradeKrw + split.fxKrw)} = 매매(주식) ${won(split.tradeKrw)} + 환율 ${won(split.fxKrw)} ` +
+          `(입금 당시 평균 환율 ${split.avgDepositFx.toFixed(0)}원 → 현재 ${split.currentFx.toFixed(0)}원)`,
+        `매매 성과(달러 기준): ${split.usdPct >= 0 ? '+' : ''}${split.usdPct.toFixed(2)}%` +
+          (q !== null ? ` · 같은 기간 나스닥100(QQQ) ${q >= 0 ? '+' : ''}${q.toFixed(2)}% → 시장 대비 ${(split.usdPct - q) >= 0 ? '+' : ''}${(split.usdPct - q).toFixed(1)}%p` : ''),
+        `해석 원칙: 환율 손익은 이 시스템이 통제할 수 없다 — 매매 판단과 자기 평가는 달러 기준·시장 대비로 하라. ` +
+          `환율로 생긴 손실을 만회하려고 진입 기준을 완화하거나 공격성을 높이지 마라.`,
+      ];
+    }
+  } catch { /* 분해 실패는 기존 정보만으로 진행 */ }
+
   return [
-    `초기자본 대비 현재: ${latest.total_return_from_initial_percent >= 0 ? '+' : ''}${(latest.total_return_from_initial_percent ?? 0).toFixed(2)}% · 목표 진척 ${(latest.target_progress ?? 0).toFixed(1)}%`,
+    `초기자본 대비 현재(원화): ${latest.total_return_from_initial_percent >= 0 ? '+' : ''}${(latest.total_return_from_initial_percent ?? 0).toFixed(2)}% · 목표 진척 ${(latest.target_progress ?? 0).toFixed(1)}%`,
+    ...fxLines,
     paceLine,
     `최근 자산 추이:`,
     recent,

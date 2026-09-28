@@ -69,9 +69,17 @@ router.get('/api/portfolio', async (req, res) => {
     const performance = calculateCurrentPerformance(holdings, currentPrices, exchangeRate.usd_to_krw, undefined, undefined, cashBalance + pendingBuyUsd);
     const targetAnalysis = analyzeTargetProgress(performance);
 
+    // 원화 손익의 매매/환율 분해 — Manager 입력과 같은 함수(managerRecords.computeFxSplit)
+    let fxSplit = null;
+    try {
+      const { computeFxSplit } = await import('../../services/managerRecords');
+      fxSplit = await computeFxSplit(performance.current_value_krw, exchangeRate.usd_to_krw);
+    } catch { /* 분해 실패는 표시만 생략 */ }
+
     res.json({
       success: true,
       data: {
+        fx_split: fxSplit,
         cash_usd: cashBalance,
         pending_buy_usd: Math.round(pendingBuyUsd * 100) / 100,
         open_orders: openOrders.map(o => ({

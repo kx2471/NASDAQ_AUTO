@@ -615,6 +615,7 @@ async function loadPortfolio() {
     $('stTotalUsd').textContent = `보유종목 + 현금 (실계좌 기준)`;
     lastTotalKrw = p.current_value_krw;
     lastFx = d.exchangeRate;
+    lastFxSplit = d.fx_split || null;
     renderDayChange();
     renderFxSplit();
 
@@ -635,6 +636,7 @@ async function loadPortfolio() {
 let positionsCache = [];
 let lastTotalKrw = null;
 let lastFx = null;
+let lastFxSplit = null;
 
 /**
  * 원화 손익을 '매매 손익'과 '환율 손익'으로 나눈다.
@@ -644,26 +646,16 @@ let lastFx = null;
  * 이력과 실시간 값이 모두 준비되면 그린다 (로드 순서 무관).
  */
 function renderFxSplit() {
-  if (lastTotalKrw == null || !lastFx || chartPtsAll.length < 1) return;
-  const pts = chartPtsAll;
-  if (!(pts[0].fx > 0)) return;
-  let invUsd = pts[0].inv / pts[0].fx, invKrw = pts[0].inv;
-  for (let i = 1; i < pts.length; i++) {
-    const dep = pts[i].inv - pts[i - 1].inv;
-    if (Math.abs(dep) >= 1000) { invUsd += dep / (pts[i].fx || lastFx); invKrw += dep; }
-  }
-  const curUsd = lastTotalKrw / lastFx;
-  const tradeKrw = (curUsd - invUsd) * lastFx;
-  const fxKrw = (lastTotalKrw - invKrw) - tradeKrw;
-  const usdPct = (curUsd / invUsd - 1) * 100;
-  const avgFx = invKrw / invUsd;
+  // 계산은 서버 한 곳(managerRecords.computeFxSplit) — Manager가 보는 숫자와 화면 숫자가 같다
+  const f = lastFxSplit;
+  if (!f) { $('stFxSplit').innerHTML = ''; return; }
   const sgn = (v) => `${v >= 0 ? '+' : '−'}₩${Math.abs(Math.round(v)).toLocaleString('ko-KR')}`;
   $('stFxSplit').innerHTML =
-    `<span>매매 <b class="num ${pnlClass(tradeKrw)}">${sgn(tradeKrw)}</b></span>`
-    + `<span>환율 <b class="num ${pnlClass(fxKrw)}">${sgn(fxKrw)}</b></span>`
-    + `<span>달러 기준 <b class="num ${pnlClass(usdPct)}">${fmtPct(usdPct)}</b></span>`;
-  $('stFxSplit').title = `입금 당시 평균 환율 ${avgFx.toFixed(1)}원 → 현재 ${lastFx.toFixed(1)}원 (${fmtPct((lastFx / avgFx - 1) * 100)})\n`
-    + `투입 $${invUsd.toFixed(2)} → 현재 $${curUsd.toFixed(2)}`;
+    `<span>매매 <b class="num ${pnlClass(f.tradeKrw)}">${sgn(f.tradeKrw)}</b></span>`
+    + `<span>환율 <b class="num ${pnlClass(f.fxKrw)}">${sgn(f.fxKrw)}</b></span>`
+    + `<span>달러 기준 <b class="num ${pnlClass(f.usdPct)}">${fmtPct(f.usdPct)}</b></span>`;
+  $('stFxSplit').title = `입금 당시 평균 환율 ${f.avgDepositFx.toFixed(1)}원 → 현재 ${f.currentFx.toFixed(1)}원 (${fmtPct((f.currentFx / f.avgDepositFx - 1) * 100)})\n`
+    + `투입 $${f.investedUsd.toFixed(2)} → 현재 $${f.currentUsd.toFixed(2)}`;
 }
 
 /**
