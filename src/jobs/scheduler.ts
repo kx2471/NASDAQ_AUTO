@@ -58,6 +58,8 @@ const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.jso
 interface SchedulerState {
   lastReportDate?: string;        // 개장 전 리포트를 실행한 미국 영업일
   lastWeeklyReviewDate?: string;  // 주간 전략 회고를 실행한 KST 일요일 날짜
+  redeploySession?: number;       // 재배치 무행동 카운터가 속한 세션 시작 시각
+  redeployNoActionCount?: number; // 그 세션에서 매수 0건으로 끝난 재배치 횟수
 }
 
 /**
@@ -393,9 +395,13 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
   if (new Date().getMinutes() % 10 !== 0) return;
   try {
     // 세션이 바뀌면 무행동 카운터 초기화 (전날 상한이 오늘을 막지 않도록)
+    // 세션이 바뀌었거나 재시작 직후면 디스크에서 복구한다.
+    // 메모리에만 두면 서버 재시작(배포)마다 0으로 돌아가 상한이 무력화된다
+    // (2026-09-29 00:16 무행동 1/2 상태에서 배포하려다 발견).
     if (redeploySession !== session.start) {
+      const st = await loadState();
       redeploySession = session.start;
-      redeployNoActionCount = 0;
+      redeployNoActionCount = st.redeploySession === session.start ? (st.redeployNoActionCount ?? 0) : 0;
     }
 
     const msSinceLastDecision = now - (await getLastDecisionTime());
@@ -432,6 +438,7 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
             .find(d => d.report_id === reportId)?.actions.some(a => a.action === 'BUY');
           if (bought) return;
           redeployNoActionCount++;
+          await saveState({ redeploySession, redeployNoActionCount });
           const max = getRedeployMaxNoAction();
           console.warn(
             `💤 재배치 무행동 ${redeployNoActionCount}/${max} (매수 0건)` +

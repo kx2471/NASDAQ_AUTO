@@ -2,7 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f4f3f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Nasdaq AutoTrader</title>
 <style>
   /* ── 디자인 토큰 (라이트) ─────────────────────────── */
@@ -216,6 +220,136 @@
 
   footer { text-align: center; color: var(--text-3); font-size: .74rem; padding: 10px 0 30px; }
   .skeleton { color: var(--text-3); font-size: .85rem; padding: 20px; text-align: center; }
+
+  /* ── 공통 보강 ────────────────────────────────────── */
+  html { -webkit-text-size-adjust: 100%; }
+  .anchor { scroll-margin-top: 112px; }        /* 섹션 이동 시 고정 헤더에 가리지 않도록 */
+  .updated { font-size: .72rem; color: var(--text-3); white-space: nowrap; }
+  .mob { display: none; }                       /* 모바일 전용 마크업 (카드 목록) */
+
+  /* 손절~익절 구간 막대 — 현재가가 어디쯤인지 한눈에 */
+  .rbar { margin-top: 8px; }
+  .rbar-track { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
+  .rbar-track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .rbar-track i { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--text-3); transform: translateX(-1px); }
+  .rbar-track i.avg { background: var(--text-2); }
+  .rbar-track b { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--accent);
+                  border: 2px solid var(--surface); transform: translate(-6px, -50%); box-shadow: 0 0 0 1px var(--accent); }
+  .rbar-lbl { display: flex; justify-content: space-between; font-size: .7rem; color: var(--text-3); margin-top: 5px; gap: 8px; }
+  .rbar-lbl .sl { color: var(--down); }
+  .rbar-lbl .tp { color: var(--up); text-align: right; }
+  .trail { font-size: .66rem; font-weight: 700; color: var(--good); margin-left: 3px; }
+
+  /* 결정 근거 (탭하면 펼침 — 모바일엔 호버 툴팁이 없다) */
+  .act { cursor: pointer; font-family: inherit; color: inherit; }
+  .act.on { border-color: var(--accent); background: var(--accent-soft); }
+  .rat { display: none; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+         font-size: .8rem; color: var(--text-2); line-height: 1.5; }
+  .rat.show { display: block; }
+
+  /* 섹션 이동 칩 — 긴 페이지에서 원하는 카드로 바로 간다 */
+  .secnav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+            padding: 0 24px 10px; max-width: 1240px; margin: 0 auto; }
+  .secnav::-webkit-scrollbar { display: none; }
+  .secnav a { flex-shrink: 0; font-size: .76rem; font-weight: 600; color: var(--text-2); text-decoration: none;
+              padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border);
+              transition: background .12s, color .12s; }
+  .secnav a:hover { color: var(--text-1); border-color: var(--text-3); }
+  .secnav a:active { background: var(--accent-soft); }
+
+  /* 보유 표의 위치 막대 열 */
+  .bar-cell { min-width: 200px; text-align: left !important; white-space: normal !important; }
+  .bar-cell .rbar { margin-top: 2px; }
+
+  /* 거래 필터 세그먼트 + 실현 요약 */
+  .seg { display: inline-flex; margin-left: auto; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { font: inherit; font-size: .74rem; font-weight: 600; padding: 4px 12px; border: none; cursor: pointer;
+                background: var(--surface); color: var(--text-3); }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button.on { background: var(--accent-soft); color: var(--text-1); }
+  .t-summary { padding: 8px 20px 0; font-size: .78rem; color: var(--text-2); }
+  .t-summary:empty { display: none; }
+
+  /* 그리드 칸이 내용 폭에 끌려 늘어나지 않게 — 기본값(min-width:auto)이면 넓은 표·코드 한 줄이
+     열 전체를 밀어 모바일에서 페이지가 화면 밖으로 넘친다 */
+  main > *, .grid-2 > *, .grid-half > *, .report-layout > * { min-width: 0; }
+  body { overflow-x: hidden; }
+
+  .act.cand { opacity: .55; }                  /* 매수 보류된 미보유 후보 */
+  .act.cand:hover, .act.cand.on { opacity: 1; }
+  .chart-filter .seg { margin-left: 0; margin-right: 4px; }
+
+  /* 키보드 사용 시 초점 표시 (마우스 클릭엔 안 보임) */
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .card { transition: box-shadow .15s; }
+
+  /* ── 모바일 (≤ 640px) ─────────────────────────────── */
+  @media (max-width: 640px) {
+    html { font-size: 14.5px; }
+    body { padding-bottom: env(safe-area-inset-bottom); }
+    .header-inner { padding: 10px 14px 8px; gap: 6px 10px;
+                    padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+    .logo { font-size: 1rem; }
+    .logo small { display: none; }
+    .updated { margin-left: auto; }
+    .pills { order: 3; width: 100%; margin-left: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .pills::-webkit-scrollbar { display: none; }
+    .pill { flex-shrink: 0; padding: 3px 10px; font-size: .74rem; }
+
+    .secnav { padding: 0 14px 10px; }
+    .secnav a { padding: 6px 12px; }
+    .seg { margin-left: 0; }
+    .t-summary { padding: 8px 14px 0; }
+
+    .toss-alert { margin: 10px 12px 0; }
+    main { padding: 12px; gap: 12px; }
+    .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { padding: 12px 14px; border-radius: 12px; }
+    .stat.hero { grid-column: 1 / -1; }
+    .stat:last-child { grid-column: 1 / -1; }   /* 홀수로 남는 타일이 반쪽만 차지하지 않게 */
+    .stat .value { font-size: 1.2rem; }
+    .stat.hero .value { font-size: 1.75rem; }
+    .stat .delta { font-size: .74rem; }
+    .card { border-radius: 12px; }
+    .card-head { padding: 14px 14px 0; flex-wrap: wrap; row-gap: 4px; }
+    .card-head .sub { flex-basis: 100%; }
+    .card-body { padding: 10px 14px 14px; }
+
+    .chart-filter { margin-left: 0; flex-basis: 100%; }
+    /* 모바일은 기간 버튼만 — 날짜 입력 2개는 좁은 폭에서 자리만 차지한다 */
+    .chart-filter input[type="date"], .chart-filter > span:not(.seg), #chartReset { display: none; }
+    .chart-filter .seg button { padding: 6px 14px; font-size: .8rem; }
+
+    /* 표 → 카드 전환 */
+    .desk { display: none; }
+    .mob { display: block; }
+    .tbl-scroll { max-height: none; overflow: visible; }
+    .scroll-y { max-height: 62vh; overscroll-behavior: contain; }
+
+    .h-card, .t-card { padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+    .h-card:first-child, .t-card:first-child { padding-top: 2px; }
+    .h-card:last-child, .t-card:last-child { border-bottom: none; }
+    .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+    .h-card .sym { font-size: .95rem; }
+    .h-card .pnl { font-weight: 700; font-size: .95rem; text-align: right; white-space: nowrap; }
+    .h-card .meta, .t-card .meta { font-size: .76rem; color: var(--text-3); margin-top: 3px; }
+    .t-card .memo { font-size: .74rem; color: var(--text-3); margin-top: 4px;
+                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .t-card .memo.open { -webkit-line-clamp: unset; }
+    .more { display: block; width: 100%; margin-top: 10px; padding: 10px; border-radius: 10px; font: inherit; font-size: .82rem;
+            font-weight: 600; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; }
+
+    .act { padding: 5px 9px; }               /* 손가락으로 누르기 좋은 크기 */
+
+    /* 리포트: 목록을 가로 칩 스크롤로 — 본문이 바로 보이게 */
+    .report-list { display: flex; gap: 6px; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border);
+                   padding: 10px 14px; max-height: none; scrollbar-width: none; }
+    .report-list::-webkit-scrollbar { display: none; }
+    .report-item { flex-shrink: 0; flex-direction: column; align-items: flex-start; gap: 3px;
+                   padding: 7px 11px; border: 1px solid var(--border); border-radius: 10px; }
+    .report-view { padding: 14px; max-height: 70vh; font-size: .84rem; }
+    .report-view table { display: block; overflow-x: auto; }
+  }
 </style>
 </head>
 <body>
@@ -223,10 +357,16 @@
 <header>
   <div class="header-inner">
     <div class="logo">📈 Nasdaq AutoTrader <small>토스증권 자동매매</small></div>
+    <span class="updated" id="updatedAt"></span>
     <div class="pills" id="statusPills">
       <span class="pill"><span class="dot"></span>연결 중…</span>
     </div>
   </div>
+  <!-- 모바일 섹션 이동 — 긴 페이지에서 원하는 카드로 바로 간다 -->
+  <nav class="secnav" aria-label="섹션 이동">
+    <a href="#sec-holdings">보유</a><a href="#sec-chart">자산추이</a><a href="#sec-decisions">결정</a><a href="#sec-trades">거래</a>
+    <a href="#sec-playbook">규칙서</a><a href="#sec-journal">저널</a><a href="#sec-reports">리포트</a>
+  </nav>
 </header>
 
 <!-- 토스 연결 경고 배너 (IP 차단 등) — 평소엔 숨김 -->
@@ -241,12 +381,21 @@
     <div class="stat"><div class="label">목표 달성률 <span style="font-weight:400">($8,000)</span></div><div class="value num" id="stTarget">—</div><div class="delta" id="stTargetLeft"></div></div>
   </section>
 
+  <!-- 보유 포지션 -->
+  <div class="card anchor" id="sec-holdings">
+    <div class="card-head"><h2>보유 포지션</h2><span class="sub">토스 실계좌 · 손절/익절 계획 포함</span></div>
+    <div class="card-body tbl-scroll" id="holdings"><div class="skeleton">불러오는 중…</div></div>
+  </div>
+
   <!-- 자산 추이 + 최근 결정 -->
   <section class="grid-2">
-    <div class="card">
+    <div class="card anchor" id="sec-chart">
       <div class="card-head">
         <h2>자산 추이</h2>
         <span class="chart-filter">
+          <span class="seg" id="chartRange">
+            <button data-d="30">1개월</button><button data-d="90">3개월</button><button data-d="0" class="on">전체</button>
+          </span>
           <input type="date" id="chartFrom" title="시작일">
           <span style="color:var(--text-3)">~</span>
           <input type="date" id="chartTo" title="종료일">
@@ -257,42 +406,45 @@
         <div class="skeleton">불러오는 중…</div>
       </div>
     </div>
-    <div class="card">
+    <div class="card anchor" id="sec-decisions">
       <div class="card-head"><h2>Manager 결정</h2><span class="sub">최근 매매 지시</span></div>
       <div class="card-body scroll-y" id="decisions"><div class="skeleton">불러오는 중…</div></div>
     </div>
   </section>
 
-  <!-- 보유 포지션 -->
-  <div class="card">
-    <div class="card-head"><h2>보유 포지션</h2><span class="sub">토스 실계좌 · 손절/익절 계획 포함</span></div>
-    <div class="card-body tbl-scroll" id="holdings"><div class="skeleton">불러오는 중…</div></div>
-  </div>
-
   <!-- 거래내역 -->
-  <div class="card">
-    <div class="card-head"><h2>거래 내역</h2><span class="sub" id="tradesCount"></span></div>
+  <div class="card anchor" id="sec-trades">
+    <div class="card-head"><h2>거래 내역</h2><span class="sub" id="tradesCount"></span>
+      <span class="seg" id="tradeFilter" role="tablist" aria-label="거래 구분">
+        <button data-f="ALL" class="on">전체</button><button data-f="SELL">매도</button><button data-f="BUY">매수</button>
+      </span>
+    </div>
+    <div class="t-summary" id="tradeSummary"></div>
     <div class="card-body tbl-scroll" id="trades"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
+  <!-- 규칙서 + 저널 (데스크톱 2단) -->
+  <section class="grid-half">
   <!-- 학습된 매매 규칙서 -->
-  <div class="card">
+  <div class="card anchor" id="sec-playbook">
     <div class="card-head"><h2>🎯 학습된 매매 규칙서</h2><span class="sub" id="playbook-sub">주간회고가 실매매 결과에서 증류·재작성 (일일 결정 최우선 준수)</span></div>
     <div class="card-body scroll-y" id="playbook"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
   <!-- 의사결정 저널 -->
-  <div class="card">
+  <div class="card anchor" id="sec-journal">
     <div class="card-head"><h2>🧠 의사결정 저널</h2><span class="sub">Manager가 사이클마다 남긴 교훈 (누적 학습)</span></div>
     <div class="card-body scroll-y" id="journal"><div class="skeleton">불러오는 중…</div></div>
   </div>
 
+  </section>
+
   <!-- 리포트 -->
-  <div class="card">
+  <div class="card anchor" id="sec-reports">
     <div class="card-head"><h2>리포트</h2><span class="sub">Manager 통합 · 에이전트 분석 메모</span></div>
     <div class="report-layout">
       <div class="report-list" id="reportList"><div class="skeleton">불러오는 중…</div></div>
-      <div class="report-view" id="reportView"><div class="empty">왼쪽에서 리포트를 선택하세요</div></div>
+      <div class="report-view" id="reportView"><div class="empty">리포트를 선택하세요</div></div>
     </div>
   </div>
 </main>
@@ -311,6 +463,7 @@ const fmtKst = (iso) => {
   const t = new Date(iso);
   return isNaN(t) ? String(iso ?? '') : t.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 };
+const fmtQty = (q) => String(Math.round(Number(q) * 1e6) / 1e6);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /* 토스증권 종목 페이지 링크 — 미국 티커만 (tossinvest.com/stocks/{TICKER}).
    KRW/비정상 심볼은 링크 없이 그대로 표시 */
@@ -378,6 +531,8 @@ async function loadPortfolio() {
     // current_value_krw는 이미 현금 포함 총자산
     $('stTotal').textContent = fmtKrw(p.current_value_krw);
     $('stTotalUsd').textContent = `보유종목 + 현금 (실계좌 기준)`;
+    lastTotalKrw = p.current_value_krw;
+    renderDayChange();
 
     $('stCash').textContent = fmtUsd(d.cash_usd);
     const pending = d.pending_buy_usd || 0;
@@ -394,6 +549,21 @@ async function loadPortfolio() {
 }
 
 let positionsCache = [];
+let lastTotalKrw = null;
+
+/**
+ * 총자산 타일의 '전일 대비' — 성과 이력의 직전 날짜 값과 지금 총자산을 비교한다.
+ * 이력(하루 1점)과 실시간 총자산 중 어느 쪽이 먼저 로드되든 둘 다 준비되면 그린다.
+ */
+function renderDayChange() {
+  if (lastTotalKrw == null || chartPtsAll.length < 1) return;
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  const prev = [...chartPtsAll].reverse().find(p => p.date < today);
+  if (!prev) return;
+  const diff = lastTotalKrw - prev.v, pct = diff / prev.v * 100;
+  const el = $('stTotalUsd');
+  el.innerHTML = `<span class="${pnlClass(diff)}">${arrow(diff)}${fmtKrw(Math.abs(diff))} (${fmtPct(pct)})</span> <span style="color:var(--text-3)">${esc(prev.date.slice(5))} 대비</span>`;
+}
 async function loadPositions() {
   try { positionsCache = await api('positions'); } catch { positionsCache = []; }
 }
@@ -421,38 +591,86 @@ function unrealizedKrw(h, fx) {
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toLocaleString('ko-KR')}원`;
 }
 
+/**
+ * 손절가 → 익절가 구간에서 현재가가 어디쯤인지 막대로 보여준다.
+ * 숫자 여러 개를 비교하지 않아도 "손절이 가까운지, 익절이 가까운지"가 한눈에 보인다.
+ * @param price 현재가 / @param sl 실제 적용 손절가 / @param avg 평단 / @param tp1·tp2 익절가
+ * @returns 막대 HTML (구간을 정할 수 없으면 빈 문자열)
+ */
+function rangeBar(price, sl, avg, tp1, tp2, tp1Done) {
+  const target = tp1Done ? (tp2 || tp1) : (tp1 || tp2);
+  if (!(sl > 0) || !(target > sl)) return '';
+  const lo = sl, hi = Math.max(target, price * 1.001);
+  const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+  const toSl = ((price / sl - 1) * 100).toFixed(1);
+  const toTp = ((target / price - 1) * 100).toFixed(1);
+  return `<div class="rbar">
+    <div class="rbar-track">
+      <span class="fill" style="width:${pos(price)}%"></span>
+      ${avg > lo && avg < hi ? `<i class="avg" style="left:${pos(avg)}%" title="평단"></i>` : ''}
+      <b style="left:${pos(price)}%"></b>
+    </div>
+    <div class="rbar-lbl num"><span class="sl">손절 ${fmtUsd(sl)} (−${toSl}%)</span><span class="tp">${tp1Done ? 'TP2' : 'TP1'} ${fmtUsd(target)} (+${toTp}%)</span></div>
+  </div>`;
+}
+
 function renderHoldings(d) {
   if (!d.holdings.length) {
     $('holdings').innerHTML = '<div class="empty">보유 종목이 없습니다</div>';
     return;
   }
   const planBy = Object.fromEntries(positionsCache.map(p => [p.symbol, p]));
-  const rows = d.holdings.map(h => {
+  const view = d.holdings.map(h => {
     const cur = h.currency === 'KRW' ? '₩' : '$';
     const fmt = (v) => h.currency === 'KRW' ? Math.round(v).toLocaleString() : Number(v).toFixed(2);
     const plan = planBy[h.symbol] || {};
-    const sl = plan.stop_loss ? fmtUsd(plan.stop_loss) : '—';
+    // 실제 집행 기준 손절가 (TP1 이후엔 감시기의 트레일링 하한이 저장값보다 높을 수 있다)
+    const slVal = plan.effective_stop_loss ?? plan.stop_loss;
+    const trailed = slVal && plan.stop_loss && slVal > plan.stop_loss + 0.005;
+    const sl = slVal ? fmtUsd(slVal) + (trailed || plan.tp1_done ? '<span class="trail">트레일링</span>' : '') : '—';
     const tp = plan.take_profit_1
       ? fmtUsd(plan.take_profit_1) + (plan.take_profit_2 ? ' / ' + fmtUsd(plan.take_profit_2) : '')
       : '—';
-    return `<tr>
-      <td class="sym">${tossLink(h.symbol, h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol))}${h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : ''}</td>
-      <td class="num">${h.shares}</td>
+    const name = tossLink(h.symbol, h.name_kr ? esc(h.name_kr) + ' <span class="tk">(' + esc(h.symbol) + ')</span>' : esc(h.symbol))
+               + (h.currency === 'KRW' ? ' <span class="badge hold">KRW</span>' : '');
+    const pnl = `${arrow(h.pnl_percent)}${unrealizedKrw(h, d.exchangeRate)}`;
+    return { h, cur, fmt, plan, slVal, sl, tp, name, pnl };
+  });
+
+  // 데스크톱: 표
+  const rows = view.map(({ h, cur, fmt, plan, slVal, sl, tp, name, pnl }) => `<tr>
+      <td class="sym">${name}</td>
+      <td class="num">${fmtQty(h.shares)}</td>
       <td class="num">${cur}${fmt(h.avg_cost)}</td>
       <td class="num">${cur}${fmt(h.current_price)}</td>
       <td class="num">${cur}${fmt(h.current_value)}</td>
-      <td class="num ${pnlClass(h.pnl_percent)}">${arrow(h.pnl_percent)}${unrealizedKrw(h, d.exchangeRate)}<span style="font-size:.72rem;opacity:.7"> (${fmtPct(h.pnl_percent)})</span></td>
+      <td class="num ${pnlClass(h.pnl_percent)}">${pnl}<span style="font-size:.72rem;opacity:.7"> (${fmtPct(h.pnl_percent)})</span></td>
       <td class="num">${sl}</td>
       <td class="num">${tp}</td>
-    </tr>`;
-  }).join('');
-  $('holdings').innerHTML = `<table>
-    <thead><tr><th>종목</th><th>수량</th><th>평단</th><th>현재가</th><th>평가액</th><th>손익</th><th>손절가</th><th>익절가 1/2</th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
+      <td class="bar-cell">${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, plan.take_profit_2, plan.tp1_done)}</td>
+    </tr>`).join('');
+
+  // 모바일: 카드 — 종목·손익을 첫 줄에, 수량·가격은 둘째 줄, 손절~익절 막대
+  const cards = view.map(({ h, cur, fmt, plan, slVal, name, pnl }) => `<div class="h-card">
+      <div class="row"><span class="sym">${name}</span><span class="pnl num ${pnlClass(h.pnl_percent)}">${pnl}</span></div>
+      <div class="row meta num"><span>${Number(h.shares).toFixed(4)}주 · 평단 ${cur}${fmt(h.avg_cost)} → ${cur}${fmt(h.current_price)}</span><span class="${pnlClass(h.pnl_percent)}">${fmtPct(h.pnl_percent)}</span></div>
+      <div class="meta num">평가액 ${cur}${fmt(h.current_value)}</div>
+      ${h.currency === 'KRW' ? '' : rangeBar(h.current_price, slVal, h.avg_cost, plan.take_profit_1, plan.take_profit_2, plan.tp1_done)}
+    </div>`).join('');
+
+  $('holdings').innerHTML = `<table class="desk">
+    <thead><tr><th>종목</th><th>수량</th><th>평단</th><th>현재가</th><th>평가액</th><th>손익</th><th>손절가</th><th>익절가 1/2</th><th style="text-align:left">위치 (손절 → 익절)</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="mob">${cards}</div>`;
 }
 
 /* ───────────────────────── 자산 추이 차트 (SVG) ───────────────────────── */
 let chartPtsAll = []; // 전체 성과 데이터 캐시 — 필터는 클라이언트에서만 (API 재호출 없음)
+
+/** 기간 버튼의 선택 표시 (null이면 모두 해제) */
+function setRangeOn(d) {
+  $('chartRange').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.d === d));
+}
 
 /** 날짜 필터를 적용해 차트를 다시 그린다. 기본(입력 비움) = 전체 기간 */
 function redrawChart() {
@@ -490,18 +708,36 @@ async function loadChart() {
       $('chartFrom').addEventListener('change', redrawChart);
       $('chartTo').addEventListener('change', redrawChart);
       $('chartReset').addEventListener('click', () => {
-        $('chartFrom').value = ''; $('chartTo').value = ''; redrawChart();
+        $('chartFrom').value = ''; $('chartTo').value = ''; setRangeOn('0'); redrawChart();
       });
+      // 기간 버튼: 최근 N일 → 시작일만 채운다 (날짜 두 번 고르는 것보다 빠르다)
+      $('chartRange').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        const d = Number(b.dataset.d);
+        const last = chartPtsAll.length ? chartPtsAll[chartPtsAll.length - 1].date : null;
+        $('chartTo').value = '';
+        $('chartFrom').value = d && last ? new Date(new Date(last).getTime() - d * 864e5).toISOString().slice(0, 10) : '';
+        setRangeOn(b.dataset.d);
+        redrawChart();
+      }));
+      // 날짜를 직접 고르면 기간 버튼 선택 해제
+      ['chartFrom', 'chartTo'].forEach(id => $(id).addEventListener('change', () => setRangeOn(null)));
     }
 
     redrawChart(); // 기본값: 전체 기간
+    renderDayChange();
   } catch (e) {
     $('chartWrap').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
   }
 }
 
 function drawLineChart(container, pts) {
-  const W = 720, H = 260, m = { t: 14, r: 14, b: 28, l: 62 };
+  // 실제 표시 폭으로 그린다. 예전엔 720px 고정 viewBox를 축소해서, 폰(약 350px)에서는
+  // 10.5px 글씨가 5px 수준으로 작아져 읽을 수 없었다. 폭에 맞춰 그리면 글씨가 항상 제 크기다.
+  const cs = getComputedStyle(container);
+  const avail = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const W = Math.max(280, Math.round(avail || 720));
+  const narrow = W < 520;
+  const H = narrow ? 210 : 260, m = { t: 14, r: 12, b: 28, l: narrow ? 46 : 62 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const vs = pts.map(p => p.v);
   let lo = Math.min(...vs), hi = Math.max(...vs);
@@ -555,23 +791,40 @@ function drawLineChart(container, pts) {
   const tt = container.querySelector('#tt');
   const xh = container.querySelector('#xhair');
   const hp = container.querySelector('#hpt');
-  container.querySelector('#hit').addEventListener('mousemove', (ev) => {
+  // 포인터 이벤트 = 마우스 + 터치 + 펜. 예전엔 mousemove만 있어 폰에서 툴팁이 뜨지 않았다.
+  const hit = container.querySelector('#hit');
+  hit.style.touchAction = 'pan-y';              // 세로 스크롤은 페이지에 양보, 가로 드래그만 차트가 받는다
+  const show = (ev) => {
     const rect = svg.getBoundingClientRect();
     const relX = (ev.clientX - rect.left) / rect.width * W;
     const i = Math.max(0, Math.min(pts.length - 1, Math.round((relX - m.l) / iw * (pts.length - 1))));
     const px = x(i), py = y(pts[i].v);
     xh.setAttribute('x1', px); xh.setAttribute('x2', px); xh.setAttribute('opacity', '1');
     hp.setAttribute('cx', px); hp.setAttribute('cy', py); hp.setAttribute('opacity', '1');
-    tt.innerHTML = `${esc(pts[i].date)}<b class="num">${fmtKrw(pts[i].v)}</b>`;
+    const prev = i > 0 ? pts[i].v - pts[i - 1].v : 0;
+    tt.innerHTML = `${esc(pts[i].date)}<b class="num">${fmtKrw(pts[i].v)}</b>`
+      + (i > 0 ? `<span class="num ${pnlClass(prev)}" style="font-size:.72rem">${prev >= 0 ? '+' : '−'}${fmtKrw(Math.abs(prev)).slice(1)}원 전일비</span>` : '');
     const ttx = px / W * rect.width, tty = py / H * rect.height;
-    tt.style.left = Math.min(rect.width - 130, Math.max(0, ttx + 12)) + 'px';
-    tt.style.top = (tty - 48) + 'px';
+    tt.style.left = Math.min(rect.width - 140, Math.max(0, ttx + 12)) + 'px';
+    tt.style.top = Math.max(0, tty - 58) + 'px';
     tt.style.opacity = '1';
-  });
-  container.querySelector('#hit').addEventListener('mouseleave', () => {
-    tt.style.opacity = '0'; xh.setAttribute('opacity', '0'); hp.setAttribute('opacity', '0');
-  });
+  };
+  const hide = () => { tt.style.opacity = '0'; xh.setAttribute('opacity', '0'); hp.setAttribute('opacity', '0'); };
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerdown', show);
+  hit.addEventListener('pointerleave', hide);
+  hit.addEventListener('pointercancel', hide);
 }
+
+// 화면 회전·창 크기 변경 시 차트를 새 폭으로 다시 그린다 (폭이 실제로 바뀐 경우만)
+let chartWidth = 0, resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const w = $('chartWrap').clientWidth;
+    if (w && Math.abs(w - chartWidth) > 8 && chartPtsAll.length) { chartWidth = w; redrawChart(); }
+  }, 150);
+});
 
 /* ───────────────────────── Manager 결정 ───────────────────────── */
 async function loadDecisions() {
@@ -586,7 +839,12 @@ async function loadDecisions() {
       const outcomeBy = {};
       (dec.execution_outcomes || []).forEach(o => { outcomeBy[o.symbol] = o; });
 
-      const acts = (dec.actions || []).map(a => {
+      // 정렬: 실제 매매(BUY/SELL)가 HOLD 칩 사이에 묻히지 않게 앞으로.
+      // 미보유 종목의 HOLD는 '매수 보류된 후보'라 의미가 다르므로 뒤로 보내고 흐리게 표시한다.
+      const heldSyms = new Set(positionsCache.map(p => p.symbol));
+      const rank = (a) => a.action !== 'HOLD' ? 0 : heldSyms.has(a.symbol) ? 1 : 2;
+      const sorted = [...(dec.actions || [])].sort((x, y) => rank(x) - rank(y));
+      const acts = sorted.map(a => {
         const cls = a.action === 'BUY' ? 'buy' : a.action === 'SELL' ? 'sell' : 'hold';
         const label = a.symbol === 'CASH' ? '현금 보유 (매매 없음)' : a.symbol;
         const o = outcomeBy[a.symbol];
@@ -595,7 +853,10 @@ async function loadDecisions() {
           if (o.status === 'FILLED') mark = '<span title="체결됨" style="color:var(--good)">✅</span>';
           else if (o.status === 'REJECTED') mark = `<span title="${esc(o.reason || '거부됨')}" style="color:var(--critical)">❌</span>`;
         }
-        return `<span class="act" title="${esc(a.rationale || '')}"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(label)}</b>${mark}${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</span>`;
+        // 버튼으로 만든다: 모바일엔 호버가 없어 title 툴팁으로는 근거를 볼 수 없다 → 탭하면 아래에 펼친다
+        const why = [a.rationale, o && o.status === 'REJECTED' ? `거부 사유: ${o.reason || '-'}` : ''].filter(Boolean).join(' / ');
+        const cand = rank(a) === 2 ? ' cand' : '';
+        return `<button type="button" class="act${cand}" title="${esc(why)}" data-why="${esc(`${label} — ${why || '근거 없음'}`)}"><span class="badge ${cls}">${esc(a.action)}</span><b>${esc(label)}</b>${mark}${a.stop_loss ? `<span class="num" style="color:var(--text-3)">SL ${fmtUsd(a.stop_loss, 0)}</span>` : ''}</button>`;
       }).join('');
 
       // 집행 요약 배지
@@ -614,8 +875,20 @@ async function loadDecisions() {
       return `<div class="decision">
         <div class="d-head"><b style="color:var(--text-1)">${esc(dec.report_id)}</b><span>${esc(fmtKst(dec.decided_at))} KST</span>${summary}</div>
         <div class="acts">${acts || '<span class="empty">액션 없음</span>'}</div>
+        <div class="rat"></div>
       </div>`;
     }).join('');
+    // 액션 탭 → 해당 결정 아래에 근거 표시 (같은 걸 다시 누르면 닫힘)
+    $('decisions').querySelectorAll('.act').forEach(btn => btn.addEventListener('click', () => {
+      const box = btn.closest('.decision');
+      const rat = box.querySelector('.rat');
+      const wasOn = btn.classList.contains('on');
+      box.querySelectorAll('.act').forEach(x => x.classList.remove('on'));
+      if (wasOn) { rat.classList.remove('show'); return; }
+      btn.classList.add('on');
+      rat.textContent = btn.dataset.why;
+      rat.classList.add('show');
+    }));
   } catch (e) {
     $('decisions').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
   }
@@ -697,29 +970,90 @@ function realizedCell(t) {
        + `${pct ? `<span style="font-size:.72rem;opacity:.7"> (${esc(pct)})</span>` : ''}</span>`;
 }
 
+let tradesAll = [];              // 서버에서 받은 전체 (필터 전)
+let tradeFilter = 'ALL';
+let tradesCache = [];
+let tradesShown = 15;           // 모바일 카드는 15건씩 — 100건을 한 번에 그리면 스크롤이 끝없다
+
 async function loadTrades() {
   try {
     const r = await fetch('/dashboard/api/trades?limit=100');
     const j = await r.json();
     const list = j.data || [];
+    tradesAll = list;
     $('tradesCount').textContent = `총 ${j.total ?? list.length}건 중 최근 ${list.length}건`;
-    if (!list.length) { $('trades').innerHTML = '<div class="empty">거래 내역이 없습니다</div>'; return; }
+    if (!loadTrades._wired) {
+      loadTrades._wired = true;
+      $('tradeFilter').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        tradeFilter = b.dataset.f;
+        $('tradeFilter').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        tradesShown = 15;
+        renderTrades();
+      }));
+    }
+    renderTrades();
+  } catch (e) {
+    $('trades').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+
+/**
+ * 필터를 적용해 거래 표(데스크톱)·카드(모바일)·실현 요약을 그린다.
+ * 요약은 '보이는 목록' 기준 — 최근 100건 안의 매도만 합산하므로 전체 누적이 아니다(라벨에 명시).
+ */
+function renderTrades() {
+  const list = tradeFilter === 'ALL' ? tradesAll : tradesAll.filter(t => t.side === tradeFilter);
+  tradesCache = list;
+  const sells = list.filter(t => t.side === 'SELL' && t.realized_krw != null);
+  if (sells.length) {
+    const sum = sells.reduce((a, t) => a + t.realized_krw, 0);
+    const wins = sells.filter(t => t.realized_krw > 0).length;
+    $('tradeSummary').innerHTML = `최근 목록의 매도 ${sells.length}건 · 승 ${wins} / 패 ${sells.length - wins} · 실현 합계 <b class="num ${pnlClass(sum)}">${sum >= 0 ? '+' : '−'}${Math.abs(Math.round(sum)).toLocaleString('ko-KR')}원</b>`;
+  } else {
+    $('tradeSummary').innerHTML = '';
+  }
+  {
+    if (!list.length) { $('trades').innerHTML = '<div class="empty">해당하는 거래가 없습니다</div>'; return; }
     const rows = list.map(t => `<tr>
       <td class="num" style="color:var(--text-3)">${esc(fmtKst(t.traded_at))}</td>
       <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${esc(t.side)}</span></td>
       <td class="sym" style="text-align:left">${tossLink(t.symbol, esc(t.symbol))}</td>
-      <td class="num">${t.qty}</td>
+      <td class="num">${fmtQty(t.qty)}</td>
       <td class="num">${fmtUsd(t.price)}</td>
       <td class="num">${fmtUsd(t.qty * t.price)}</td>
       <td class="num">${realizedCell(t)}</td>
       <td class="note" title="${esc(t.note || '')}">${esc(t.note || '')}</td>
     </tr>`).join('');
-    $('trades').innerHTML = `<table>
+    $('trades').innerHTML = `<table class="desk">
       <thead><tr><th>일시</th><th>구분</th><th>종목</th><th>수량</th><th>가격</th><th>금액</th><th>손익</th><th>메모</th></tr></thead>
-      <tbody>${rows}</tbody></table>`;
-  } catch (e) {
-    $('trades').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
+      <tbody>${rows}</tbody></table>
+      <div class="mob" id="tradeCards"></div>`;
+    renderTradeCards();
   }
+}
+
+/**
+ * 모바일 거래 카드. 매도 행은 실현 손익과 보유일을 본문에 바로 적는다
+ * (데스크톱은 title 툴팁에 두지만 모바일엔 호버가 없다). 메모는 두 줄로 접고 탭하면 펼친다.
+ */
+function renderTradeCards() {
+  const el = $('tradeCards');
+  if (!el) return;
+  const list = tradesCache.slice(0, tradesShown);
+  el.innerHTML = list.map(t => {
+    const realized = t.side === 'SELL' && t.realized_krw != null
+      ? `<span class="num ${pnlClass(t.realized_krw)}" style="font-weight:700">${realizedCell(t)}</span>` : '';
+    const hold = t.side === 'SELL' && t.hold_days !== undefined ? ` · ${t.hold_days}일 보유 · 평단 ${fmtUsd(t.buy_avg)}` : '';
+    return `<div class="t-card">
+      <div class="row"><span><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${esc(t.side)}</span> <b class="sym">${tossLink(t.symbol, esc(t.symbol))}</b></span>${realized}</div>
+      <div class="meta num">${esc(fmtKst(t.traded_at))} · ${Number(t.qty).toFixed(4)}주 × ${fmtUsd(t.price)} = ${fmtUsd(t.qty * t.price)}${hold}</div>
+      ${t.note ? `<div class="memo">${esc(t.note)}</div>` : ''}
+    </div>`;
+  }).join('') + (tradesCache.length > tradesShown
+    ? `<button class="more" id="tradesMore">더 보기 (${tradesCache.length - tradesShown}건 남음)</button>` : '');
+  el.querySelectorAll('.memo').forEach(m => m.addEventListener('click', () => m.classList.toggle('open')));
+  const more = $('tradesMore');
+  if (more) more.addEventListener('click', () => { tradesShown += 15; renderTradeCards(); });
 }
 
 /* ───────────────────────── 리포트 ───────────────────────── */
@@ -809,7 +1143,11 @@ async function refreshLive() {
   await loadStatus();
   await loadPositions();
   await loadPortfolio();
+  // 마지막 갱신 시각 — 폰은 탭을 오래 열어두므로 화면 숫자가 언제 것인지 보여야 한다
+  $('updatedAt').textContent = '갱신 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
+// 백그라운드 탭에서 돌아오면 즉시 갱신 (모바일 브라우저는 숨은 탭의 타이머를 늦추거나 멈춘다)
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshLive(); });
 (async () => {
   await refreshLive();
   loadChart();
