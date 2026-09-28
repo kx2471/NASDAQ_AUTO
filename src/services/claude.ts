@@ -39,6 +39,7 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
         content: prompt
       }]
     });
+    await (await import('./llmUsage')).recordAnthropicUsage('agent_claude', modelAttempt.name, response.usage);
 
     // Sonnet 5는 content[]에 thinking 블록이 섞임 — content[0]이 아니라 text 타입 블록을 찾는다
     const textBlock = response.content.find(c => c.type === 'text');

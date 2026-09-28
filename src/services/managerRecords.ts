@@ -123,6 +123,70 @@ function reconstructRoundTrips(trades: RawTrade[]): RoundTrip[] {
   return trips.sort((a, b) => new Date(a.sellDate).getTime() - new Date(b.sellDate).getTime());
 }
 
+/**
+ * 청산(RoundTrip) → 진입 셋업 태그 판정 함수를 만든다.
+ * 셋업 태그는 decisions.json의 BUY 액션에 있으므로, 같은 종목의 '매도 시점 이전 가장 최근 BUY'로 매칭한다.
+ * 원장(buildRealizedLedger)과 대시보드(computeTripAnalytics)가 같은 판정을 쓰도록 한 곳에 둔다.
+ */
+async function makeSetupTagger(): Promise<(t: RoundTrip) => string | null> {
+  const decisions = await getRecentDecisions(200);
+  const buys: Array<{ symbol: string; at: number; setup: string }> = [];
+  for (const d of decisions) {
+    for (const a of d.actions) {
+      if (a.action === 'BUY' && (a as any).setup) {
+        buys.push({ symbol: a.symbol, at: new Date(d.decided_at).getTime(), setup: (a as any).setup });
+      }
+    }
+  }
+  return (t: RoundTrip) => {
+    const sold = new Date(t.sellDate).getTime();
+    const cand = buys.filter(b => b.symbol === t.symbol && b.at <= sold).sort((x, y) => y.at - x.at);
+    return cand.length ? cand[0].setup : null;
+  };
+}
+
+/** 성과 그룹 1개의 요약 (청산 사유별·셋업별 공통) */
+export interface TripGroupStats {
+  key: string; count: number; wins: number; winRate: number;
+  avgPct: number; sumUsd: number; avgHoldDays: number;
+}
+
+/**
+ * 대시보드 성과 분석 — 현 시스템(7/13~) 청산을 청산 사유별·셋업별로 묶는다.
+ * "어디서 벌고 어디서 잃는가"를 화면에 드러내기 위한 것 (원장 분석 결론: 손실 대부분이
+ * Manager 재량매도, 규칙 기반 TP는 이익). 계산은 원장과 같은 reconstructRoundTrips.
+ */
+export async function computeTripAnalytics(): Promise<{
+  overall: TripGroupStats; byReason: TripGroupStats[]; bySetup: TripGroupStats[]; untaggedSetup: number;
+  since: string;
+}> {
+  const trips = reconstructRoundTrips(onlyCurrentSystem(await readJsonArray<RawTrade>('trades')));
+  const summarize = (key: string, arr: RoundTrip[]): TripGroupStats => {
+    const wins = arr.filter(t => t.realizedPct > 0).length;
+    return {
+      key, count: arr.length, wins,
+      winRate: arr.length ? wins / arr.length * 100 : 0,
+      avgPct: arr.length ? arr.reduce((s, t) => s + t.realizedPct, 0) / arr.length : 0,
+      sumUsd: arr.reduce((s, t) => s + t.realizedUsd, 0),
+      avgHoldDays: arr.length ? arr.reduce((s, t) => s + t.holdDays, 0) / arr.length : 0,
+    };
+  };
+  const group = (keyOf: (t: RoundTrip) => string | null) => {
+    const m = new Map<string, RoundTrip[]>();
+    for (const t of trips) { const k = keyOf(t); if (k) (m.get(k) || m.set(k, []).get(k)!).push(t); }
+    return [...m.entries()].map(([k, a]) => summarize(k, a)).sort((a, b) => b.count - a.count);
+  };
+  const setupOf = await makeSetupTagger();
+  const bySetup = group(setupOf);
+  return {
+    overall: summarize('전체', trips),
+    byReason: group(t => t.exitReason),
+    bySetup,
+    untaggedSetup: trips.length - bySetup.reduce((s, g) => s + g.count, 0),
+    since: SYSTEM_START_AT,
+  };
+}
+
 /** SELL 거래 1건의 실현 손익 (대시보드 거래내역 행에 표시) */
 export interface SellRealized {
   realizedUsd: number;   // 실현 손익 (USD)
@@ -191,20 +255,7 @@ export async function buildRealizedLedger(): Promise<string> {
   // 셋업 태그는 decisions.json의 BUY 액션에 있으므로 심볼+시점으로 매칭한다.
   let setupLine = '';
   try {
-    const decisions = await getRecentDecisions(60);
-    const buys: Array<{ symbol: string; at: number; setup: string }> = [];
-    for (const d of decisions) {
-      for (const a of d.actions) {
-        if (a.action === 'BUY' && (a as any).setup) {
-          buys.push({ symbol: a.symbol, at: new Date(d.decided_at).getTime(), setup: (a as any).setup });
-        }
-      }
-    }
-    const setupOf = (t: RoundTrip): string | null => {
-      const sold = new Date(t.sellDate).getTime();
-      const cand = buys.filter(b => b.symbol === t.symbol && b.at <= sold).sort((x, y) => y.at - x.at);
-      return cand.length ? cand[0].setup : null;
-    };
+    const setupOf = await makeSetupTagger();
     const bySetup = new Map<string, RoundTrip[]>();
     for (const t of trips) {
       const s = setupOf(t);

@@ -671,6 +671,7 @@ ${previousReportsSummary}
         thinking: { type: string; display: string };
       });
       const anthropicResponse = await anthropicStream.finalMessage();
+      await (await import('./llmUsage')).recordAnthropicUsage('manager', managerModel, anthropicResponse.usage);
 
       console.log('📊 Anthropic 응답 구조 디버깅:', {
         content_length: anthropicResponse.content?.length || 0,
@@ -733,6 +734,7 @@ ${previousReportsSummary}
         messages,
         max_completion_tokens: 32000
       });
+      await (await import('./llmUsage')).recordOpenAIUsage('manager', managerModel, openaiResponse.usage);
 
       console.log('📊 OpenAI 응답 구조 디버깅:', {
         choices_length: openaiResponse.choices?.length || 0,

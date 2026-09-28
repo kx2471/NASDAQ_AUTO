@@ -129,6 +129,7 @@ export async function runWeeklyReview(): Promise<string | null> {
         thinking: { type: string; display: string };
       });
       const resp = await stream.finalMessage();
+      await (await import('./llmUsage')).recordAnthropicUsage('weekly_review', model, resp.usage);
 
       // 안전 분류기 거부 — content가 비거나 잘린 채 정상 200으로 돌아온다.
       // 'text 블록 없음'으로 뭉뚱그리면 원인 파악이 불가능하므로 먼저 판정한다.
@@ -168,6 +169,7 @@ export async function runWeeklyReview(): Promise<string | null> {
           { role: 'user', content: userContext },
         ],
       });
+      await (await import('./llmUsage')).recordOpenAIUsage('weekly_review', model, resp.usage);
       const finish = resp.choices[0]?.finish_reason;
       if (finish === 'content_filter') throw new Error('콘텐츠 필터 차단(content_filter) — 회고 생성 중단');
       if (finish === 'length') {

@@ -123,6 +123,7 @@ export async function generateReportWithOpenAI(payload: ReportPayload): Promise<
     }
     
     const response = await client.chat.completions.create(requestParams);
+    await (await import('./llmUsage')).recordOpenAIUsage('agent_gpt', model, (response as any).usage);
 
     console.log('📊 OpenAI 응답 구조 디버깅:', {
       choices_length: response.choices?.length || 0,

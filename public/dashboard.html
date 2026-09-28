@@ -279,6 +279,58 @@
   .act.cand:hover, .act.cand.on { opacity: 1; }
   .chart-filter .seg { margin-left: 0; margin-right: 4px; }
 
+  /* 시스템 상태 칩 줄 */
+  .health { display: flex; flex-wrap: wrap; gap: 8px; }
+  .health .skeleton { padding: 4px 0; }
+  .hchip { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 6px 12px; border-radius: 10px;
+           background: var(--surface); border: 1px solid var(--border); font-size: .76rem; max-width: 100%; }
+  .hchip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); flex-shrink: 0; }
+  .hchip .hl { color: var(--text-3); font-weight: 600; }
+  .hchip .hv { color: var(--text-1); font-weight: 600; }
+  .hchip .hd { flex-basis: 100%; color: var(--text-2); font-size: .74rem; line-height: 1.45; }
+  .hchip.ok .dot { background: var(--good); }
+  .hchip.run .dot { background: var(--accent); animation: pulse 1.2s infinite; }
+  .hchip.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--border)); }
+  .hchip.warn .dot { background: var(--warn); }
+  .hchip.bad { border-color: var(--critical); background: color-mix(in srgb, var(--critical) 10%, var(--surface)); }
+  .hchip.bad .dot { background: var(--critical); }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  /* 차트 모드 토글 + 범례 */
+  #chartMode { margin-left: 10px; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 20px 0; font-size: .74rem; color: var(--text-2); }
+  .chart-legend:empty { display: none; }
+  .chart-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .chart-legend i.dash { height: 0; border-top: 2px dashed; background: none; }
+  .chart-legend .mk { font-size: .7rem; margin: 0 2px 0 4px; }
+
+  /* 성과 분석 */
+  .a-sum { font-size: .82rem; color: var(--text-2); line-height: 1.6; }
+  .a-sum b { color: var(--text-1); }
+  .a-h { font-size: .74rem; font-weight: 700; color: var(--text-3); margin: 16px 0 8px; letter-spacing: .02em; }
+  .rlist { display: grid; gap: 10px; }
+  .rrow { display: grid; grid-template-columns: minmax(110px, 1.1fr) 1.2fr auto; align-items: center; gap: 12px; }
+  .rname { font-size: .84rem; font-weight: 700; }
+  .rhint { font-size: .68rem; font-weight: 600; color: var(--text-3); margin-left: 4px; }
+  .rmeta { font-size: .72rem; color: var(--text-3); font-weight: 500; margin-top: 1px; }
+  .rbarwrap { position: relative; height: 12px; }
+  .rzero { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--text-3); }
+  .rfill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .up-bg { background: color-mix(in srgb, var(--up) 75%, transparent); }
+  .down-bg { background: color-mix(in srgb, var(--down) 75%, transparent); }
+  .rsum { font-size: .84rem; font-weight: 700; text-align: right; min-width: 78px; }
+  table.mini { font-size: .8rem; }
+  table.mini td, table.mini th { padding: 6px 8px; }
+  .note-box { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: var(--surface-2);
+              font-size: .78rem; color: var(--text-2); line-height: 1.55; }
+  .note-box code { font-size: .74rem; background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; }
+
+  /* LLM 사용량 막대 */
+  .ubars { display: flex; align-items: flex-end; gap: 4px; height: 96px; margin-bottom: 14px; padding-bottom: 16px; position: relative; }
+  .ubar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; min-width: 0; }
+  .ubar span { display: block; width: 100%; max-width: 22px; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+  .ubar em { position: absolute; bottom: -16px; font-style: normal; font-size: .64rem; color: var(--text-3); }
+
   /* 키보드 사용 시 초점 표시 (마우스 클릭엔 안 보임) */
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
   .card { transition: box-shadow .15s; }
@@ -300,6 +352,12 @@
     .secnav a { padding: 6px 12px; }
     .seg { margin-left: 0; }
     .t-summary { padding: 8px 14px 0; }
+    #chartMode { margin-left: 0; }
+    .chart-legend { padding: 8px 14px 0; }
+    .health { gap: 6px; }
+    .hchip { font-size: .72rem; padding: 5px 10px; }
+    .rrow { grid-template-columns: 1fr auto; row-gap: 4px; }
+    .rbarwrap { grid-column: 1 / -1; grid-row: 2; }
 
     .toss-alert { margin: 10px 12px 0; }
     main { padding: 12px; gap: 12px; }
@@ -364,7 +422,7 @@
   </div>
   <!-- 모바일 섹션 이동 — 긴 페이지에서 원하는 카드로 바로 간다 -->
   <nav class="secnav" aria-label="섹션 이동">
-    <a href="#sec-holdings">보유</a><a href="#sec-chart">자산추이</a><a href="#sec-decisions">결정</a><a href="#sec-trades">거래</a>
+    <a href="#sec-holdings">보유</a><a href="#sec-chart">자산추이</a><a href="#sec-decisions">결정</a><a href="#sec-analytics">성과분석</a><a href="#sec-usage">사용량</a><a href="#sec-trades">거래</a>
     <a href="#sec-playbook">규칙서</a><a href="#sec-journal">저널</a><a href="#sec-reports">리포트</a>
   </nav>
 </header>
@@ -373,6 +431,9 @@
 <div id="tossAlert" class="toss-alert" style="display:none"></div>
 
 <main>
+  <!-- 시스템 상태 — 조용한 실패(크레딧 소진·파이프라인 실패·감시 정지)를 화면에 드러낸다 -->
+  <section class="health" id="health" aria-label="시스템 상태"><div class="skeleton">상태 확인 중…</div></section>
+
   <!-- 스탯 타일 -->
   <section class="stats" id="stats">
     <div class="stat hero"><div class="label">초기자금 대비 수익률</div><div class="value num" id="stReturn">—</div><div class="delta" id="stReturnKrw"></div></div>
@@ -392,6 +453,9 @@
     <div class="card anchor" id="sec-chart">
       <div class="card-head">
         <h2>자산 추이</h2>
+        <span class="seg" id="chartMode" aria-label="차트 모드">
+          <button data-m="value" class="on">자산</button><button data-m="return">수익률 vs 나스닥</button>
+        </span>
         <span class="chart-filter">
           <span class="seg" id="chartRange">
             <button data-d="30">1개월</button><button data-d="90">3개월</button><button data-d="0" class="on">전체</button>
@@ -402,6 +466,7 @@
           <button id="chartReset" title="전체 기간 보기">전체</button>
         </span>
       </div>
+      <div class="chart-legend" id="chartLegend"></div>
       <div class="card-body chart-wrap" id="chartWrap">
         <div class="skeleton">불러오는 중…</div>
       </div>
@@ -409,6 +474,18 @@
     <div class="card anchor" id="sec-decisions">
       <div class="card-head"><h2>Manager 결정</h2><span class="sub">최근 매매 지시</span></div>
       <div class="card-body scroll-y" id="decisions"><div class="skeleton">불러오는 중…</div></div>
+    </div>
+  </section>
+
+  <!-- 성과 분석 + LLM 사용량 -->
+  <section class="grid-half">
+    <div class="card anchor" id="sec-analytics">
+      <div class="card-head"><h2>📊 성과 분석</h2><span class="sub">어디서 벌고 어디서 잃는가 · 현 시스템 청산 기준</span></div>
+      <div class="card-body" id="analytics"><div class="skeleton">불러오는 중…</div></div>
+    </div>
+    <div class="card anchor" id="sec-usage">
+      <div class="card-head"><h2>💳 LLM 사용량</h2><span class="sub" id="usageSub">최근 14일</span></div>
+      <div class="card-body" id="usage"><div class="skeleton">불러오는 중…</div></div>
     </div>
   </section>
 
@@ -665,36 +742,164 @@ function renderHoldings(d) {
 }
 
 /* ───────────────────────── 자산 추이 차트 (SVG) ───────────────────────── */
-let chartPtsAll = []; // 전체 성과 데이터 캐시 — 필터는 클라이언트에서만 (API 재호출 없음)
+let chartPtsAll = [];   // {date, v:총자산, inv:투입원금} — 필터는 클라이언트에서만 (API 재호출 없음)
+// 'value' = 총자산 / 'return' = 입금 제외 수익률 vs 나스닥.
+// 마지막 선택을 기억한다(?chart=return으로 직접 열 수도 있다). 저장소 접근 실패는 무시.
+let chartMode = (() => {
+  const q = new URLSearchParams(location.search).get('chart');
+  if (q === 'return' || q === 'value') return q;
+  try { return localStorage.getItem('chartMode') === 'return' ? 'return' : 'value'; } catch { return 'value'; }
+})();
+let benchAll = [];      // QQQ 일봉 {date, close}
+let tradeMarks = [];    // {at(ms), side, symbol}
 
 /** 기간 버튼의 선택 표시 (null이면 모두 해제) */
 function setRangeOn(d) {
   $('chartRange').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.d === d));
 }
 
-/** 날짜 필터를 적용해 차트를 다시 그린다. 기본(입력 비움) = 전체 기간 */
+/**
+ * 투입원금 이력의 고립 이상값을 보정한다.
+ * 실측: 07-13 ₩299,220 → 07-14 ₩2,200,000 → 07-15 ₩583,065. 07-14 값은 하루만 나타나고
+ * 자산 규모(₩28만)와도 맞지 않는 기록 오류다. 앞뒤 값과 모두 다른 값은 직전 값으로 둔다.
+ */
+function sanitizeInvested(pts) {
+  const out = pts.map(p => ({ ...p }));
+  for (let i = 1; i < out.length - 1; i++) {
+    const a = out[i - 1].inv, b = out[i].inv, c = out[i + 1].inv;
+    if (b !== a && b !== c && a > 0) out[i].inv = a;
+  }
+  return out;
+}
+
+/** 입금(원금 증가) 지점 — 차트에서 급등처럼 보이는 구간이 수익이 아님을 표시하기 위해 */
+function depositsOf(pts) {
+  const d = [];
+  for (let i = 1; i < pts.length; i++) {
+    const diff = pts[i].inv - pts[i - 1].inv;
+    if (Math.abs(diff) >= 1000) d.push({ i, amount: diff });
+  }
+  return d;
+}
+
+/**
+ * 입출금을 제외한 누적 수익률(시간가중) — 입금이 수익처럼 보이는 왜곡을 없앤다.
+ * 하루 수익률 = (오늘 자산 − 오늘 입금) / 어제 자산. 이를 곱해 누적한다.
+ * @returns 각 점의 누적 수익률(%) — 첫 점 = 0
+ */
+function twrSeries(pts) {
+  let cum = 1;
+  return pts.map((p, i) => {
+    if (i > 0) {
+      const dep = p.inv - pts[i - 1].inv;
+      const prev = pts[i - 1].v;
+      if (prev > 0) cum *= (p.v - dep) / prev;
+    }
+    return (cum - 1) * 100;
+  });
+}
+
+/**
+ * QQQ 누적 수익률 — 성과 기록일 D에는 'D보다 이전의 마지막 QQQ 종가'를 짝짓는다.
+ * 성과는 KST 저녁(개장 전)에 기록되므로, 그 시점에 확정된 미국 종가는 전날 것이다.
+ * @returns 각 점의 누적 수익률(%) 또는 null (데이터 없음)
+ */
+function benchSeries(pts) {
+  if (!benchAll.length) return null;
+  const closeFor = (date) => { let c = null; for (const b of benchAll) { if (b.date < date) c = b.close; else break; } return c; };
+  const closes = pts.map(p => closeFor(p.date));
+  const base = closes.find(c => c != null);
+  if (!base) return null;
+  return closes.map(c => c == null ? null : (c / base - 1) * 100);
+}
+
+/** 성과 기록 시각(그날 21:50 KST 무렵) — 매매 마커를 '그 매매가 처음 반영된 점'에 찍기 위해 */
+const snapAt = (date) => new Date(date + 'T21:50:00+09:00').getTime();
+
+/** 날짜 필터·모드를 적용해 차트를 다시 그린다. 기본(입력 비움) = 전체 기간 */
 function redrawChart() {
-  const from = $('chartFrom').value; // 'YYYY-MM-DD' 또는 ''
-  const to = $('chartTo').value;
-  const pts = chartPtsAll.filter(p =>
-    (!from || p.date >= from) && (!to || p.date <= to)
-  );
+  const from = $('chartFrom').value, to = $('chartTo').value;
+  const pts = chartPtsAll.filter(p => (!from || p.date >= from) && (!to || p.date <= to));
   if (pts.length < 2) {
     $('chartWrap').innerHTML = chartPtsAll.length < 2
       ? '<div class="empty">아직 표시할 성과 데이터가 부족합니다 (2일 이상 필요)</div>'
       : '<div class="empty">선택한 기간에 데이터가 부족합니다 (2일 이상 필요)</div>';
+    $('chartLegend').innerHTML = '';
     return;
   }
-  drawLineChart($('chartWrap'), pts);
+
+  // 매매 마커: 매매 후 처음 기록된 성과 점에 붙인다
+  const marks = new Map(); // i → [{side, symbol}]
+  for (const t of tradeMarks) {
+    const i = pts.findIndex(p => snapAt(p.date) > t.at);
+    if (i < 0 || (i === 0 && t.at < snapAt(pts[0].date) - 86400000)) continue;
+    (marks.get(i) || marks.set(i, []).get(i)).push(t);
+  }
+
+  if (chartMode === 'value') {
+    const deps = depositsOf(pts);
+    drawChart($('chartWrap'), {
+      dates: pts.map(p => p.date),
+      series: [{ vals: pts.map(p => p.v), color: 'var(--accent)', fill: true, label: '총 자산' }],
+      fmtAxis: (v) => (v / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 0 }) + '만',
+      deposits: deps,
+      marks,
+      tip: (i) => {
+        const prev = i > 0 ? pts[i].v - pts[i - 1].v : null;
+        const dep = deps.find(d => d.i === i);
+        return `${esc(pts[i].date)}<b class="num">${fmtKrw(pts[i].v)}</b>`
+          + (dep ? `<span style="font-size:.72rem;color:var(--warn)">입금 ${fmtKrw(dep.amount)} (수익 아님)</span><br>` : '')
+          + (prev != null && !dep ? `<span class="num ${pnlClass(prev)}" style="font-size:.72rem">${prev >= 0 ? '+' : '−'}${fmtKrw(Math.abs(prev)).slice(1)}원 전일비</span><br>` : '')
+          + tradeTip(marks.get(i));
+      },
+    });
+    $('chartLegend').innerHTML = `<span><i style="background:var(--accent)"></i>총 자산</span>`
+      + (deps.length ? `<span><i class="dash" style="border-color:var(--warn)"></i>입금 (수익 아님)</span>` : '')
+      + `<span><b class="mk up">▲</b>매수 <b class="mk down">▼</b>매도</span>`;
+  } else {
+    const mine = twrSeries(pts);
+    const qqq = benchSeries(pts);
+    const series = [{ vals: mine, color: 'var(--accent)', fill: false, label: '내 수익률 (입금 제외)' }];
+    if (qqq) series.push({ vals: qqq, color: 'var(--text-3)', dashed: true, label: '나스닥100 (QQQ)' });
+    drawChart($('chartWrap'), {
+      dates: pts.map(p => p.date),
+      series,
+      fmtAxis: (v) => (v > 0 ? '+' : '') + v.toFixed(0) + '%',
+      zeroLine: true,
+      marks,
+      tip: (i) => `${esc(pts[i].date)}`
+        + `<b class="num ${pnlClass(mine[i])}">내 수익률 ${fmtPct(mine[i])}</b>`
+        + (qqq && qqq[i] != null ? `<span class="num" style="font-size:.78rem">QQQ ${fmtPct(qqq[i])} · 차이 <span class="${pnlClass(mine[i] - qqq[i])}">${fmtPct(mine[i] - qqq[i])}p</span></span><br>` : '')
+        + tradeTip(marks.get(i)),
+    });
+    const last = mine[mine.length - 1], lq = qqq ? qqq[qqq.length - 1] : null;
+    $('chartLegend').innerHTML = `<span><i style="background:var(--accent)"></i>내 수익률 <b class="num ${pnlClass(last)}">${fmtPct(last)}</b></span>`
+      + (lq != null ? `<span><i class="dash" style="border-color:var(--text-3)"></i>QQQ <b class="num ${pnlClass(lq)}">${fmtPct(lq)}</b></span>
+         <span>차이 <b class="num ${pnlClass(last - lq)}">${fmtPct(last - lq)}p</b></span>`
+        : `<span style="color:var(--text-3)">나스닥 비교 데이터 없음</span>`);
+  }
+}
+
+/** 툴팁의 그날 매매 목록 */
+function tradeTip(list) {
+  if (!list || !list.length) return '';
+  const uniq = [...new Map(list.map(t => [t.side + t.symbol, t])).values()];
+  return `<span style="font-size:.72rem;color:var(--text-2)">${uniq.map(t => `${t.side === 'BUY' ? '매수' : '매도'} ${esc(t.symbol)}`).join(' · ')}</span>`;
 }
 
 async function loadChart() {
   try {
-    const hist = await api('performance');
-    chartPtsAll = hist
+    const [hist, bench, trades] = await Promise.all([
+      api('performance'),
+      api('benchmark').catch(() => ({ candles: [] })),
+      fetch('/dashboard/api/trades?limit=500').then(r => r.json()).then(j => j.data || []).catch(() => []),
+    ]);
+    chartPtsAll = sanitizeInvested(hist
       .filter(h => Number.isFinite(h.current_value_krw))
-      .map(h => ({ date: h.date, v: h.current_value_krw }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .map(h => ({ date: h.date, v: h.current_value_krw, inv: h.initial_capital_krw || 0 }))
+      .sort((a, b) => a.date.localeCompare(b.date)));
+    benchAll = bench.candles || [];
+    tradeMarks = trades.map(t => ({ at: new Date(t.traded_at).getTime(), side: t.side, symbol: t.symbol }));
 
     // 날짜 입력의 선택 가능 범위를 데이터 범위로 제한
     if (chartPtsAll.length > 0) {
@@ -702,7 +907,7 @@ async function loadChart() {
       for (const id of ['chartFrom', 'chartTo']) { $(id).min = min; $(id).max = max; }
     }
 
-    // 필터 이벤트 연결 (1회만)
+    // 필터·모드 이벤트 연결 (1회만)
     if (!loadChart._wired) {
       loadChart._wired = true;
       $('chartFrom').addEventListener('change', redrawChart);
@@ -719,10 +924,16 @@ async function loadChart() {
         setRangeOn(b.dataset.d);
         redrawChart();
       }));
-      // 날짜를 직접 고르면 기간 버튼 선택 해제
       ['chartFrom', 'chartTo'].forEach(id => $(id).addEventListener('change', () => setRangeOn(null)));
+      $('chartMode').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        chartMode = b.dataset.m;
+        try { localStorage.setItem('chartMode', chartMode); } catch { /* 사생활 보호 모드 등 */ }
+        $('chartMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        redrawChart();
+      }));
     }
 
+    $('chartMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.m === chartMode));
     redrawChart(); // 기본값: 전체 기간
     renderDayChange();
   } catch (e) {
@@ -730,83 +941,94 @@ async function loadChart() {
   }
 }
 
-function drawLineChart(container, pts) {
-  // 실제 표시 폭으로 그린다. 예전엔 720px 고정 viewBox를 축소해서, 폰(약 350px)에서는
-  // 10.5px 글씨가 5px 수준으로 작아져 읽을 수 없었다. 폭에 맞춰 그리면 글씨가 항상 제 크기다.
+/**
+ * 범용 선 차트 (여러 계열 + 입금 표시 + 매매 마커 + 포인터 툴팁).
+ * 실제 표시 폭으로 그린다 — 고정 viewBox를 축소하면 폰에서 글씨가 5px 수준으로 작아진다.
+ * @param opt.dates x축 날짜 / opt.series [{vals, color, fill, dashed}] / opt.fmtAxis y축 라벨
+ *        opt.deposits [{i, amount}] / opt.marks Map(i → 매매[]) / opt.tip(i) 툴팁 HTML / opt.zeroLine
+ */
+function drawChart(container, opt) {
   const cs = getComputedStyle(container);
   const avail = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const W = Math.max(280, Math.round(avail || 720));
   const narrow = W < 520;
-  const H = narrow ? 210 : 260, m = { t: 14, r: 12, b: 28, l: narrow ? 46 : 62 };
+  const H = narrow ? 220 : 280, m = { t: 16, r: 12, b: 40, l: narrow ? 46 : 58 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
-  const vs = pts.map(p => p.v);
-  let lo = Math.min(...vs), hi = Math.max(...vs);
+  const n = opt.dates.length;
+  const all = opt.series.flatMap(s => s.vals.filter(v => v != null));
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (opt.zeroLine) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
   if (hi === lo) { hi += 1; lo -= 1; }
   const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
-  const x = (i) => m.l + (i / (pts.length - 1)) * iw;
+  const x = (i) => m.l + (n === 1 ? 0 : i / (n - 1)) * iw;
   const y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * ih;
-
   const css = getComputedStyle(document.documentElement);
-  const accent = css.getPropertyValue('--accent').trim();
-  const grid = css.getPropertyValue('--border').trim();
-  const ink3 = css.getPropertyValue('--text-3').trim();
+  const col = (c) => c.startsWith('var(') ? css.getPropertyValue(c.slice(4, -1)).trim() : c;
+  const grid = col('var(--border)'), ink3 = col('var(--text-3)');
 
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
-  const area = line + `L${x(pts.length - 1).toFixed(1)},${(m.t + ih)}L${m.l},${m.t + ih}Z`;
-
-  // y축 눈금 3개 (만원 단위)
-  const ticks = [0.5, 0, 1].length && [lo + (hi - lo) * 0.12, (lo + hi) / 2, hi - (hi - lo) * 0.12];
-  const fmtTick = (v) => (v / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 0 }) + '만';
+  const ticks = [lo + (hi - lo) * 0.12, (lo + hi) / 2, hi - (hi - lo) * 0.12];
   const gridLines = ticks.map(v =>
-    `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="${grid}" stroke-width="1"/>
-     <text x="${m.l - 8}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${ink3}">${fmtTick(v)}</text>`
-  ).join('');
+    `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="${grid}"/>
+     <text x="${m.l - 8}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${ink3}">${opt.fmtAxis(v)}</text>`).join('')
+    + (opt.zeroLine ? `<line x1="${m.l}" x2="${W - m.r}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="${ink3}" stroke-width="1"/>` : '');
 
-  // x축 라벨: 처음/중간/끝
-  const xIdx = [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
-  const xLabels = [...new Set(xIdx)].map(i =>
-    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}" font-size="10.5" fill="${ink3}">${esc(pts[i].date.slice(5))}</text>`
-  ).join('');
+  const xIdx = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  const xLabels = xIdx.map(i =>
+    `<text x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}" font-size="10.5" fill="${ink3}">${esc(opt.dates[i].slice(5))}</text>`).join('');
 
-  const last = pts[pts.length - 1];
+  const paths = opt.series.map((s, k) => {
+    let d = '', started = false;
+    s.vals.forEach((v, i) => { if (v == null) { started = false; return; } d += `${started ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; started = true; });
+    const c = col(s.color);
+    const area = s.fill ? `<path d="${d}L${x(n - 1).toFixed(1)},${m.t + ih}L${m.l},${m.t + ih}Z" fill="url(#ag${k})"/>
+      <defs><linearGradient id="ag${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="0.22"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs>` : '';
+    return area + `<path d="${d}" fill="none" stroke="${c}" stroke-width="${s.dashed ? 1.6 : 2}" ${s.dashed ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
+  }).join('');
+
+  const warn = col('var(--warn)');
+  const depLines = (opt.deposits || []).map(dp =>
+    `<line x1="${x(dp.i)}" x2="${x(dp.i)}" y1="${m.t}" y2="${m.t + ih}" stroke="${warn}" stroke-dasharray="3 3"/>
+     <text x="${x(dp.i) + 4}" y="${m.t + 11}" font-size="10" fill="${warn}">입금 +${Math.round(dp.amount / 10000)}만</text>`).join('');
+
+  // 매매 마커: 플롯 아래 띠에 ▲(매수)/▼(매도)
+  const up = col('var(--up)'), down = col('var(--down)');
+  const markY = m.t + ih + 13;
+  const markSvg = [...(opt.marks || new Map()).entries()].map(([i, list]) => {
+    const buy = list.some(t => t.side === 'BUY'), sell = list.some(t => t.side === 'SELL');
+    const px = x(i);
+    return (buy ? `<path d="M${px - 4},${markY + 3}L${px + 4},${markY + 3}L${px},${markY - 4}Z" fill="${up}"/>` : '')
+         + (sell ? `<path d="M${px - 4},${markY - 3 + (buy ? 8 : 0)}L${px + 4},${markY - 3 + (buy ? 8 : 0)}L${px},${markY + 4 + (buy ? 8 : 0)}Z" fill="${down}"/>` : '');
+  }).join('');
+
+  const main = opt.series[0], lastI = n - 1;
   container.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 총 자산 추이">
-      <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${accent}" stop-opacity="0.22"/>
-        <stop offset="1" stop-color="${accent}" stop-opacity="0"/>
-      </linearGradient></defs>
-      ${gridLines}
-      <path d="${area}" fill="url(#ag)"/>
-      <path d="${line}" fill="none" stroke="${accent}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="3.5" fill="${accent}"/>
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="성과 추이 차트">
+      ${gridLines}${depLines}${paths}${markSvg}
+      <circle cx="${x(lastI)}" cy="${y(main.vals[lastI])}" r="3.5" fill="${col(main.color)}"/>
       ${xLabels}
-      <line id="xhair" y1="${m.t}" y2="${m.t + ih}" stroke="${ink3}" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>
-      <circle id="hpt" r="4" fill="${accent}" stroke="var(--surface)" stroke-width="2" opacity="0"/>
-      <rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="hit"/>
+      <line id="xhair" y1="${m.t}" y2="${m.t + ih}" stroke="${ink3}" stroke-dasharray="3 3" opacity="0"/>
+      <circle id="hpt" r="4" fill="${col(main.color)}" stroke="${col('var(--surface)')}" stroke-width="2" opacity="0"/>
+      <rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih + 24}" fill="transparent" id="hit"/>
     </svg>
     <div class="tooltip" id="tt"></div>`;
+  chartWidth = container.clientWidth;
 
-  // 호버: 크로스헤어 + 툴팁
-  const svg = container.querySelector('svg');
-  const tt = container.querySelector('#tt');
-  const xh = container.querySelector('#xhair');
-  const hp = container.querySelector('#hpt');
-  // 포인터 이벤트 = 마우스 + 터치 + 펜. 예전엔 mousemove만 있어 폰에서 툴팁이 뜨지 않았다.
+  // 포인터 이벤트 = 마우스 + 터치 + 펜
+  const svg = container.querySelector('svg'), tt = container.querySelector('#tt');
+  const xh = container.querySelector('#xhair'), hp = container.querySelector('#hpt');
   const hit = container.querySelector('#hit');
-  hit.style.touchAction = 'pan-y';              // 세로 스크롤은 페이지에 양보, 가로 드래그만 차트가 받는다
+  hit.style.touchAction = 'pan-y';   // 세로 스크롤은 페이지에 양보
   const show = (ev) => {
     const rect = svg.getBoundingClientRect();
     const relX = (ev.clientX - rect.left) / rect.width * W;
-    const i = Math.max(0, Math.min(pts.length - 1, Math.round((relX - m.l) / iw * (pts.length - 1))));
-    const px = x(i), py = y(pts[i].v);
+    const i = Math.max(0, Math.min(n - 1, Math.round((relX - m.l) / iw * (n - 1))));
+    const px = x(i), py = y(main.vals[i]);
     xh.setAttribute('x1', px); xh.setAttribute('x2', px); xh.setAttribute('opacity', '1');
     hp.setAttribute('cx', px); hp.setAttribute('cy', py); hp.setAttribute('opacity', '1');
-    const prev = i > 0 ? pts[i].v - pts[i - 1].v : 0;
-    tt.innerHTML = `${esc(pts[i].date)}<b class="num">${fmtKrw(pts[i].v)}</b>`
-      + (i > 0 ? `<span class="num ${pnlClass(prev)}" style="font-size:.72rem">${prev >= 0 ? '+' : '−'}${fmtKrw(Math.abs(prev)).slice(1)}원 전일비</span>` : '');
+    tt.innerHTML = opt.tip(i);
     const ttx = px / W * rect.width, tty = py / H * rect.height;
-    tt.style.left = Math.min(rect.width - 140, Math.max(0, ttx + 12)) + 'px';
-    tt.style.top = Math.max(0, tty - 58) + 'px';
+    tt.style.left = Math.min(rect.width - 170, Math.max(0, ttx + 12)) + 'px';
+    tt.style.top = Math.max(0, tty - 70) + 'px';
     tt.style.opacity = '1';
   };
   const hide = () => { tt.style.opacity = '0'; xh.setAttribute('opacity', '0'); hp.setAttribute('opacity', '0'); };
@@ -891,6 +1113,155 @@ async function loadDecisions() {
     }));
   } catch (e) {
     $('decisions').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+
+/* ───────────────────────── 시스템 상태 ───────────────────────── */
+/** "N분 전" — 상태 판단은 절대 시각보다 경과 시간이 직관적이다 */
+function ago(iso) {
+  if (!iso) return '기록 없음';
+  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 90) return `${s}초 전`;
+  if (s < 5400) return `${Math.round(s / 60)}분 전`;
+  if (s < 172800) return `${Math.round(s / 3600)}시간 전`;
+  return `${Math.round(s / 86400)}일 전`;
+}
+
+/**
+ * 상태 칩을 그린다. 문제가 있는 항목은 빨강/노랑으로, 정상은 조용한 초록 점으로.
+ * 정상일 때 눈에 띄지 않고, 비정상일 때만 시선을 끄는 것이 목표다.
+ */
+async function loadHealth() {
+  try {
+    const h = await api('health');
+    const items = [];
+    const chip = (lvl, label, value, detail) =>
+      items.push(`<div class="hchip ${lvl}" title="${esc(detail || '')}"><span class="dot"></span><span class="hl">${label}</span><span class="hv">${value}</span>${detail && lvl !== 'ok' ? `<div class="hd">${esc(detail)}</div>` : ''}</div>`);
+
+    // 1) Manager 모델 — 크레딧 소진은 여기서 먼저 보인다
+    const mr = h.managerReady;
+    if (!mr) chip('idle', 'Manager 모델', esc(h.managerModel || '-'), '아직 점검 전');
+    else if (mr.ok) chip('ok', 'Manager 모델', `${esc(h.managerModel || '')} · 호출 가능`, `점검 ${ago(mr.checkedAt)}`);
+    else chip('bad', 'Manager 모델', `${esc(h.managerModel || '')} · 호출 불가`, `${mr.reason || ''} (점검 ${ago(mr.checkedAt)}) — 매매 결정이 멈춥니다. 손절·익절 감시는 계속 동작합니다.`);
+
+    // 2) 최근 파이프라인
+    const run = (h.lastRuns || [])[0];
+    if (!run) chip('idle', '최근 파이프라인', '기록 없음', '다음 실행부터 기록됩니다');
+    else {
+      const kind = run.kind === 'intraday' ? '재배치' : '개장 전';
+      const when = fmtKst(run.finished_at);
+      if (run.ok) chip('ok', '최근 파이프라인', `${when} ${kind} · 성공`, run.report_id);
+      else chip('bad', '최근 파이프라인', `${when} ${kind} · 실패`, run.reason || '');
+    }
+
+    // 3) 다음 파이프라인
+    if (h.pipelineRunning) chip('run', '파이프라인', '실행 중…', '');
+    else if (h.nextPipelineAt) chip('idle', '다음 파이프라인', fmtKst(h.nextPipelineAt), '');
+
+    // 4) 감시기 — 정규장 중인데 3분 넘게 멈췄으면 경고 (손절이 안 나간다는 뜻)
+    if (h.sessionOpen) {
+      const stale = !h.lastWatchOkAt || Date.now() - new Date(h.lastWatchOkAt).getTime() > 3 * 60000;
+      chip(stale ? 'bad' : 'ok', '손절·익절 감시', stale ? `멈춤 (${ago(h.lastWatchOkAt)})` : `동작 중 · ${ago(h.lastWatchOkAt)}`,
+           stale ? '정규장 중인데 감시가 돌지 않습니다 — 손절이 집행되지 않을 수 있습니다' : '');
+    } else chip('idle', '손절·익절 감시', '장 마감 · 대기', '');
+
+    // 5) 스케줄러 심박 — 3분 넘게 틱이 없으면 서버가 멈춘 것
+    const tickStale = !h.lastTickAt || Date.now() - new Date(h.lastTickAt).getTime() > 3 * 60000;
+    if (!h.schedulerEnabled) chip('warn', '스케줄러', '꺼짐', 'ENABLE_SCHEDULER=false');
+    else if (tickStale) chip('bad', '스케줄러', `응답 없음 (${ago(h.lastTickAt)})`, '매분 틱이 멈췄습니다 — 서버 재시작이 필요할 수 있습니다');
+
+    // 6) 재배치 안전핀 — 상한에 닿았을 때만 노랑
+    if (h.sessionOpen && h.redeploy) {
+      const r = h.redeploy;
+      if (r.noActionCount >= r.max) chip('warn', '장중 재배치', `오늘 중단 (${r.noActionCount}/${r.max})`, '매수 0건 재배치가 상한에 도달 — 비용 절약을 위해 오늘은 더 돌리지 않습니다');
+      else if (r.noActionCount > 0) chip('idle', '장중 재배치', `무행동 ${r.noActionCount}/${r.max}`, '');
+    }
+
+    const bad = items.some(x => x.includes('hchip bad'));
+    $('health').className = 'health' + (bad ? ' alert' : '');
+    $('health').innerHTML = items.join('');
+  } catch (e) {
+    $('health').className = 'health alert';
+    $('health').innerHTML = `<div class="hchip bad"><span class="dot"></span><span class="hl">상태 조회 실패</span><span class="hv">${esc(e.message)}</span></div>`;
+  }
+}
+
+/* ───────────────────────── 성과 분석 ───────────────────────── */
+const REASON_LABEL = { 'Manager매도': 'AI 재량 매도', '손절발동': '손절', 'TP1익절': '1차 익절', 'TP2익절': '2차 익절', '기타': '기타' };
+const REASON_HINT = { 'Manager매도': '규칙 밖 판단', '손절발동': '규칙', 'TP1익절': '규칙', 'TP2익절': '규칙', '기타': '' };
+
+/**
+ * 청산 사유별 막대(실현 합계, 0 기준 좌우) + 셋업별 표.
+ * 손익 합계를 0 기준 발산 막대로 그려 "어느 쪽이 벌고 어느 쪽이 잃는지"가 길이로 보이게 한다.
+ */
+async function loadAnalytics() {
+  try {
+    const a = await api('analytics');
+    const fx = a.usdKrw || 0;
+    const krw = (usd) => fx ? `${usd >= 0 ? '+' : '−'}${Math.abs(Math.round(usd * fx)).toLocaleString('ko-KR')}원` : `${usd >= 0 ? '+' : '−'}${fmtUsd(Math.abs(usd))}`;
+    const o = a.overall;
+    if (!o.count) { $('analytics').innerHTML = '<div class="empty">아직 청산된 매매가 없습니다</div>'; return; }
+
+    const maxAbs = Math.max(...a.byReason.map(g => Math.abs(g.sumUsd)), 1e-9);
+    const bars = a.byReason.map(g => {
+      const w = Math.abs(g.sumUsd) / maxAbs * 50;
+      const pos = g.sumUsd >= 0;
+      return `<div class="rrow">
+        <div class="rname">${esc(REASON_LABEL[g.key] || g.key)} <span class="rhint">${esc(REASON_HINT[g.key] || '')}</span>
+          <div class="rmeta num">${g.count}건 · 승률 ${g.winRate.toFixed(0)}% · 평균 ${fmtPct(g.avgPct)}</div></div>
+        <div class="rbarwrap"><span class="rzero"></span><span class="rfill ${pos ? 'up-bg' : 'down-bg'}" style="${pos ? 'left:50%' : `left:${50 - w}%`};width:${w}%"></span></div>
+        <div class="rsum num ${pnlClass(g.sumUsd)}">${krw(g.sumUsd)}</div>
+      </div>`;
+    }).join('');
+
+    const setupHtml = a.bySetup.length
+      ? `<table class="mini"><thead><tr><th>셋업</th><th>청산</th><th>승률</th><th>평균</th><th>실현</th></tr></thead><tbody>${
+          a.bySetup.map(g => `<tr><td>${esc(g.key)}</td><td class="num">${g.count}</td><td class="num">${g.winRate.toFixed(0)}%</td><td class="num ${pnlClass(g.avgPct)}">${fmtPct(g.avgPct)}</td><td class="num ${pnlClass(g.sumUsd)}">${krw(g.sumUsd)}</td></tr>`).join('')
+        }</tbody></table>`
+      : `<div class="note-box">셋업 태그가 붙은 청산이 아직 없습니다. 셋업 태그는 9/28부터 매수 결정에 기록되므로, 새 진입이 청산되는 대로 여기서 CONTINUATION · PULLBACK · STEADY 중 어떤 진입이 통하는지 비교됩니다.</div>`;
+
+    $('analytics').innerHTML = `
+      <div class="a-sum num">청산 <b>${o.count}</b>건 · 승률 <b>${o.winRate.toFixed(0)}%</b> · 평균 <b class="${pnlClass(o.avgPct)}">${fmtPct(o.avgPct)}</b> · 실현 <b class="${pnlClass(o.sumUsd)}">${krw(o.sumUsd)}</b> · 평균 보유 ${o.avgHoldDays.toFixed(1)}일</div>
+      <div class="a-h">청산 사유별 실현 손익</div>
+      <div class="rlist">${bars}</div>
+      <div class="a-h">진입 셋업별</div>
+      ${setupHtml}`;
+  } catch (e) {
+    $('analytics').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
+  }
+}
+
+/* ───────────────────────── LLM 사용량 ───────────────────────── */
+const ROLE_LABEL = { manager: 'Manager', agent_gpt: 'Agent GPT', agent_claude: 'Agent Claude', weekly_review: '주간회고' };
+const fmtTok = (n) => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
+
+/** 일별 토큰 막대 + 역할별 표. 가격이 설정된 모델만 비용을 표시한다(추정 금지). */
+async function loadUsage() {
+  try {
+    const u = await api('llm-usage?days=14');
+    if (!u.totalCalls) {
+      $('usage').innerHTML = `<div class="note-box">아직 기록이 없습니다. 사용량 기록은 오늘부터 시작했고, 다음 파이프라인(개장 40분 전)부터 호출마다 쌓입니다.</div>`;
+      return;
+    }
+    const allPriced = u.byRole.every(r => r.priced);
+    const maxTok = Math.max(...u.byDay.map(d => d.input + d.output), 1);
+    const bars = u.byDay.map(d => {
+      const tot = d.input + d.output, hgt = Math.max(2, tot / maxTok * 100);
+      return `<div class="ubar" title="${esc(d.date)} · ${d.calls}회 · 입력 ${fmtTok(d.input)} / 출력 ${fmtTok(d.output)}${d.priced ? ` · $${d.cost.toFixed(2)}` : ''}">
+        <span style="height:${hgt}%"></span><em>${esc(d.date.slice(8))}</em></div>`;
+    }).join('');
+    const rows = u.byRole.map(r => `<tr><td>${esc(ROLE_LABEL[r.role] || r.role)}<div class="rmeta">${esc(r.model)}</div></td>
+      <td class="num">${r.calls}</td><td class="num">${fmtTok(r.input)}</td><td class="num">${fmtTok(r.output)}</td>
+      <td class="num">${r.priced ? '$' + r.cost.toFixed(2) : '—'}</td></tr>`).join('');
+    const totalCost = u.byRole.reduce((s, r) => s + (r.priced ? r.cost : 0), 0);
+    $('usageSub').textContent = `최근 ${u.days}일 · ${u.totalCalls}회 호출` + (allPriced ? ` · $${totalCost.toFixed(2)}` : '');
+    $('usage').innerHTML = `
+      <div class="ubars">${bars}</div>
+      <table class="mini"><thead><tr><th>역할</th><th>호출</th><th>입력</th><th>출력</th><th>비용</th></tr></thead><tbody>${rows}</tbody></table>
+      ${u.unpricedModels.length ? `<div class="note-box">비용은 가격이 설정된 모델만 계산합니다. <code>.env</code>에 100만 토큰당 USD로 추가하면 표시됩니다: ${
+        u.unpricedModels.map(m => `<code>LLM_PRICE_${esc(m.toUpperCase().replace(/[^A-Z0-9]/g, '_'))}=입력,출력</code>`).join(' ')}</div>` : ''}`;
+  } catch (e) {
+    $('usage').innerHTML = `<div class="empty">⚠️ ${esc(e.message)}</div>`;
   }
 }
 
@@ -1004,11 +1375,15 @@ async function loadTrades() {
 function renderTrades() {
   const list = tradeFilter === 'ALL' ? tradesAll : tradesAll.filter(t => t.side === tradeFilter);
   tradesCache = list;
-  const sells = list.filter(t => t.side === 'SELL' && t.realized_krw != null);
+  // 요약은 현 시스템(2026-07-13~) 매도만 합산한다. 목록엔 2025년 구 시스템(원금 ₩220만 시절)
+  // 매도가 섞일 수 있고, 그걸 합치면 성과 분석(−) 과 부호가 뒤집힌 숫자(+)가 나온다
+  // (2026-09-29 실측: 구 시스템 3건이 섞여 +195,234원 vs 성과 분석 −99,175원).
+  const SYSTEM_START = '2026-07-13T00:00:00+09:00';
+  const sells = list.filter(t => t.side === 'SELL' && t.realized_krw != null && new Date(t.traded_at) >= new Date(SYSTEM_START));
   if (sells.length) {
     const sum = sells.reduce((a, t) => a + t.realized_krw, 0);
     const wins = sells.filter(t => t.realized_krw > 0).length;
-    $('tradeSummary').innerHTML = `최근 목록의 매도 ${sells.length}건 · 승 ${wins} / 패 ${sells.length - wins} · 실현 합계 <b class="num ${pnlClass(sum)}">${sum >= 0 ? '+' : '−'}${Math.abs(Math.round(sum)).toLocaleString('ko-KR')}원</b>`;
+    $('tradeSummary').innerHTML = `현 시스템(7/13~) 매도 ${sells.length}건 · 승 ${wins} / 패 ${sells.length - wins} · 실현 합계 <b class="num ${pnlClass(sum)}">${sum >= 0 ? '+' : '−'}${Math.abs(Math.round(sum)).toLocaleString('ko-KR')}원</b>`;
   } else {
     $('tradeSummary').innerHTML = '';
   }
@@ -1140,6 +1515,7 @@ function mdToHtml(md) {
 
 /* ───────────────────────── 초기화 + 자동 갱신 ───────────────────────── */
 async function refreshLive() {
+  loadHealth();
   await loadStatus();
   await loadPositions();
   await loadPortfolio();
@@ -1152,6 +1528,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
   await refreshLive();
   loadChart();
   loadDecisions();
+  loadAnalytics();
+  loadUsage();
   loadTrades();
   loadPlaybook();
   loadJournal();

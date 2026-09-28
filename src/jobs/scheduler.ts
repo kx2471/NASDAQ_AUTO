@@ -33,6 +33,16 @@ let watcherRunning = false;   // 감시 틱 겹침 방지
 let redeployNoActionCount = 0;
 let redeploySession = 0;      // 카운터가 속한 세션 시작 시각 (날이 바뀌면 초기화)
 
+// ── 대시보드 상태 패널용 관측값 ────────────────────────────
+// "조용한 실패"를 화면에 드러내기 위한 것. 2026-09-22~27 OpenAI 크레딧 소진으로 6일간
+// 매매가 멈췄지만 대시보드엔 아무 표시가 없었다 — 로그를 봐야만 알 수 있었다.
+let lastTickAt = 0;            // 스케줄러 틱 마지막 실행 (멈추면 서버가 죽은 것)
+let lastWatchOkAt = 0;         // 장중 감시가 마지막으로 끝까지 돈 시각
+let managerReady: { ok: boolean; reason: string | null; checkedAt: number } | null = null;
+let pipelineFailReason = '';   // 이번 파이프라인 실행의 실패 사유 (기록용)
+const MANAGER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // 모델 가용성 주기 점검 (3시간)
+const PIPELINE_RUNS_FILE = path.join(process.cwd(), 'data', 'json', 'pipeline_runs.json');
+
 // 틱 오류 로그 중복 억제 — 같은 오류가 매분 반복되면 정상 로그를 덮는다
 let lastTickErrorKey = '';
 let lastTickErrorAt = 0;
@@ -226,6 +236,86 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
     console.warn('⚠️ 리포트 파이프라인이 이미 실행 중입니다 — 이번 실행을 건너뜁니다.');
     return false;
   }
+  const startedAt = Date.now();
+  pipelineFailReason = '';
+  const ok = await runReportPipelineInner(reportIdSuffix, reuseAgentReports);
+  await recordPipelineRun({
+    started_at: new Date(startedAt).toISOString(),
+    finished_at: new Date().toISOString(),
+    report_id: getKoreanDateString() + reportIdSuffix,
+    kind: reportIdSuffix.startsWith('-i') ? 'intraday' : 'pre-open',
+    ok,
+    reason: ok ? null : (pipelineFailReason || '알 수 없는 실패 (로그 확인)'),
+    reused_agents: reuseAgentReports,
+  });
+  return ok;
+}
+
+/**
+ * 파이프라인 실행 결과를 남긴다 (최근 50건). 대시보드 상태 패널이 읽는다.
+ * 기록 실패가 파이프라인 결과에 영향을 주지 않도록 삼킨다.
+ */
+async function recordPipelineRun(entry: Record<string, unknown>): Promise<void> {
+  try {
+    let runs: unknown[] = [];
+    try { runs = JSON.parse(await fs.readFile(PIPELINE_RUNS_FILE, 'utf-8')); } catch { /* 첫 기록 */ }
+    runs.push(entry);
+    await fs.writeFile(PIPELINE_RUNS_FILE, JSON.stringify(runs.slice(-50), null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('⚠️ 파이프라인 실행 기록 실패(무시):', (e as Error).message);
+  }
+}
+
+/**
+ * Manager 모델 가용성 점검 결과를 갱신한다 (파이프라인 시작 시 + 3시간 주기).
+ * 저녁 사이클 전에 크레딧 소진을 미리 화면에 띄우려는 것이다.
+ */
+async function refreshManagerReady(): Promise<string | null> {
+  const { checkManagerModelReady } = await import('../services/manager');
+  const reason = await checkManagerModelReady();
+  managerReady = { ok: reason === null, reason, checkedAt: Date.now() };
+  return reason;
+}
+
+/**
+ * 대시보드 상태 패널용 스냅샷. 같은 프로세스의 스케줄러 메모리를 그대로 읽는다.
+ * @returns 스케줄러·감시기·Manager 모델·최근 파이프라인·재배치 안전핀 상태
+ */
+export async function getHealthSnapshot(): Promise<Record<string, unknown>> {
+  let runs: any[] = [];
+  try { runs = JSON.parse(await fs.readFile(PIPELINE_RUNS_FILE, 'utf-8')); } catch { /* 기록 없음 */ }
+  const lead = (parseInt(process.env.REPORT_LEAD_MINUTES || '', 10) || 40) * 60 * 1000;
+  let nextPipelineAt: string | null = null;
+  let sessionOpen = false;
+  try {
+    const { today, next } = await getUsMarketCalendar();
+    const now = Date.now();
+    sessionOpen = (await getActiveRegularSession()) !== null;
+    const cand = [today.regular?.start, next.regular?.start].filter((t): t is number => !!t).map(t => t - lead);
+    const upcoming = cand.find(t => t > now);
+    if (upcoming) nextPipelineAt = new Date(upcoming).toISOString();
+  } catch { /* 캘린더 실패 — 표시만 생략 */ }
+  return {
+    schedulerEnabled: timer !== null,
+    lastTickAt: lastTickAt ? new Date(lastTickAt).toISOString() : null,
+    sessionOpen,
+    lastWatchOkAt: lastWatchOkAt ? new Date(lastWatchOkAt).toISOString() : null,
+    pipelineRunning,
+    nextPipelineAt,
+    lastRuns: runs.slice(-8).reverse(),
+    managerModel: process.env.MANAGER_MODEL || null,
+    managerReady: managerReady && { ...managerReady, checkedAt: new Date(managerReady.checkedAt).toISOString() },
+    redeploy: { noActionCount: redeployNoActionCount, max: getRedeployMaxNoAction(),
+                sessionMatches: sessionOpen && redeploySession !== 0 },
+  };
+}
+
+/** 파이프라인 본체 (runReportPipeline이 결과를 기록하며 감싼다) */
+async function runReportPipelineInner(reportIdSuffix: string, reuseAgentReports: boolean): Promise<boolean> {
+  if (pipelineRunning) {
+    console.warn('⚠️ 리포트 파이프라인이 이미 실행 중입니다 — 이번 실행을 건너뜁니다.');
+    return false;
+  }
   pipelineRunning = true;
   const startedAt = Date.now();
 
@@ -234,9 +324,9 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
 
     // Manager 모델 사전 점검 — 결정권자가 못 돌면 앞 단계 비용이 전부 버려진다.
     // 토큰 1개짜리 호출이라 비용은 0에 가깝고, 크레딧이 복구되면 자동으로 통과한다.
-    const { checkManagerModelReady } = await import('../services/manager');
-    const notReady = await checkManagerModelReady();
+    const notReady = await refreshManagerReady();
     if (notReady) {
+      pipelineFailReason = `Manager 모델 호출 불가 — ${notReady}`;
       console.error(
         `❌ Manager 모델을 호출할 수 없어 파이프라인을 시작하지 않습니다 — ${notReady}\n` +
         `   조치가 필요합니다 (크레딧 충전 또는 MANAGER_MODEL 변경). ` +
@@ -272,6 +362,7 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
         `❌ 파이프라인이 예외 없이 끝났지만 결정(${expectedId})이 남지 않았습니다 (${elapsedSec}초 소요) — ` +
         `내부 단계가 조용히 건너뛰었을 가능성. 실패로 처리해 재시도합니다.`
       );
+      pipelineFailReason = `결정(${expectedId})이 남지 않음 — 내부 단계 누락 또는 결정 JSON 파싱 실패`;
       return false;
     }
 
@@ -279,6 +370,7 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
     return true;
   } catch (error) {
     console.error('❌ 리포트 파이프라인 실패:', error);
+    pipelineFailReason = String((error as Error)?.message || error).slice(0, 200);
     return false;
   } finally {
     pipelineRunning = false;
@@ -289,6 +381,12 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
  * 매분 틱: 리포트 트리거 판정 + 장중 SL/TP 감시
  */
 async function tick(): Promise<void> {
+  lastTickAt = Date.now();
+  // Manager 모델 주기 점검 (기동 직후 + 3시간마다) — 비동기로 틱을 막지 않는다
+  if (!managerReady || Date.now() - managerReady.checkedAt > MANAGER_CHECK_INTERVAL_MS) {
+    managerReady = { ok: managerReady?.ok ?? true, reason: managerReady?.reason ?? null, checkedAt: Date.now() }; // 중복 호출 방지
+    void refreshManagerReady().catch(() => { /* 일시 오류는 다음 주기에 */ });
+  }
   try {
     // 오류가 반복되다 멎으면 복구를 한 줄로 알린다 — 조용히 멎으면 복구인지 죽은 건지 모른다
     if (lastTickErrorKey) {
@@ -385,6 +483,7 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
   try {
     await syncPendingFills();
     await checkPositionsOnce();
+    lastWatchOkAt = Date.now();   // 예외 없이 끝까지 돈 경우만 — 멈추면 대시보드가 경고한다
   } finally {
     watcherRunning = false;
   }

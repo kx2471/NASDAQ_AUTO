@@ -269,6 +269,80 @@ router.get('/api/status', async (req, res) => {
 });
 
 /**
+ * 시스템 상태 패널 API — 조용한 실패를 화면에 드러낸다
+ * GET /dashboard/api/health
+ * (마지막 파이프라인 결과·Manager 모델 가용성·감시기 하트비트·재배치 안전핀)
+ */
+router.get('/api/health', async (req, res) => {
+  try {
+    const { getHealthSnapshot } = await import('../../jobs/scheduler');
+    res.json({ success: true, data: await getHealthSnapshot() });
+  } catch (error) {
+    console.error('❌ 상태 스냅샷 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * 성과 분석 API — 청산 사유별·셋업별 (원장과 같은 계산)
+ * GET /dashboard/api/analytics
+ */
+router.get('/api/analytics', async (req, res) => {
+  try {
+    const { computeTripAnalytics } = await import('../../services/managerRecords');
+    const a = await computeTripAnalytics();
+    let usdKrw: number | null = null;
+    try { usdKrw = (await getCachedExchangeRate()).usd_to_krw; } catch { /* 원화 환산 생략 */ }
+    res.json({ success: true, data: { ...a, usdKrw } });
+  } catch (error) {
+    console.error('❌ 성과 분석 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * LLM 사용량 API — 일별·역할별 토큰 (가격 설정 시 비용)
+ * GET /dashboard/api/llm-usage?days=14
+ */
+router.get('/api/llm-usage', async (req, res) => {
+  try {
+    const days = Math.min(parseInt(String(req.query.days || ''), 10) || 14, 90);
+    const { summarizeUsage } = await import('../../services/llmUsage');
+    res.json({ success: true, data: await summarizeUsage(days) });
+  } catch (error) {
+    console.error('❌ LLM 사용량 조회 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// 벤치마크 캐시 — 일봉은 하루에 한 번만 바뀌므로 1시간 캐시로 토스 호출을 아낀다
+let benchCache: { at: number; data: Array<{ date: string; close: number }> } | null = null;
+
+/**
+ * 나스닥 비교 API — QQQ(나스닥100 ETF) 일봉 종가
+ * GET /dashboard/api/benchmark
+ * "−30%가 시장 탓인가 전략 탓인가"를 같은 차트에서 비교하기 위한 것.
+ */
+router.get('/api/benchmark', async (req, res) => {
+  try {
+    if (!benchCache || Date.now() - benchCache.at > 60 * 60 * 1000) {
+      const { getCandles } = await import('../../services/toss');
+      const candles = await getCandles('QQQ', '1d', 200);
+      // 캔들 시각(미국 장 기준)을 KST 날짜로 — 성과 이력의 날짜 기준과 맞춘다
+      const data = candles.map(c => ({
+        date: new Date(new Date(c.date).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10),
+        close: c.close,
+      })).sort((a, b) => a.date.localeCompare(b.date));
+      benchCache = { at: Date.now(), data };
+    }
+    res.json({ success: true, data: { symbol: 'QQQ', candles: benchCache.data } });
+  } catch (error: any) {
+    // 벤치마크 실패가 대시보드를 막지 않도록 빈 목록 + 사유
+    res.json({ success: true, data: { symbol: 'QQQ', candles: [], error: String(error?.message || error).slice(0, 120) } });
+  }
+});
+
+/**
  * 의사결정 저널 API — Manager가 사이클마다 남긴 교훈 누적 파일
  * GET /dashboard/api/journal
  */
