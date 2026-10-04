@@ -34,7 +34,7 @@
 | 역할 | 모델 | 이유 |
 |---|---|---|
 | **Manager** (결정권자) | `claude-opus-5-5` · effort `xhigh` | 판단 품질이 병목인 자리. 에이전트 실수는 규칙이 걸러내지만, Manager 실수는 곧 주문이 된다 |
-| Agent_Claude | `claude-sonnet-5` | 중간급 분석가, Claude 계열 관점 |
+| Agent_Claude | `claude-sonnet-5-5` | 중간급 분석가, Claude 계열 관점 (Sonnet 5와 같은 가격) |
 | Agent_GPT | `gpt-6-sol` | 중간급 분석가, GPT 계열 관점 |
 | 주간 회고 | Manager와 동일 | 규칙서 재작성 |
 
