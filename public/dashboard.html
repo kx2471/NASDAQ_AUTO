@@ -1196,6 +1196,9 @@ async function loadHealth() {
     const chip = (lvl, label, value, detail) =>
       items.push(`<div class="hchip ${lvl}" title="${esc(detail || '')}"><span class="dot"></span><span class="hl">${label}</span><span class="hv">${value}</span>${detail && lvl !== 'ok' ? `<div class="hd">${esc(detail)}</div>` : ''}</div>`);
 
+    // 0) 데이터 이상 — 감사 기록(trades.json)이 줄었으면 가장 먼저, 가장 크게
+    if (h.dataProblem) chip('bad', '데이터 이상', '거래 기록 역행', h.dataProblem);
+
     // 1) Manager 모델 — 크레딧 소진은 여기서 먼저 보인다
     const mr = h.managerReady;
     if (!mr) chip('idle', 'Manager 모델', esc(h.managerModel || '-'), '아직 점검 전');

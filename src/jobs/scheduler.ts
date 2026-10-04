@@ -40,6 +40,9 @@ let lastTickAt = 0;            // 스케줄러 틱 마지막 실행 (멈추면 �
 let lastWatchOkAt = 0;         // 장중 감시가 마지막으로 끝까지 돈 시각
 let managerReady: { ok: boolean; reason: string | null; checkedAt: number } | null = null;
 let pipelineFailReason = '';   // 이번 파이프라인 실행의 실패 사유 (기록용)
+let dataProblem: string | null = null; // 감사 기록 역행 등 데이터 이상 (대시보드 경고)
+let lastDataCheckAt = 0;
+let lastSnapshotDay = '';
 const MANAGER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // 모델 가용성 주기 점검 (3시간)
 const PIPELINE_RUNS_FILE = path.join(process.cwd(), 'data', 'json', 'pipeline_runs.json');
 
@@ -68,6 +71,7 @@ const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.jso
 interface SchedulerState {
   lastReportDate?: string;        // 개장 전 리포트를 실행한 미국 영업일
   lastWeeklyReviewDate?: string;  // 주간 전략 회고를 실행한 KST 일요일 날짜
+  tradesHighWater?: { count: number; maxId: number; at: string }; // 거래 기록 최고 수위 (역행 감지)
   redeploySession?: number;       // 재배치 무행동 카운터가 속한 세션 시작 시각
   redeployNoActionCount?: number; // 그 세션에서 매수 0건으로 끝난 재배치 횟수
 }
@@ -305,6 +309,7 @@ export async function getHealthSnapshot(): Promise<Record<string, unknown>> {
     lastRuns: runs.slice(-8).reverse(),
     managerModel: process.env.MANAGER_MODEL || null,
     managerReady: managerReady && { ...managerReady, checkedAt: new Date(managerReady.checkedAt).toISOString() },
+    dataProblem,
     redeploy: { noActionCount: redeployNoActionCount, max: getRedeployMaxNoAction(),
                 sessionMatches: sessionOpen && redeploySession !== 0 },
   };
@@ -324,6 +329,10 @@ async function runReportPipelineInner(reportIdSuffix: string, reuseAgentReports:
 
     // Manager 모델 사전 점검 — 결정권자가 못 돌면 앞 단계 비용이 전부 버려진다.
     // 토큰 1개짜리 호출이라 비용은 0에 가깝고, 크레딧이 복구되면 자동으로 통과한다.
+    if (!reportIdSuffix) {
+      const { snapshotData } = await import('../services/dataGuard');
+      await snapshotData('pre-pipeline');
+    }
     const notReady = await refreshManagerReady();
     if (notReady) {
       pipelineFailReason = `Manager 모델 호출 불가 — ${notReady}`;
@@ -382,6 +391,29 @@ async function runReportPipelineInner(reportIdSuffix: string, reuseAgentReports:
  */
 async function tick(): Promise<void> {
   lastTickAt = Date.now();
+  // 데이터 보호 (10분마다): 거래 기록이 줄지 않았는지 확인 + 하루 1회 저장소 밖 스냅샷.
+  // git stash·reset이 실서버 데이터 파일을 조용히 되돌린 사고(2026-10-01) 대응.
+  if (Date.now() - lastDataCheckAt > 10 * 60 * 1000) {
+    lastDataCheckAt = Date.now();
+    try {
+      const { checkTradesIntegrity, snapshotData } = await import('../services/dataGuard');
+      const st = await loadState();
+      const { next, problem } = await checkTradesIntegrity(st.tradesHighWater);
+      if (problem && problem !== dataProblem) console.error(`❌ ${problem}`);
+      if (!problem && dataProblem) console.log('✅ 거래 기록 수위 정상으로 복귀');
+      dataProblem = problem;
+      if (!problem && (next.count !== st.tradesHighWater?.count || next.maxId !== st.tradesHighWater?.maxId)) {
+        await saveState({ tradesHighWater: next });
+      }
+      const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+      if (!problem && day !== lastSnapshotDay) { // 이상 상태는 스냅샷하지 않는다 (좋은 스냅샷을 밀어내지 않도록)
+        lastSnapshotDay = day;
+        await snapshotData('daily');
+      }
+    } catch (e) {
+      console.warn('⚠️ 데이터 보호 점검 실패(무시):', (e as Error).message);
+    }
+  }
   // Manager 모델 주기 점검 (기동 직후 + 3시간마다) — 비동기로 틱을 막지 않는다
   if (!managerReady || Date.now() - managerReady.checkedAt > MANAGER_CHECK_INTERVAL_MS) {
     managerReady = { ok: managerReady?.ok ?? true, reason: managerReady?.reason ?? null, checkedAt: Date.now() }; // 중복 호출 방지

@@ -2148,5 +2148,35 @@
     "fee": 0,
     "note": "1차 익절: 현재가 $256.65 ≥ TP1 $256.03 (fFbD_cfZ7S1Vk093kKsFg49ykTM2Ebp8x75eC6cAeACMvdXfb7VcaDF6TlI4kBUV) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 219
+  },
+  {
+    "traded_at": "2026-09-28T13:30:21.333Z",
+    "symbol": "ZETA",
+    "side": "SELL",
+    "qty": 2.795076,
+    "price": 28.7738,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 보유 27일째 평단 대비 -5.61%로 규칙 10의 -5% 조기경보에 해당하며 TP1 미도달과 기존 손절가 근접을 확인해 전량 매도한다. (FHpHTmYSUMbWWh4mHz0pwlSG4Obc_0ma-0ZQ8DEr6cg9gLQECuqV2lIhIq0NB4gw) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 220
+  },
+  {
+    "traded_at": "2026-09-30T14:57:30.482Z",
+    "symbol": "OKTA",
+    "side": "SELL",
+    "qty": 0.237489,
+    "price": 211.86,
+    "fee": 0,
+    "note": "2차 익절: 현재가 $211.86 ≥ TP2 $211.51 (2u3DCObviItgBqFzzZZaQuJNLdy9DTSBGpGXwn6pDNo4YMpITrZRpR6sbCoT0LbY) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 221
+  },
+  {
+    "traded_at": "2026-10-02T13:35:36.381Z",
+    "symbol": "CRWD",
+    "side": "SELL",
+    "qty": 0.157385,
+    "price": 272.705,
+    "fee": 0,
+    "note": "2차 익절: 현재가 $272.705 ≥ TP2 $272.62 (fFbD_cfZ7S1Vk093kKsFg3bsNFLfshV_u77spedoMlFsF6lifd7xAynyd1xmRWkn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 222
   }
 ]
