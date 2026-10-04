@@ -47,6 +47,13 @@ export async function snapshotData(reason: string): Promise<string | null> {
     const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).replace(/[-: ]/g, '').slice(0, 12);
     const dir = path.join(snapshotRoot(), `${stamp}_${reason.replace(/[^a-z0-9-]/gi, '')}`);
     await fs.mkdir(dir, { recursive: true });
+    // SQLite 백엔드면 DB 자체의 일관된 백업(VACUUM INTO)을 먼저 뜨고, 사람이 읽을 JSON 사본도 최신으로 맞춘다
+    const { db } = await import('../storage/database');
+    const { SqliteDatabase } = await import('../storage/sqlite');
+    if (db instanceof SqliteDatabase) {
+      db.backupTo(path.join(dir, 'autotrader.sqlite'));
+      await (await import('../storage/migrate')).exportJsonMirror(db);
+    }
     for (const f of FILES) {
       try { await fs.copyFile(path.join(ROOT, f), path.join(dir, path.basename(f))); } catch { /* 파일이 아직 없을 수 있다 */ }
     }
@@ -71,7 +78,8 @@ export interface TradesHighWater { count: number; maxId: number; at: string }
  * @returns next: 갱신된 수위 / problem: 역행이면 사람이 읽을 설명 (정상은 null)
  */
 export async function checkTradesIntegrity(prev: TradesHighWater | undefined): Promise<{ next: TradesHighWater; problem: string | null }> {
-  const raw = JSON.parse(await fs.readFile(path.join(ROOT, 'data/json/trades.json'), 'utf-8')) as Array<{ id?: number }>;
+  const { db } = await import('../storage/database');
+  const raw = await db.read<{ id?: number }>('trades');
   const count = raw.length;
   const maxId = raw.reduce((m, t) => Math.max(m, t.id ?? 0), 0);
   if (prev && (count < prev.count || maxId < prev.maxId)) {

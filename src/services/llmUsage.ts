@@ -1,6 +1,3 @@
-import fs from 'fs/promises';
-import path from 'path';
-
 /**
  * LLM 사용량 기록 — 호출마다 토큰 수를 남겨 비용과 소진 속도를 보이게 한다.
  *
@@ -13,8 +10,6 @@ import path from 'path';
  * 비용은 없는 것보다 해롭다 (그럴듯한 숫자가 판단을 오도한다).
  */
 
-const USAGE_FILE = path.join(process.cwd(), 'data', 'json', 'llm_usage.json');
-const MAX_ENTRIES = 3000;
 
 /** 사용량 기록 1건 */
 export interface LlmUsageEntry {
@@ -56,10 +51,8 @@ export async function recordAnthropicUsage(role: LlmUsageEntry['role'], model: s
 /** 기록 실패가 리포트 생성을 막지 않도록 모든 오류를 삼킨다 */
 async function append(entry: LlmUsageEntry): Promise<void> {
   try {
-    let list: LlmUsageEntry[] = [];
-    try { list = JSON.parse(await fs.readFile(USAGE_FILE, 'utf-8')); } catch { /* 첫 기록 */ }
-    list.push(entry);
-    await fs.writeFile(USAGE_FILE, JSON.stringify(list.slice(-MAX_ENTRIES)), 'utf-8');
+    const { db } = await import('../storage/database');
+    await db.insert('llm_usage', entry as LlmUsageEntry & { id?: number });
   } catch (e) {
     console.warn('⚠️ LLM 사용량 기록 실패(무시):', (e as Error).message);
   }
@@ -83,7 +76,7 @@ function priceOf(model: string): [number, number] | null {
  */
 export async function summarizeUsage(days = 14): Promise<Record<string, unknown>> {
   let list: LlmUsageEntry[] = [];
-  try { list = JSON.parse(await fs.readFile(USAGE_FILE, 'utf-8')); } catch { /* 기록 없음 */ }
+  try { list = await (await import('../storage/database')).db.read<LlmUsageEntry>('llm_usage'); } catch { /* 기록 없음 */ }
   const since = Date.now() - days * 86400000;
   const recent = list.filter(e => new Date(e.at).getTime() >= since);
   const kstDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });

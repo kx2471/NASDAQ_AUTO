@@ -24,11 +24,13 @@
 ## 아키텍처 원칙
 
 1. **토스 실계좌 = 진실(source of truth)**: 현금·보유수량·평단가는 항상 토스 실시간 조회. 폴백 없음 — 조회 실패 시 낡은 값으로 진행하지 않고 명시적으로 실패한다.
-2. **앱 JSON = 의도와 기록**: 토스가 모르는 것만 앱이 보관한다.
-   - `positions.json` — 손절·익절가, 진입 시점, 매수 근거 (매 사이클 토스와 reconcile)
-   - `decisions.json` — Manager 결정의 불변 이력
-   - `trades.json` — 주문 감사 기록 (24h 매수한도 계산·진입시각 유도에 사용, dry-run은 기록 안 함)
-   - `universe.json` — 토스 거래가능 미국 보통주 캐시 (주 1회 갱신)
+2. **앱 DB = 의도와 기록**: 토스가 모르는 것만 앱이 보관한다. **원본은 SQLite** (`data/db/autotrader.sqlite`, gitignore).
+   - `positions` — 손절·익절가, 진입 시점, 매수 근거 (매 사이클 토스와 reconcile)
+   - `decisions` — Manager 결정의 불변 이력
+   - `trades` — 주문 감사 기록 (24h 매수한도 계산·진입시각 유도에 사용, dry-run은 기록 안 함)
+   - `data/json/*.json`은 DB에서 내보낸 **읽기용 사본**이다 — 고쳐도 반영되지 않는다. 데이터는 반드시 `storage/database.ts`의 `db`를 거쳐 읽고 쓴다 (파일을 직접 읽으면 낡은 사본을 보게 된다).
+   - `universe.json` — 토스 거래가능 미국 보통주 캐시 (주 1회 갱신, 파일 그대로)
+   - ⚠️ 이 폴더는 실서버의 작업 폴더다. `git stash`/`reset`/`/teleport`는 추적 중인 파일을 되돌린다 (2026-10-01 사고).
 3. **결정과 집행의 분리**: Manager는 JSON으로 의도만 선언, 집행기는 가드레일을 통과한 주문만 전송. LLM 환각은 가드레일이 막는다.
 4. **정규장 전용**: 프리마켓/애프터마켓 주문 금지 — 주문 최후 관문(executeOrder)에서 강제.
 
@@ -47,7 +49,8 @@
 | `jobs/watcher.ts` | 장중 SL/TP 실시간 판정·매도 (`judge`는 순수 함수 — 테스트 가능) |
 | `jobs/weekly.ts` / `jobs/manager.ts` | 에이전트 리포트 / Manager 파이프라인 (스케줄러가 순차 호출) |
 | `storage/positions.ts` | 포지션(보유+계획) 저장소, 토스 reconcile |
-| `storage/database.ts` | JSON 파일 DB + 토스 위임 (getHoldings/getCashBalance는 토스 전용) |
+| `storage/database.ts` | 저장소 계층 — 백엔드 선택(`STORAGE_BACKEND`: sqlite 기본 / json) + 토스 위임 (getHoldings/getCashBalance는 토스 전용) |
+| `storage/sqlite.ts` / `migrate.ts` | SQLite 백엔드(node:sqlite) / JSON 이관·검증·사본 내보내기 |
 
 ## 개발 환경
 
@@ -91,7 +94,7 @@ AUTO_EXECUTE_DECISION=true  # false면 결정 기록만, 집행 안 함
 
 1. **`TOSS_DRY_RUN=false` 전환은 사용자가 명시적으로 지시할 때만.** 어떤 리팩토링·테스트에서도 임의로 켜지 않는다.
 2. **하드코딩 금지**: 수량·가격·심볼을 코드에 박지 않는다. 항상 토스 API 또는 사용자 입력에서 가져온다 (`docs/DANGER-ZONE.md`).
-3. **trades.json은 감사 기록**: 직접 수정 금지, 수정이 불가피하면 백업 먼저. 잔고 계산에는 더 이상 사용되지 않는다 (잔고 = 토스 실시간).
+3. **trades는 감사 기록**: 직접 수정 금지(SQL UPDATE/DELETE 포함), 수정이 불가피하면 백업 먼저. 잔고 계산에는 더 이상 사용되지 않는다 (잔고 = 토스 실시간).
 4. **통화 구분**: 보유종목에 KRW 종목이 섞일 수 있다. `currency` 필드를 무시하고 USD로 가정하는 계산을 새로 만들지 말 것 (환율 이중적용 사고 이력 있음).
 5. **가드레일 우회 금지**: 주문은 반드시 `trading.executeOrder`를 거친다. `toss.createOrder` 직접 호출 금지.
 6. **LLM 검증 시 모델 임의 변경 금지**, 실사용 토큰 수는 사용자에게 보고.

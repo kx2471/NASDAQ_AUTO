@@ -68,8 +68,7 @@ const preCutoffExited = new Set<string>();
 export async function syncPendingFills(): Promise<void> {
   let decisions: ManagerDecision[];
   try {
-    const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'decisions.json'), 'utf-8');
-    decisions = JSON.parse(raw);
+    decisions = await (await import('../storage/database')).db.read<ManagerDecision>('decisions');
   } catch {
     return; // 결정 기록 없음
   }

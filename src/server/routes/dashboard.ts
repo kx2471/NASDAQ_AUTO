@@ -115,12 +115,10 @@ router.get('/api/portfolio', async (req, res) => {
  */
 router.get('/api/performance', async (req, res) => {
   try {
-    const performanceFile = path.join(process.cwd(), 'data/json/performance_history.json');
     try {
-      const data = await fs.readFile(performanceFile, 'utf-8');
-      res.json({ success: true, data: JSON.parse(data) });
+      res.json({ success: true, data: await db.read<any>('performance_history') });
     } catch {
-      res.json({ success: true, data: [] }); // 파일 없으면 빈 배열
+      res.json({ success: true, data: [] }); // 기록 없으면 빈 배열
     }
   } catch (error) {
     console.error('❌ 성과 데이터 조회 실패:', error);
@@ -199,10 +197,8 @@ router.get('/api/positions', async (req, res) => {
 router.get('/api/decisions', async (req, res) => {
   try {
     const limit = Math.min(parseInt(String(req.query.limit || ''), 10) || 10, 50);
-    const decisionsFile = path.join(process.cwd(), 'data/json/decisions.json');
     try {
-      const data = JSON.parse(await fs.readFile(decisionsFile, 'utf-8'));
-      const list = Array.isArray(data) ? data : [];
+      const list = await db.read<any>('decisions');
       list.sort((a, b) => String(b.decided_at).localeCompare(String(a.decided_at)));
       res.json({ success: true, data: list.slice(0, limit) });
     } catch {

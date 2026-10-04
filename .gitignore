@@ -100,3 +100,6 @@ data/json/scheduler_state.json
 
 # 데이터 파일 수동 백업 (수정 전 스냅샷)
 data/json/*.bak.*
+
+# SQLite 운영 DB (원본) — git 작업 파일이 아니어야 stash/reset에 되돌아가지 않는다
+data/db/

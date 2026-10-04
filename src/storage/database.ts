@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import * as toss from '../services/toss';
+import { SqliteDatabase } from './sqlite';
 
 // Supabase 서비스 (조건부 import)
 let supabaseService: any = null;
@@ -185,10 +186,34 @@ export class JsonDatabase {
       return false;
     }
   }
+
+  /** 단일 문서 읽기 — 배열이 아닌 객체 하나짜리 파일 (스케줄러 상태 등). 없으면 null */
+  async getDoc<T>(name: string): Promise<T | null> {
+    try {
+      return JSON.parse(await fs.readFile(path.join(this.dataDir, `${name}.json`), 'utf8')) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  /** 단일 문서 쓰기 (통째로 교체) */
+  async setDoc<T>(name: string, value: T): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    await fs.writeFile(path.join(this.dataDir, `${name}.json`), JSON.stringify(value, null, 2), 'utf8');
+  }
 }
 
+/**
+ * 저장소 백엔드 선택.
+ *  - sqlite (기본): data/db/autotrader.sqlite — 트랜잭션, git 작업 파일이 아님
+ *  - json: 예전 방식(data/json/*.json). 되돌려야 할 때 STORAGE_BACKEND=json
+ * 두 백엔드는 같은 메서드를 제공하므로 호출부는 어느 쪽인지 모른다.
+ * JSON 사본은 주기적으로 내보내므로(storage/migrate.exportJsonMirror) 되돌려도 최대 10분 분량만 낡는다.
+ */
+export const STORAGE_BACKEND: 'sqlite' | 'json' = process.env.STORAGE_BACKEND === 'json' ? 'json' : 'sqlite';
+
 // 전역 데이터베이스 인스턴스
-export const db = new JsonDatabase();
+export const db: JsonDatabase | SqliteDatabase = STORAGE_BACKEND === 'json' ? new JsonDatabase() : new SqliteDatabase();
 
 /**
  * 데이터베이스 연결 테스트

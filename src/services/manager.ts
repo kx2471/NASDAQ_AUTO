@@ -532,10 +532,8 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     // 채울 근거 자체가 없다 (2026-09-04 CRCL BUY에 setup 누락 → 셋업별 성과 집계 불가).
     const screenSetups = await (async () => {
       try {
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'screen_setups.json'), 'utf8');
-        const parsed = JSON.parse(raw) as { generated_at?: string; setups?: Record<string, string> };
+        const { db } = await import('../storage/database');
+        const parsed = (await db.getDoc<{ generated_at?: string; setups?: Record<string, string> }>('screen_setups')) || {};
         const entries = Object.entries(parsed.setups || {});
         if (entries.length === 0) return '(셋업 태그 없음 — setup 필드는 생략하라)';
         return entries.map(([sym, s]) => `${sym}=${s}`).join(', ');

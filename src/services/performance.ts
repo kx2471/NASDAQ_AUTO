@@ -153,21 +153,15 @@ export function analyzeTargetProgress(
  * 성과 데이터를 JSON 파일에 저장
  */
 export async function savePerformanceHistory(
-  performance: PerformanceData,
-  filePath: string = 'data/json/performance_history.json'
+  performance: PerformanceData
 ): Promise<void> {
-  const fs = await import('fs/promises');
-  const path = await import('path');
-  
+  const { db } = await import('../storage/database');
+
   try {
+   // 읽고 → 고치고 → 쓰는 묶음이라 컬렉션 락으로 감싼다 (개장 전 파이프라인과 재배치가 겹칠 수 있다)
+   await db.withLock('performance_history', async () => {
     // 기존 데이터 읽기
-    let history: PerformanceData[] = [];
-    try {
-      const existingData = await fs.readFile(filePath, 'utf-8');
-      history = JSON.parse(existingData);
-    } catch {
-      // 파일이 없으면 빈 배열로 시작
-    }
+    const history: PerformanceData[] = await db.read<PerformanceData>('performance_history').catch(() => []);
     
     // 이상치 가드: 직전 기록 대비 초기자본 대비 수익률이 ±50%p 이상 튀면
     // 스냅샷 글리치(예: 토스가 일시적으로 빈 보유 반환)로 보고 저장을 건너뛴다.
@@ -191,11 +185,11 @@ export async function savePerformanceHistory(
     // 날짜순 정렬
     history.sort((a, b) => a.date.localeCompare(b.date));
     
-    // 파일 저장
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, JSON.stringify(history, null, 2), 'utf-8');
-    
+    // 저장
+    await db.write('performance_history', history);
+
     console.log(`💾 성과 데이터 저장 완료: ${performance.date}`);
+   });
     
   } catch (error) {
     console.error('❌ 성과 데이터 저장 실패:', error);

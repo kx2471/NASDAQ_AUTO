@@ -691,14 +691,12 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
  */
 async function saveScreenSetups(results: ScreeningResult[]): Promise<void> {
   try {
-    const fs = await import('fs/promises');
-    const path = await import('path');
     const setups: Record<string, string> = {};
     for (const r of results) {
       if (r.setup) setups[r.symbol] = r.setup;
     }
-    const file = path.join(process.cwd(), 'data', 'json', 'screen_setups.json');
-    await fs.writeFile(file, JSON.stringify({ generated_at: new Date().toISOString(), setups }, null, 2), 'utf8');
+    const { db } = await import('../storage/database');
+    await db.setDoc('screen_setups', { generated_at: new Date().toISOString(), setups });
     console.log(`🏷️ 셋업 태그 저장: ${Object.keys(setups).length}개 (Manager 결정 JSON의 setup 필드 입력)`);
   } catch (e) {
     // 태그 저장 실패가 파이프라인을 막지 않는다 (세그먼트 분석만 손실)

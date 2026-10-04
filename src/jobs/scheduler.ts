@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { runWeekly } from './weekly';
+import { db } from '../storage/database';
 import { runManager, getKoreanDateString } from './manager';
 import { checkPositionsOnce, syncPendingFills } from './watcher';
 import { getUsMarketCalendar, getActiveRegularSession, isTossEnabled } from '../services/toss';
@@ -44,7 +45,6 @@ let dataProblem: string | null = null; // 감사 기록 역행 등 데이터 이
 let lastDataCheckAt = 0;
 let lastSnapshotDay = '';
 const MANAGER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000; // 모델 가용성 주기 점검 (3시간)
-const PIPELINE_RUNS_FILE = path.join(process.cwd(), 'data', 'json', 'pipeline_runs.json');
 
 // 틱 오류 로그 중복 억제 — 같은 오류가 매분 반복되면 정상 로그를 덮는다
 let lastTickErrorKey = '';
@@ -65,7 +65,6 @@ const MAX_REPORT_RETRIES = 2; // 최초 1회 + 재시도 2회 = 최대 3회
 
 // 마지막 실행일을 디스크에 보존 — 서버가 리포트 후 재시작돼도 같은 날 중복 실행
 // (LLM 비용 2배 + 결정 이중 집행 위험)을 막는다
-const STATE_FILE = path.join(process.cwd(), 'data', 'json', 'scheduler_state.json');
 
 /** 스케줄러 영속 상태 */
 interface SchedulerState {
@@ -82,9 +81,9 @@ interface SchedulerState {
  */
 async function loadState(): Promise<SchedulerState> {
   try {
-    return JSON.parse(await fs.readFile(STATE_FILE, 'utf-8'));
+    return (await db.getDoc<SchedulerState>('scheduler_state')) || {}; // 없음 = 첫 실행
   } catch {
-    return {}; // 파일 없음 = 첫 실행
+    return {};
   }
 }
 
@@ -95,7 +94,7 @@ async function loadState(): Promise<SchedulerState> {
 async function saveState(patch: SchedulerState): Promise<void> {
   try {
     const cur = await loadState();
-    await fs.writeFile(STATE_FILE, JSON.stringify({ ...cur, ...patch }, null, 2), 'utf-8');
+    await db.setDoc('scheduler_state', { ...cur, ...patch });
   } catch (error) {
     console.warn('⚠️ 스케줄러 상태 저장 실패 (재시작 시 중복 실행 위험):', error);
   }
@@ -183,8 +182,7 @@ function getRedeployMaxPositions(): number {
  */
 async function getLastDecisionTime(): Promise<number> {
   try {
-    const raw = await fs.readFile(path.join(process.cwd(), 'data', 'json', 'decisions.json'), 'utf-8');
-    const decisions = JSON.parse(raw);
+    const decisions = await db.read<any>('decisions');
     if (!Array.isArray(decisions) || decisions.length === 0) return 0;
     // decided_at 최대값 (추가 순서가 시간순이 아닐 수 있으므로 전체 스캔)
     return decisions.reduce((max: number, d: any) => {
@@ -242,6 +240,8 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
   }
   const startedAt = Date.now();
   pipelineFailReason = '';
+  // `npm run report`처럼 서버를 거치지 않는 실행 경로도 이관이 끝난 저장소를 쓰도록 보장한다
+  await (await import('../storage/migrate')).ensureMigrated(db);
   const ok = await runReportPipelineInner(reportIdSuffix, reuseAgentReports);
   await recordPipelineRun({
     started_at: new Date(startedAt).toISOString(),
@@ -261,10 +261,7 @@ export async function runReportPipeline(reportIdSuffix: string = '', reuseAgentR
  */
 async function recordPipelineRun(entry: Record<string, unknown>): Promise<void> {
   try {
-    let runs: unknown[] = [];
-    try { runs = JSON.parse(await fs.readFile(PIPELINE_RUNS_FILE, 'utf-8')); } catch { /* 첫 기록 */ }
-    runs.push(entry);
-    await fs.writeFile(PIPELINE_RUNS_FILE, JSON.stringify(runs.slice(-50), null, 2), 'utf-8');
+    await db.insert('pipeline_runs', entry as { id?: number });
   } catch (e) {
     console.warn('⚠️ 파이프라인 실행 기록 실패(무시):', (e as Error).message);
   }
@@ -287,7 +284,7 @@ async function refreshManagerReady(): Promise<string | null> {
  */
 export async function getHealthSnapshot(): Promise<Record<string, unknown>> {
   let runs: any[] = [];
-  try { runs = JSON.parse(await fs.readFile(PIPELINE_RUNS_FILE, 'utf-8')); } catch { /* 기록 없음 */ }
+  try { runs = await db.read<any>('pipeline_runs'); } catch { /* 기록 없음 */ }
   const lead = (parseInt(process.env.REPORT_LEAD_MINUTES || '', 10) || 40) * 60 * 1000;
   let nextPipelineAt: string | null = null;
   let sessionOpen = false;
@@ -405,6 +402,8 @@ async function tick(): Promise<void> {
       if (!problem && (next.count !== st.tradesHighWater?.count || next.maxId !== st.tradesHighWater?.maxId)) {
         await saveState({ tradesHighWater: next });
       }
+      // JSON 사본 갱신 (바뀐 게 있을 때만) — 열람·git 기록·되돌리기용. 원본은 SQLite다.
+      await (await import('../storage/migrate')).exportJsonMirrorIfChanged(db);
       const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
       if (!problem && day !== lastSnapshotDay) { // 이상 상태는 스냅샷하지 않는다 (좋은 스냅샷을 밀어내지 않도록)
         lastSnapshotDay = day;

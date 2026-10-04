@@ -57,7 +57,7 @@
 ## 아키텍처 원칙
 
 1. **토스 실계좌가 진실이다** — 현금·수량·평단은 항상 토스에서 실시간으로 조회합니다. 조회에 실패하면 낡은 값으로 진행하지 않습니다(예외: 하루 단위로만 바뀌는 캘린더는 6시간 이내 캐시로 버팀).
-2. **앱 JSON은 의도와 기록이다** — 토스가 모르는 것(손절·익절 계획, 결정 이력, 감사 기록)만 보관합니다.
+2. **앱 DB는 의도와 기록이다** — 토스가 모르는 것(손절·익절 계획, 결정 이력, 감사 기록)만 SQLite에 보관합니다.
 3. **결정과 집행을 분리한다** — Manager는 JSON으로 의도만 선언하고, 가드레일을 통과한 주문만 나갑니다.
 4. **정규장 전용** — 프리마켓·애프터마켓 주문은 최후 관문에서 차단합니다.
 5. **계산은 한 곳에서** — 같은 질문에 답하는 코드가 둘이면 언젠가 서로 다른 답을 냅니다. 화면·Manager·원장은 같은 함수를 씁니다(`computeFxSplit`, `computeRealizedBySellId`, `effectiveStopLoss` 등).
@@ -132,20 +132,37 @@ tail -f ~/Library/Logs/nasdaq-autotrader.error.log           # console.warn / er
 | `jobs/scheduler.ts` | 매분 틱: 파이프라인 트리거·재시도·사후 검증, 감시, 재배치, 상태 스냅샷 |
 | `jobs/watcher.ts` | 손절·익절·트레일링 판정(순수 함수) 및 매도 |
 | `storage/positions.ts` | 포지션(보유 + 계획), 토스 동기화 |
+| `storage/database.ts` / `sqlite.ts` / `migrate.ts` | 저장소 계층(백엔드 선택) / SQLite 백엔드 / JSON 이관·검증·사본 내보내기 |
+| `services/dataGuard.ts` | 저장소 밖 스냅샷, 거래 기록 역행 감지 |
 | `server/routes/dashboard.ts` | 대시보드 API |
 
-## 데이터 파일 (`data/json/`)
+## 데이터 저장소
 
-| 파일 | 내용 |
+**원본은 SQLite입니다** — `data/db/autotrader.sqlite` (Node 내장 `node:sqlite`, 외부 패키지 없음, gitignore).
+
+| 테이블 | 내용 |
 |---|---|
-| `trades.json` | 주문 **감사 기록** — 직접 수정 금지 (불가피하면 백업 먼저) |
-| `decisions.json` | Manager 결정 이력 + 집행 결과 |
-| `positions.json` | 손절·익절 계획, 진입 시각, 고점 |
-| `performance_history.json` | 일별 자산·원금·환율 |
-| `pipeline_runs.json` | 파이프라인 실행 결과 (최근 50건) |
-| `llm_usage.json` | LLM 호출별 토큰 |
-| `screen_setups.json` | 이번 사이클 후보의 진입 셋업 태그 |
-| `scheduler_state.json` | 중복 실행 방지·재배치 카운터 (재시작해도 유지) |
+| `trades` | 주문 **감사 기록** — 직접 수정 금지. `id`에 UNIQUE 제약 |
+| `decisions` | Manager 결정 이력 + 집행 결과 |
+| `positions` | 손절·익절 계획, 진입 시각, 고점 |
+| `performance_history` | 일별 자산·원금·환율 |
+| `pipeline_runs` | 파이프라인 실행 결과 |
+| `llm_usage` | LLM 호출별 토큰 |
+| `docs` | 단일 문서: `scheduler_state`(중복 실행 방지·재배치 카운터), `screen_setups`(셋업 태그) |
+
+각 행은 원본 객체를 `data` 열(JSON)에 **그대로** 보관하고, 자주 쓰는 필드는 생성 열로 꺼내 인덱스를 겁니다. 그래서 객체에 새 필드가 생겨도 스키마 변경 없이 보존됩니다. SQL로 바로 조회할 수 있습니다.
+
+```bash
+sqlite3 data/db/autotrader.sqlite "SELECT symbol, side, qty, price, traded_at FROM trades ORDER BY traded_at DESC LIMIT 5"
+sqlite3 data/db/autotrader.sqlite "SELECT model, COUNT(*), SUM(input), SUM(output) FROM llm_usage GROUP BY model"
+```
+
+**`data/json/*.json`은 읽기용 사본입니다.** 10분마다(바뀐 게 있을 때) DB에서 내보냅니다. 열람·git 기록·되돌리기용이며, **사본을 고쳐도 DB에는 반영되지 않습니다.**
+
+- **JSON에서 옮긴 이유**: 한 건을 추가해도 파일 전체를 다시 썼고, 운영 데이터가 git 작업 파일이라 `stash`·`reset`에 조용히 되돌아갔습니다(2026-10-01 `/teleport` 사고 — 매도 기록 2건 소실).
+- **되돌리기**: `.env`에 `STORAGE_BACKEND=json`을 넣고 재시작하면 예전 방식으로 돌아갑니다(사본이 최대 10분 낡을 수 있음).
+- **백업**: 하루 1회 + 파이프라인 직전에 `~/Library/Application Support/nasdaq-autotrader/snapshots/`로 DB 백업(`VACUUM INTO`)과 JSON 사본을 남깁니다. 거래 기록 건수가 줄면 대시보드에 `데이터 이상` 경고가 뜹니다.
+- 유니버스 캐시(`universe.json`)와 저널·규칙서·리포트(마크다운)는 파일로 둡니다.
 
 ## 운영하며 배운 것
 
@@ -173,4 +190,4 @@ tail -f ~/Library/Logs/nasdaq-autotrader.error.log           # console.warn / er
 
 ---
 
-**최종 업데이트**: 2026-09-29 · 토스 자동매매 v2.x (전시장 스크리닝 · 셋업 3종 · 정규장 자동집행 · 트레일링 · 상태 패널)
+**최종 업데이트**: 2026-10-05 · 토스 자동매매 v2.x (전시장 스크리닝 · 셋업 3종 · 정규장 자동집행 · 트레일링 · 상태 패널)

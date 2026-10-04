@@ -65,12 +65,12 @@ function onlyCurrentSystem<T extends { traded_at: string }>(rows: T[]): T[] {
   return rows.filter(r => new Date(r.traded_at).getTime() >= cutoff);
 }
 
-/** JSON 파일을 안전하게 배열로 읽는다 (없거나 깨지면 빈 배열). */
+/** 컬렉션을 안전하게 배열로 읽는다 (없거나 실패하면 빈 배열). 저장소 계층(db)을 거친다 — SQLite/JSON 공용. */
 async function readJsonArray<T>(file: string): Promise<T[]> {
   try {
-    const raw = await fs.readFile(path.join(DATA_DIR, `${file}.json`), 'utf-8');
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const { db } = await import('../storage/database');
+    const rows = await db.read<T>(file);
+    return Array.isArray(rows) ? rows : [];
   } catch { return []; }
 }
 
