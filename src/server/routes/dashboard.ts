@@ -347,6 +347,52 @@ router.get('/api/benchmark', async (req, res) => {
 });
 
 /**
+ * DB 조회 API (읽기 전용) — 표 목록
+ * GET /dashboard/api/db/tables
+ */
+router.get('/api/db/tables', async (req, res) => {
+  try {
+    const { SqliteDatabase } = await import('../../storage/sqlite');
+    if (!(db instanceof SqliteDatabase)) {
+      return res.json({ success: true, data: { backend: 'json', tables: [] } });
+    }
+    res.json({ success: true, data: { backend: 'sqlite', file: 'data/db/autotrader.sqlite', tables: db.listTables() } });
+  } catch (error) {
+    console.error('❌ DB 표 목록 조회 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * DB 조회 API (읽기 전용) — 표 내용 페이지
+ * GET /dashboard/api/db/rows?table=trades&limit=50&offset=0&order=traded_at&dir=desc&q=CRWD
+ * 수정·삭제 경로는 없다. 표·열 이름은 스키마 허용 목록으로만 통과한다 (sqlite.browse).
+ */
+router.get('/api/db/rows', async (req, res) => {
+  try {
+    const { SqliteDatabase } = await import('../../storage/sqlite');
+    if (!(db instanceof SqliteDatabase)) return res.status(400).json({ success: false, error: 'SQLite 백엔드가 아닙니다' });
+    const table = String(req.query.table || '');
+    const q = String(req.query.q || '').slice(0, 100);
+    try {
+      const data = db.browse(table, {
+        limit: parseInt(String(req.query.limit || ''), 10) || 50,
+        offset: parseInt(String(req.query.offset || ''), 10) || 0,
+        orderBy: req.query.order ? String(req.query.order) : undefined,
+        desc: String(req.query.dir || 'desc') !== 'asc',
+        q: q || undefined,
+      });
+      res.json({ success: true, data });
+    } catch (e: any) {
+      res.status(400).json({ success: false, error: String(e?.message || e).slice(0, 120) });
+    }
+  } catch (error) {
+    console.error('❌ DB 행 조회 실패:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
  * 의사결정 저널 API — Manager가 사이클마다 남긴 교훈 누적 파일
  * GET /dashboard/api/journal
  */

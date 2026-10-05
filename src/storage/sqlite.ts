@@ -203,6 +203,47 @@ export class SqliteDatabase {
   }
 
   /**
+   * 표 목록 — 대시보드 DB 조회 화면용 (읽기 전용).
+   * @returns 표 이름·행 수·열 목록 (생성 열 포함, data 열 제외)
+   */
+  listTables(): Array<{ name: string; count: number; columns: string[] }> {
+    const names = this.sql.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r => r.name as string);
+    return names.map(name => ({
+      name,
+      count: this.sql.prepare(`SELECT COUNT(*) AS c FROM "${name}"`).get()?.c ?? 0,
+      // table_xinfo는 생성 열(hidden=2)까지 보여준다. data는 상세 보기에서만 쓰므로 목록에서 뺀다
+      columns: this.sql.prepare(`PRAGMA table_xinfo("${name}")`).all().map(c => c.name as string).filter(c => c !== 'data'),
+    }));
+  }
+
+  /**
+   * 표 내용을 페이지 단위로 읽는다 — 대시보드 DB 조회 화면용 (읽기 전용).
+   *
+   * 임의 SQL을 받지 않는다: 표·정렬 열 이름은 실제 스키마와 대조해 허용 목록에 있을 때만 쓰고,
+   * 검색어는 바인딩 파라미터로만 넘긴다. 대시보드가 LAN의 다른 기기에서도 열리므로,
+   * 조회 경로가 수정·삭제나 스키마 변경으로 이어질 여지를 두지 않는다.
+   *
+   * @param table 표 이름 / @param opt.q 검색어(원본 JSON 부분 일치) / opt.orderBy 정렬 열 / opt.desc 내림차순
+   * @returns total: 조건에 맞는 전체 행 수 / rows: 열 값 + data(원본 JSON 문자열)
+   */
+  browse(table: string, opt: { limit?: number; offset?: number; orderBy?: string; desc?: boolean; q?: string } = {}):
+    { total: number; columns: string[]; rows: Array<Record<string, unknown>> } {
+    const meta = this.listTables().find(t => t.name === table);
+    if (!meta) throw new Error(`없는 표: ${table}`);
+    const orderBy = opt.orderBy && meta.columns.includes(opt.orderBy) ? opt.orderBy : meta.columns[0];
+    const limit = Math.max(1, Math.min(opt.limit ?? 50, 200));
+    const offset = Math.max(0, opt.offset ?? 0);
+    const where = opt.q ? 'WHERE data LIKE ?' : '';
+    const params = opt.q ? [`%${opt.q}%`] : [];
+    const total = this.sql.prepare(`SELECT COUNT(*) AS c FROM "${table}" ${where}`).get(...params)?.c ?? 0;
+    const cols = meta.columns.map(c => `"${c}"`).join(', ');
+    const rows = this.sql.prepare(
+      `SELECT ${cols}, data FROM "${table}" ${where} ORDER BY "${orderBy}" ${opt.desc ? 'DESC' : 'ASC'} LIMIT ? OFFSET ?`
+    ).all(...params, limit, offset);
+    return { total, columns: meta.columns, rows };
+  }
+
+  /**
    * 일관된 백업 파일을 만든다 (VACUUM INTO — 쓰기 중에도 안전한 스냅샷).
    * @param dest 백업 파일 경로 (이미 있으면 덮어쓴다)
    */
