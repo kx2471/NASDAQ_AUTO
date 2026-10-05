@@ -655,7 +655,10 @@ ${previousReportsSummary}
       const anthropicStream = anthropicClient.messages.stream({
         model: managerModel,
         max_tokens: 64000,
-        output_config: { effort: 'xhigh' },
+        // 사고 깊이: high (2026-10-05 사용자 결정으로 xhigh에서 한 단계 내림 — 비용 절감).
+        // 실측(10/05, xhigh): 출력 13,106토큰 중 사고 약 5,770. MANAGER_EFFORT로 조정 가능
+        // (low < medium < high < xhigh < max). Opus 5.5는 지정하지 않으면 medium이 기본이라 명시한다.
+        output_config: { effort: process.env.MANAGER_EFFORT || 'high' },
         thinking: { type: 'adaptive', display: 'summarized' },
         system: processedPrompt,
         messages: [
