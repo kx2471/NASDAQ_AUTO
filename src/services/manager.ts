@@ -676,6 +676,15 @@ ${previousReportsSummary}
         output_config: { effort: string };
         thinking: { type: string; display: string };
       });
+      // 거부 사유(stop_details)는 스트림의 message_delta에 실려 오는데, 설치된 SDK는
+      // finalMessage()로 합칠 때 이 필드를 옮기지 않는다. 이벤트에서 직접 받아 둔다.
+      // (2026-10-08: 이걸 못 읽어 로그에 "사유 불명"만 남았고, 비스트리밍으로 다시 불러 본
+      //  뒤에야 category=reasoning_extraction임을 알았다)
+      let streamStopDetails: { category?: string; explanation?: string } | undefined;
+      anthropicStream.on('streamEvent', (ev: any) => {
+        const details = ev?.type === 'message_delta' ? ev.delta?.stop_details : undefined;
+        if (details) streamStopDetails = details;
+      });
       const anthropicResponse = await anthropicStream.finalMessage();
       await (await import('./llmUsage')).recordAnthropicUsage('manager', managerModel, anthropicResponse.usage);
 
@@ -689,7 +698,9 @@ ${previousReportsSummary}
       // content가 비거나(출력 전 차단) 잘린 채(스트림 중 차단) 돌아온다.
       // 아래 'text 블록 없음'과 뭉뚱그리면 로그만 보고는 원인을 알 수 없으므로 먼저 구분한다.
       if (anthropicResponse.stop_reason === 'refusal') {
-        const cat = (anthropicResponse as any).stop_details?.category ?? '사유 불명';
+        const details = (anthropicResponse as any).stop_details ?? streamStopDetails;
+        const cat = details?.category ?? '사유 불명';
+        if (details?.explanation) console.error(`🚫 거부 설명: ${String(details.explanation).slice(0, 300)}`);
         throw new Error(`Manager 모델 안전 분류기 거부 (category=${cat}) — 이번 사이클 결정 생성 실패`);
       }
 
