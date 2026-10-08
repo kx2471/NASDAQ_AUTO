@@ -140,7 +140,12 @@ async function loadAgentReports(): Promise<{
             path.join(agentReportsDir, file),
             'utf8'
           );
-          reports.push(`### ${file}\n${content}\n---\n`);
+          // 부록 "Manager 사고 과정"은 다음 사이클 입력에서 뺀다 (감사 기록은 파일에 그대로 남는다).
+          // 모델의 사고 요약을 다시 입력으로 넣으면 Anthropic 분류기가 '추론 추출'로 보고
+          // 요청 전체를 거부한다 (2026-10-08 저녁: refusal, category=reasoning_extraction —
+          // 개장 전 3회 연속 실패로 그날 결정이 사라짐). 결론·근거는 본문에 이미 있다.
+          const withoutThinking = content.replace(/\n*(?:---\s*\n+)?## 🧩 Manager 사고 과정[\s\S]*$/, '\n');
+          reports.push(`### ${file}\n${withoutThinking}\n---\n`);
           console.log(`📄 과거 Manager 보고서 로드: ${file}`);
         } catch (error) {
           console.warn(`⚠️ Manager 보고서 로드 실패: ${file}`, error);
