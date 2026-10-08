@@ -19,6 +19,15 @@ export interface ScreeningResult {
   reason: string;
   avg_dollar_volume?: number; // 20일 평균 거래대금 (USD) — 유동성/거래가능성 판단용
   setup?: SetupType;          // 어떤 진입 셋업으로 후보에 올랐는지 (성과 세그먼트용)
+  // 셋업 판정에 쓴 수치 — 에이전트가 "셋업이 정의에 맞는지"를 직접 검증하도록 넘긴다.
+  // 이게 없어서 Agent_GPT가 확신도 기준 1번(셋업 확인)을 매번 "확인 불가"로 처리해
+  // '상'을 줄 수 없었다 (2026-10-09 00:44 리포트: 3종목 모두 4/5, 사유가 전부 1번).
+  setup_metrics?: {
+    mom5_pct: number;       // 5일 수익률 (%)
+    mom20_pct: number;      // 20일 수익률 (%)
+    near_high_pct: number;  // 20일 고점 대비 현재가 (%) — 100이면 고점
+    vol20_pct: number;      // 20일 일간수익률 표준편차 (%)
+  };
 }
 
 /**
@@ -635,6 +644,13 @@ export async function runMarketWideScreening(): Promise<Record<string, Screening
       if (result) {
         result.avg_dollar_volume = finalist.avgDollarVolume; // 유동성 전달 (스캔 단계 계산값)
         result.setup = finalist.setup;                       // 진입 셋업 태그 (성과 세그먼트용)
+        const round1 = (v: number) => Math.round(v * 10) / 10;
+        result.setup_metrics = {
+          mom5_pct: round1(finalist.mom5 * 100),
+          mom20_pct: round1(finalist.mom20 * 100),
+          near_high_pct: round1(finalist.nearHigh * 100),
+          vol20_pct: round1(finalist.vol20)
+        };
         results.push(result);
       }
     } catch (error) {
