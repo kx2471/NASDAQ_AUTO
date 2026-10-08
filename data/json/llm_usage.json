@@ -291,5 +291,304 @@
     "model": "claude-opus-5-5",
     "input": 22689,
     "output": 14063
+  },
+  {
+    "at": "2026-10-05T12:53:29.225Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 5625,
+    "output": 1271,
+    "reasoning": 308,
+    "id": 1
+  },
+  {
+    "at": "2026-10-05T12:54:13.895Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8061,
+    "output": 5643,
+    "id": 2
+  },
+  {
+    "at": "2026-10-05T12:56:05.831Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 56497,
+    "output": 13106,
+    "id": 3
+  },
+  {
+    "at": "2026-10-05T15:03:57.571Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8309,
+    "output": 1191,
+    "reasoning": 224,
+    "id": 4
+  },
+  {
+    "at": "2026-10-05T15:04:13.940Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8503,
+    "output": 2104,
+    "id": 5
+  },
+  {
+    "at": "2026-10-05T15:05:26.633Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 57285,
+    "output": 8934,
+    "id": 6
+  },
+  {
+    "at": "2026-10-05T17:13:59.022Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 5141,
+    "output": 1119,
+    "reasoning": 255,
+    "id": 7
+  },
+  {
+    "at": "2026-10-05T17:14:12.850Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 7328,
+    "output": 1898,
+    "id": 8
+  },
+  {
+    "at": "2026-10-05T17:15:14.611Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 54504,
+    "output": 7835,
+    "id": 9
+  },
+  {
+    "at": "2026-10-06T12:53:42.462Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8365,
+    "output": 1051,
+    "reasoning": 217,
+    "id": 10
+  },
+  {
+    "at": "2026-10-06T12:53:56.710Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8411,
+    "output": 1802,
+    "id": 11
+  },
+  {
+    "at": "2026-10-06T12:55:07.501Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 51776,
+    "output": 8915,
+    "id": 12
+  },
+  {
+    "at": "2026-10-06T15:03:54.803Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8426,
+    "output": 1157,
+    "reasoning": 320,
+    "id": 13
+  },
+  {
+    "at": "2026-10-06T15:04:11.337Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8536,
+    "output": 2061,
+    "id": 14
+  },
+  {
+    "at": "2026-10-06T15:05:20.773Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 50164,
+    "output": 8990,
+    "id": 15
+  },
+  {
+    "at": "2026-10-06T17:13:43.363Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8399,
+    "output": 981,
+    "reasoning": 183,
+    "id": 16
+  },
+  {
+    "at": "2026-10-06T17:13:58.663Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8475,
+    "output": 1831,
+    "id": 17
+  },
+  {
+    "at": "2026-10-06T17:15:13.224Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 50008,
+    "output": 9577,
+    "id": 18
+  },
+  {
+    "at": "2026-10-07T12:52:46.529Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8397,
+    "output": 1338,
+    "reasoning": 295,
+    "id": 19
+  },
+  {
+    "at": "2026-10-07T12:53:01.668Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8512,
+    "output": 1951,
+    "id": 20
+  },
+  {
+    "at": "2026-10-07T12:54:20.805Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 52172,
+    "output": 9810,
+    "id": 21
+  },
+  {
+    "at": "2026-10-07T15:02:56.031Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 5197,
+    "output": 1009,
+    "reasoning": 220,
+    "id": 22
+  },
+  {
+    "at": "2026-10-07T15:03:11.365Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 7367,
+    "output": 1859,
+    "id": 23
+  },
+  {
+    "at": "2026-10-07T15:04:22.664Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 52360,
+    "output": 8962,
+    "id": 24
+  },
+  {
+    "at": "2026-10-07T17:12:46.632Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8401,
+    "output": 1172,
+    "reasoning": 279,
+    "id": 25
+  },
+  {
+    "at": "2026-10-07T17:13:00.740Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 8491,
+    "output": 1842,
+    "id": 26
+  },
+  {
+    "at": "2026-10-07T17:14:11.120Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 52655,
+    "output": 9202,
+    "id": 27
+  },
+  {
+    "at": "2026-10-08T12:53:25.492Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 8974,
+    "output": 1651,
+    "reasoning": 631,
+    "id": 28
+  },
+  {
+    "at": "2026-10-08T12:53:42.420Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 9365,
+    "output": 2250,
+    "id": 29
+  },
+  {
+    "at": "2026-10-08T12:53:44.052Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 53540,
+    "output": 0,
+    "id": 30
+  },
+  {
+    "at": "2026-10-08T12:54:28.837Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 53540,
+    "output": 0,
+    "id": 31
+  },
+  {
+    "at": "2026-10-08T12:55:28.900Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 53540,
+    "output": 0,
+    "id": 32
+  },
+  {
+    "at": "2026-10-08T13:17:39.789Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 53540,
+    "output": 0,
+    "id": 33
+  },
+  {
+    "at": "2026-10-08T13:33:03.577Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 7637,
+    "output": 979,
+    "reasoning": 246,
+    "id": 34
+  },
+  {
+    "at": "2026-10-08T13:33:22.072Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 9431,
+    "output": 2419,
+    "id": 35
+  },
+  {
+    "at": "2026-10-08T13:34:36.063Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 48859,
+    "output": 8884,
+    "id": 36
   }
 ]
