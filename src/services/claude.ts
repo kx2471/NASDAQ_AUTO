@@ -31,11 +31,12 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
     // Sonnet 5/Opus 4.8은 temperature/top_p/budget_tokens를 거부(400)하므로 전달하지 않음.
     // Sonnet 5는 thinking 생략 시 적응형 사고가 기본 ON — 사고 토큰이 출력 예산을 소모하므로
     // max_tokens에 여유를 둔다 (메모 자체는 ~1,500토큰 제한).
-    // 사고 깊이(effort)를 low로 맞춘다 (2026-10-05). Agent_GPT는 reasoning_effort "low"인데 이쪽은
-    // 지정하지 않아 모델 기본값으로 돌았고, 출력의 61%(약 3,400토큰)가 보이지 않는 사고였다
-    // (GPT는 308토큰). 두 에이전트의 조건을 맞춘다. AGENT_CLAUDE_EFFORT로 조정 가능.
+    // 사고 깊이(effort)는 medium (2026-10-08). 10/05에 비용 절감으로 low로 내렸더니
+    // 확신도 '상'이 나온 리포트가 17개 중 13개 → 8개 중 1개로 줄었다. Manager 규칙 1이
+    // '상'을 매수 문턱으로 쓰므로, 사고를 줄인 것이 매수를 막는 부작용이 됐다.
+    // 비용 차이는 호출당 사고 약 3,400토큰(하루 약 $0.10). AGENT_CLAUDE_EFFORT로 조정 가능.
     // SDK 타입에 output_config가 없어 교집합 타입으로 넓힌다 (Manager 호출과 같은 방식).
-    const effort = process.env.AGENT_CLAUDE_EFFORT || 'low';
+    const effort = process.env.AGENT_CLAUDE_EFFORT || 'medium';
     const response = await anthropic.messages.create({
       model: modelAttempt.name,
       max_tokens: 12000,
