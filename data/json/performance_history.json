@@ -924,15 +924,43 @@
   {
     "date": "2026-10-08",
     "total_investment_krw": 0,
-    "current_value_krw": 409963,
-    "total_return_krw": 409963,
+    "current_value_krw": 410347,
+    "total_return_krw": 410347,
     "total_return_percent": 0,
     "initial_capital_krw": 583065,
-    "total_return_from_initial_krw": -173102,
-    "total_return_from_initial_percent": -29.69,
+    "total_return_from_initial_krw": -172718,
+    "total_return_from_initial_percent": -29.62,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
     "target_progress": 3.43,
-    "usd_to_krw": 1346.04
+    "usd_to_krw": 1347.3
+  },
+  {
+    "date": "2026-10-09",
+    "total_investment_krw": 161340,
+    "current_value_krw": 412916,
+    "total_return_krw": 251576,
+    "total_return_percent": 155.93,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -170149,
+    "total_return_from_initial_percent": -29.18,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 3.46,
+    "usd_to_krw": 1345.85
+  },
+  {
+    "date": "2026-10-12",
+    "total_investment_krw": 307154,
+    "current_value_krw": 406815,
+    "total_return_krw": 99661,
+    "total_return_percent": 32.45,
+    "initial_capital_krw": 583065,
+    "total_return_from_initial_krw": -176250,
+    "total_return_from_initial_percent": -30.23,
+    "daily_return_krw": 0,
+    "daily_return_percent": 0,
+    "target_progress": 3.4,
+    "usd_to_krw": 1336.79
   }
 ]

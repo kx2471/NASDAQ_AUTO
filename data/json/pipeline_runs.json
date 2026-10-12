@@ -245,5 +245,55 @@
     "reason": null,
     "reused_agents": false,
     "id": 13
+  },
+  {
+    "started_at": "2026-10-08T15:40:58.850Z",
+    "finished_at": "2026-10-08T15:45:23.941Z",
+    "report_id": "20261009-i0040",
+    "kind": "intraday",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 14
+  },
+  {
+    "started_at": "2026-10-09T12:50:22.584Z",
+    "finished_at": "2026-10-09T13:31:08.320Z",
+    "report_id": "20261009",
+    "kind": "pre-open",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 15
+  },
+  {
+    "started_at": "2026-10-09T15:00:23.064Z",
+    "finished_at": "2026-10-09T15:04:15.995Z",
+    "report_id": "20261010-i0000",
+    "kind": "intraday",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 16
+  },
+  {
+    "started_at": "2026-10-09T17:10:23.234Z",
+    "finished_at": "2026-10-09T17:15:42.024Z",
+    "report_id": "20261010-i0210",
+    "kind": "intraday",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 17
+  },
+  {
+    "started_at": "2026-10-12T12:50:59.603Z",
+    "finished_at": "2026-10-12T13:30:00.962Z",
+    "report_id": "20261012",
+    "kind": "pre-open",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 18
   }
 ]

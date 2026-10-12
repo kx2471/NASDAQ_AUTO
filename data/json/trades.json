@@ -2178,5 +2178,25 @@
     "fee": 0,
     "note": "2차 익절: 현재가 $272.705 ≥ TP2 $272.62 (fFbD_cfZ7S1Vk093kKsFg3bsNFLfshV_u77spedoMlFsF6lifd7xAynyd1xmRWkn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 222
+  },
+  {
+    "traded_at": "2026-10-09T13:30:06.572Z",
+    "symbol": "ISRG",
+    "side": "BUY",
+    "qty": 0.28713759944831296,
+    "price": 417.9181,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 18사이클 만의 첫 2/2 상 교집합이고 RSI 64.7·EMA20 +4.6%·변동성 1.6%로 규칙1·2를 충족해 총자산 39.4%를 배분한다 (UfJwPMqs_oG54-nxrHX9hGBB1o88vUzB5LHwSc7M5mtounANDrUERZt1vwRw6BbS) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 223
+  },
+  {
+    "traded_at": "2026-10-09T17:14:40.294Z",
+    "symbol": "VIAV",
+    "side": "BUY",
+    "qty": 2.4122807017543857,
+    "price": 45.6,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상(5/5)·RSI 61.8·EMA20 +8.1%·Calnex 협력 뉴스로 규칙1·2를 충족하는 유일 후보이며, 이격 10% 상한가 46. (zyii_LA5iEnGZCR8UKiKc8f4Si-p_MZoJVmga4IbcrQraB7EbBw_zisCsKKoq5SI) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 224
   }
 ]
