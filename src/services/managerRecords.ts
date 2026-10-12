@@ -539,16 +539,36 @@ export async function buildTradingWindowFacts(): Promise<string> {
     dailyLine = '남은 매수 여력 조회 실패 — 보수적으로 배분할 것.';
   }
 
+  // 소수점 거래 제한 종목 — 토스는 미리 알려주지 않아 주문이 거부돼야만 알 수 있다.
+  // 지난 결정의 거부 기록에서 모아 Manager에 알려준다. 모르면 완전 신호가 나올 때마다
+  // 1주 가격보다 작은 금액을 배분해 같은 거부를 반복한다 (2026-10-13 MTSI).
+  let restrictedLine = '';
+  try {
+    const past = await getRecentDecisions(200);
+    const restricted = new Set<string>();
+    for (const d of past) {
+      for (const o of d.execution_outcomes || []) {
+        if (o.status === 'REJECTED' && /소수점 거래.{0,4}제한|stock-restricted/.test(o.reason || '')) restricted.add(o.symbol);
+      }
+    }
+    if (restricted.size > 0) {
+      restrictedLine = `**소수점 거래 제한 확인 종목: ${[...restricted].sort().join(', ')}** — 정수 주만 살 수 있다. ` +
+        `배분액이 1주 가격보다 작으면 주문이 거부되므로, 1주 가격 이상을 배분할 수 없으면 매수 결정에서 제외하라. ` +
+        `(과거 거부 기록에서 확인된 종목만이다 — 목록에 없다고 소수점 거래가 보장되지는 않는다.)`;
+    }
+  } catch { /* 목록은 보조 정보 — 조회 실패가 리포트를 막지 않는다 */ }
+
   return [
     `오늘: ${kstDate(now)}(${kstWd(now)}, KST 기준) · 이번 주 시작: ${monday}(Mon)`,
     dailyLine,
+    restrictedLine,
     `**이번 주 매수 집행 ${weekBuys.length}건** — 규칙3(주간 상한) 판정은 이 숫자를 그대로 쓸 것:`,
     list,
     `주문·체결 타이밍(확정 사실, 추론하지 말 것):`,
     `  - 이 시스템은 **정규장 개장 시각에 주문을 전송**하고 주문은 **같은 세션에 즉시 체결**된다.`,
     `  - 따라서 금요일 밤(KST) 주문도 그날 미국 금요일 정규장에 체결된다 — 다음 주로 넘어가지 않는다.`,
     `  - 주간 카운터는 **KST 월요일 00:00**에 리셋된다. 매도는 카운터를 되돌리지 않는다.`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 /** 영속 저널 — 최근 교훈 N개를 텍스트로 반환 (없으면 안내). */

@@ -951,16 +951,16 @@
   },
   {
     "date": "2026-10-12",
-    "total_investment_krw": 160396,
-    "current_value_krw": 402390,
-    "total_return_krw": 241995,
-    "total_return_percent": 150.87,
+    "total_investment_krw": 243232,
+    "current_value_krw": 403214,
+    "total_return_krw": 159982,
+    "total_return_percent": 65.77,
     "initial_capital_krw": 583065,
-    "total_return_from_initial_krw": -180675,
-    "total_return_from_initial_percent": -30.99,
+    "total_return_from_initial_krw": -179851,
+    "total_return_from_initial_percent": -30.85,
     "daily_return_krw": 0,
     "daily_return_percent": 0,
     "target_progress": 3.37,
-    "usd_to_krw": 1337.97
+    "usd_to_krw": 1337.84
   }
 ]
