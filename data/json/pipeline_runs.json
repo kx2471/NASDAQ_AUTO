@@ -295,5 +295,15 @@
     "reason": null,
     "reused_agents": false,
     "id": 18
+  },
+  {
+    "started_at": "2026-10-12T15:00:56.051Z",
+    "finished_at": "2026-10-12T15:06:08.165Z",
+    "report_id": "20261013-i0000",
+    "kind": "intraday",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 19
   }
 ]

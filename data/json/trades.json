@@ -2198,5 +2198,25 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 상(5/5)·RSI 61.8·EMA20 +8.1%·Calnex 협력 뉴스로 규칙1·2를 충족하는 유일 후보이며, 이격 10% 상한가 46. (zyii_LA5iEnGZCR8UKiKc8f4Si-p_MZoJVmga4IbcrQraB7EbBw_zisCsKKoq5SI) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 224
+  },
+  {
+    "traded_at": "2026-10-12T14:51:53.098Z",
+    "symbol": "VIAV",
+    "side": "SELL",
+    "qty": 2.409561,
+    "price": 43.07,
+    "fee": 0,
+    "note": "사용자 지시 수동 매도 — 조기경보선(-5%) 하회, 2026-10-12 사용자 요청으로 전량 정리 (zyii_LA5iEnGZCR8UKiKcyaytTxyqj8fBF3ZfEVR7dWMJfS_rhWjsDprmugqnU5o) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 225
+  },
+  {
+    "traded_at": "2026-10-12T15:05:06.449Z",
+    "symbol": "KEYS",
+    "side": "BUY",
+    "qty": 0.1635322976287817,
+    "price": 379.13,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상 5/5, RSI 64.5(<65), 변동성 1.4%, EMA20 이격 10% 이내로 규칙1~3을 충족하되 RSI 여유가 작아 하단 20 (YSN50xrlQEtI2s6toSKBXaKCbZ4f6bUBIHJKWlFlYpuoM3N6q74noZNNXKyZOfoG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 226
   }
 ]

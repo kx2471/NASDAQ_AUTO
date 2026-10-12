@@ -146,6 +146,13 @@ async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
       });
     }
     console.warn(`⚠️ ${item.symbol}: 1주 가격 $${price}가 배분액 $${amount}보다 커서 정수 전환 불가`);
+    // 거부 사유는 다음 사이클 Manager 입력(집행 결과)에 그대로 실린다. 토스 원문("소수점 거래가
+    // 제한된 종목")만으로는 '얼마를 배분해야 살 수 있는지'가 안 보여 같은 주문을 반복한다
+    // (2026-10-13 MTSI: 1주 $315에 $70 배분).
+    return {
+      ...result,
+      error: `소수점 거래 제한 종목 — 정수 주만 매수 가능한데 1주 가격 $${price ? price.toFixed(2) : '조회 실패'}가 배분액 $${amount}보다 크다. 1주 가격 이상을 배분할 수 없으면 이 종목은 매수 불가.`
+    };
   }
 
   return result;
