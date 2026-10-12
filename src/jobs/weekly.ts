@@ -86,8 +86,14 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
       }
     }
     
-    const symbolsArray = Array.from(allSymbols);
-    console.log(`📋 통합 종목 수: ${symbolsArray.length}개`);
+    // 보유 종목도 지표·뉴스 대상에 넣는다. 스크리닝에서 빠진 보유 종목은 지표 없이
+    // 에이전트에 넘어가 "지표 데이터가 없어 가격만으로 판단"하게 됐다 (2026-10-12 ISRG).
+    // 보유 조회는 토스 실시간 — 실패하면 폴백 없이 사이클이 실패한다(원칙 1).
+    const holdingsForReport = await getHoldings();
+    const holdingSymbols = holdingsForReport.map(h => h.symbol);
+    // 보유 종목을 앞에 둔다 — 뉴스는 종목 순서대로 돌아가며 섞이고 에이전트는 앞 20건만 받는다.
+    const symbolsArray = Array.from(new Set<string>([...holdingSymbols, ...allSymbols]));
+    console.log(`📋 통합 종목 수: ${symbolsArray.length}개 (보유 ${holdingSymbols.length}개 포함)`);
     
     // 통합된 종목들의 가격 데이터 수집
     console.log('📈 주간 가격 데이터 수집 중...');
@@ -108,8 +114,6 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     
     // 보유 종목 현재가 수집 (실시간 가격)
     console.log('💰 보유 종목 실시간 가격 수집 중...');
-    const holdingsForReport = await getHoldings();
-    const holdingSymbols = holdingsForReport.map(h => h.symbol);
     let holdingCurrentPrices: Record<string, number> = {};
     let priceTimestamp: Date | undefined;
     let tradingSession: string | undefined;

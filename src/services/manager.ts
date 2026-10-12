@@ -590,7 +590,7 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     const managerContext = `
 **현재 상황 브리핑**:
 - 현금: $${availableCash.toFixed(2)}
-- 환율: ${payload.portfolio?.exchange_rate || 'N/A'}원
+- 환율: ${exchangeRateValue}원/달러
 - 목표: 1년 내 $8,000 달성
 
 **📅 매매 창 확정 사실 (시스템이 계산한 값 — 추론으로 대체하지 말 것)**:
