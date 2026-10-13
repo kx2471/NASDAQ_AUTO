@@ -773,5 +773,30 @@
     "input": 54467,
     "output": 11735,
     "id": 58
+  },
+  {
+    "at": "2026-10-13T12:52:07.686Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 11156,
+    "output": 1778,
+    "reasoning": 534,
+    "id": 59
+  },
+  {
+    "at": "2026-10-13T12:52:26.650Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "input": 16324,
+    "output": 2514,
+    "id": 60
+  },
+  {
+    "at": "2026-10-13T12:54:03.491Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "input": 54701,
+    "output": 11709,
+    "id": 61
   }
 ]

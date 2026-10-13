@@ -2218,5 +2218,15 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 상 5/5, RSI 64.5(<65), 변동성 1.4%, EMA20 이격 10% 이내로 규칙1~3을 충족하되 RSI 여유가 작아 하단 20 (YSN50xrlQEtI2s6toSKBXaKCbZ4f6bUBIHJKWlFlYpuoM3N6q74noZNNXKyZOfoG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 226
+  },
+  {
+    "traded_at": "2026-10-13T13:30:04.414Z",
+    "symbol": "CDNS",
+    "side": "BUY",
+    "qty": 0.2055393586005831,
+    "price": 343,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상 5/5, RSI 66.4→62.5로 컷 하회, EMA20 이격 +4.1%, mom20 27.2%·변동성 2.0% 확인 데이터로 규칙1~ (6xaJyRyVHGLpOzkM_YMRy9bo_4M9P4nPlDlx2Igy5klgtZ4Qdmp_jBLIcfUdGy-S) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 227
   }
 ]
