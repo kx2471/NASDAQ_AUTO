@@ -90,13 +90,13 @@ export async function updatePosition(symbol: string, patch: Partial<Position>): 
 /**
  * trades.json에서 해당 심볼의 최초 매수 시각 유도
  * @param symbol 종목 심볼
- * @returns 최초 BUY의 traded_at (없으면 현재 시각)
+ * @returns 현재 사이클 첫 BUY의 traded_at (원장상 열린 사이클이 없으면 null)
  */
-async function deriveOpenedAt(symbol: string): Promise<string> {
+async function deriveOpenedAt(symbol: string): Promise<string | null> {
   // 현재 보유 사이클의 진입 시각 = 마지막 전량 매도(잔량 0) 이후 첫 BUY.
   // 재진입 종목에서 과거 사이클의 최초 매수일을 반환하지 않도록 잔량을 재생하며 추적한다.
   const trades = await db.find<Trade>('trades', t => t.symbol === symbol);
-  if (trades.length === 0) return new Date().toISOString();
+  if (trades.length === 0) return null;
 
   trades.sort((a, b) => new Date(a.traded_at).getTime() - new Date(b.traded_at).getTime());
 
@@ -123,7 +123,10 @@ async function deriveOpenedAt(symbol: string): Promise<string> {
     }
   }
 
-  return cycleStart ?? new Date().toISOString();
+  // 원장상 사이클이 닫혔는데 토스엔 아직 보유 = 매도 주문이 기록됐지만 체결·잔고 반영 전이다.
+  // 예전엔 여기서 '지금'을 돌려 진입 시각을 오늘로 덮어썼다 (2026-10-15 KEYS 손절 직후
+  // "진입시각 정정 10/12 → 10/15"). 호출자가 기존 값을 유지하도록 null을 돌려준다.
+  return cycleStart;
 }
 
 /**
@@ -160,7 +163,7 @@ export async function reconcileWithToss(): Promise<Position[]> {
         delete prev.planned_exit;
         delete prev.rationale;
         delete prev.source_report_id;
-        prev.opened_at = await deriveOpenedAt(h.symbol);
+        prev.opened_at = (await deriveOpenedAt(h.symbol)) ?? now;
       }
       // opened_at은 매번 원장에서 재도출한다. status가 CLOSED를 거치지 않은
       // 재진입(먼지 잔량이 남아 계속 OPEN으로 보인 경우)에서는 위 초기화 블록이
@@ -168,7 +171,7 @@ export async function reconcileWithToss(): Promise<Position[]> {
       // (2026-08-24 WDAY: 8/4 매도 후 0.00145주가 남아 CLOSED가 안 됐고,
       //  8/19 재진입에도 opened_at이 7/30으로 유지돼 held_days가 26일로 주입됐다)
       const derived = await deriveOpenedAt(h.symbol);
-      if (derived !== prev.opened_at) {
+      if (derived && derived !== prev.opened_at) {
         console.log(`🗓️ ${h.symbol} 진입시각 정정: ${prev.opened_at.slice(0, 10)} → ${derived.slice(0, 10)}`);
         prev.opened_at = derived;
       }
@@ -184,7 +187,7 @@ export async function reconcileWithToss(): Promise<Position[]> {
         shares: h.shares,
         avg_cost: h.avg_cost,
         currency: h.currency,
-        opened_at: await deriveOpenedAt(h.symbol),
+        opened_at: (await deriveOpenedAt(h.symbol)) ?? now,
         updated_at: now
       });
     }

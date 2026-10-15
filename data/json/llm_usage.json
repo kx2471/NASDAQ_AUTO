@@ -823,5 +823,32 @@
     "input": 54860,
     "output": 11573,
     "id": 64
+  },
+  {
+    "at": "2026-10-15T12:52:30.402Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 11529,
+    "output": 1342,
+    "reasoning": 494,
+    "id": 65
+  },
+  {
+    "at": "2026-10-15T12:53:25.717Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "via": "claude_code",
+    "input": 17218,
+    "output": 7538,
+    "id": 66
+  },
+  {
+    "at": "2026-10-15T12:55:16.830Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "via": "claude_code",
+    "input": 55765,
+    "output": 12943,
+    "id": 67
   }
 ]

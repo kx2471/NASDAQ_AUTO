@@ -252,9 +252,28 @@ async function prepareWeeklyReportPayload(params: {
     getCachedExchangeRate()
   ]);
 
+  // 토스 보유(진실)에 앱 계획(진입시각·SL/TP)을 붙인다 — Manager 입력과 같은 방식.
+  // 계기: 2026-10-15 GPT가 "보유 3거래일 경과 여부가 없어 조기경보 확인 불가"라고 썼다.
+  // 에이전트는 평단·수량만 받아 보유 일수와 현재 손절·익절가를 몰랐다.
+  const { getOpenPositions } = await import('../storage/positions');
+  const positions = await getOpenPositions().catch(() => []);
+  const planBySymbol = new Map(positions.map((p: any) => [p.symbol, p]));
+  const now = Date.now();
   const portfolio = {
     cash_usd: cashBalance,
-    holdings: holdings
+    holdings: holdings.map(h => {
+      const plan: any = planBySymbol.get(h.symbol) || {};
+      return {
+        ...h,
+        opened_at: plan.opened_at || null,
+        held_days: plan.opened_at ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000)) : null,
+        stop_loss: plan.stop_loss ?? null,
+        take_profit_1: plan.take_profit_1 ?? null,
+        take_profit_2: plan.take_profit_2 ?? null,
+        tp1_done: plan.tp1_done ?? false,
+        time_horizon: plan.time_horizon || null,
+      };
+    })
   };
 
   // 스크리닝 결과에서 점수 추출 및 섹터별 분류
