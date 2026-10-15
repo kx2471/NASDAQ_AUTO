@@ -630,6 +630,7 @@ ${previousReportsSummary}
 
     // API별 클라이언트 및 호출 방식 분기
     let content: string;
+    let claudeVia: 'claude_code' | 'api' | null = null;  // 머리글 표기용 — 실제로 처리한 경로
 
     if (clientType === 'anthropic') {
       // Claude 호출 — 경로는 claudeCall이 고른다 (CLAUDE_BACKEND=claude_code면 구독 계정 CLI, 아니면 API)
@@ -670,6 +671,7 @@ ${previousReportsSummary}
         throw new Error('Claude로부터 빈 응답을 받았습니다');
       }
       content = claudeResponse.text;
+      claudeVia = claudeResponse.via;
 
       // 사고 요약 추출 → 리포트 부록으로 첨부 (감사 추적용)
       // ``` 펜스는 이스케이프 — 사고 텍스트 속 json 펜스가 결정 파서에 오인되는 것을 차단.
@@ -732,7 +734,9 @@ ${previousReportsSummary}
 
     // 리포트 메타데이터 헤더 생성
     const currentDate = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-    const modelProvider = clientType === 'anthropic' ? 'Anthropic Claude' : 'OpenAI GPT';
+    const modelProvider = clientType === 'anthropic'
+      ? `Anthropic Claude${claudeVia === 'claude_code' ? ' · Claude Code' : claudeVia === 'api' ? ' · API' : ''}`
+      : 'OpenAI GPT';
     const reportHeader = `# 🏢 Manager_Agent 최종 통합 리포트
 
 ---
