@@ -196,7 +196,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
 
     // Agent_Claude 주간 리포트 생성
     let agentClaudeReport = '';
-    if (process.env.CLAUDE_API_KEY) {
+    if (process.env.CLAUDE_API_KEY || (await import('../services/claudeCall')).claudeCodeEnabled()) {
       console.log('🤖 Agent_Claude 주간 리포트 생성 중...');
       try {
         agentClaudeReport = await generateReportWithClaude(reportPayload);

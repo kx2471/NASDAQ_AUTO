@@ -79,7 +79,9 @@ export async function runWeeklyReview(): Promise<string | null> {
     const model = process.env.MANAGER_MODEL || 'claude-opus-5';
     const isClaudeModel = model.includes('claude');
     const apiKey = ((isClaudeModel ? process.env.CLAUDE_API_KEY : process.env.OPENAI_API_KEY) || '').trim();
-    if (!apiKey) {
+    // Claude Code(구독 계정)로 돌릴 때는 Claude API 키가 없어도 된다
+    const viaClaudeCode = isClaudeModel && (await import('./claudeCall')).claudeCodeEnabled();
+    if (!apiKey && !viaClaudeCode) {
       console.warn(`⚠️ ${isClaudeModel ? 'CLAUDE_API_KEY' : 'OPENAI_API_KEY'} 없음 — 주간 리뷰 스킵`);
       return null;
     }
@@ -116,43 +118,31 @@ export async function runWeeklyReview(): Promise<string | null> {
       //    (manager.ts가 2026-07-31에 같은 설정으로 결정 JSON을 잃었다 — 동일 결함)
       //    회고는 사건이 많은 주일수록 길어지므로 여유를 크게 두고, ~16K 초과는
       //    HTTP 타임아웃 위험이 있어 반드시 스트리밍으로 받는다.
-      const client = new Anthropic({ apiKey });
-      const stream = client.messages.stream({
-        model,
-        max_tokens: 32000,
-        output_config: { effort: 'high' },
-        thinking: { type: 'adaptive', display: 'summarized' },
-        system: REVIEW_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContext }],
-      } as Anthropic.MessageCreateParamsNonStreaming & {
-        output_config: { effort: string };
-        thinking: { type: string; display: string };
+      // 호출 경로는 claudeCall이 고른다 (CLAUDE_BACKEND=claude_code면 구독 계정 CLI, 아니면 API)
+      const { callClaude } = await import('./claudeCall');
+      const resp = await callClaude({
+        role: 'weekly_review', model, system: REVIEW_SYSTEM_PROMPT, prompt: userContext,
+        effort: 'high', maxTokens: 32000,
       });
-      const resp = await stream.finalMessage();
-      await (await import('./llmUsage')).recordAnthropicUsage('weekly_review', model, resp.usage);
 
       // 안전 분류기 거부 — content가 비거나 잘린 채 정상 200으로 돌아온다.
       // 'text 블록 없음'으로 뭉뚱그리면 원인 파악이 불가능하므로 먼저 판정한다.
-      if (resp.stop_reason === 'refusal') {
-        const cat = (resp as any).stop_details?.category ?? '사유 불명';
+      if (resp.stopReason === 'refusal') {
+        const cat = resp.stopDetails?.category ?? '사유 불명';
         throw new Error(`안전 분류기 거부 (category=${cat}) — 회고 생성 중단`);
       }
 
       // 출력 상한 도달 = 리포트 끝의 [PLAYBOOK]/[JOURNAL] 블록이 잘렸을 가능성이 높다.
       // 규칙서가 갱신 안 된 채 "회고 성공"으로 보이는 무증상 실패를 막는다.
-      if (resp.stop_reason === 'max_tokens') {
+      if (resp.stopReason === 'max_tokens') {
         console.error(`❌ 주간회고 응답이 max_tokens에서 잘림 — 규칙서/저널 블록 유실 가능 (모델 ${model})`);
       }
 
-      const textBlock = resp.content.find(c => c.type === 'text');
-      if (!textBlock || textBlock.type !== 'text') throw new Error('빈 응답');
-      content = textBlock.text;
+      if (!resp.text) throw new Error('빈 응답');
+      content = resp.text;
 
       // 사고 요약 부록 (감사 추적 — 일일 리포트와 동일한 패턴)
-      const thinkingSummary = resp.content
-        .filter((c: any) => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())
-        .map((c: any) => c.thinking.trim().replace(/```/g, "'''"))
-        .join('\n\n');
+      const thinkingSummary = resp.thinking.replace(/```/g, "'''");
       if (thinkingSummary) {
         content += `\n\n---\n\n## 🧩 회고 사고 과정 (요약)\n\n<details><summary>펼치기</summary>\n\n${thinkingSummary}\n\n</details>\n`;
       }

@@ -18,7 +18,6 @@ function getClaudeClient() {
  * Claude로 투자 리포트 생성 (Retry Logic + Fallback 포함)
  */
 export async function generateReportWithClaude(reportPayload: any): Promise<string> {
-  const anthropic = getClaudeClient();
   const prompt = await createInvestmentPromptFromPayload(reportPayload);
   
   // 환경변수에서 지정된 모델만 사용
@@ -35,22 +34,13 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
     // 확신도 '상'이 나온 리포트가 17개 중 13개 → 8개 중 1개로 줄었다. Manager 규칙 1이
     // '상'을 매수 문턱으로 쓰므로, 사고를 줄인 것이 매수를 막는 부작용이 됐다.
     // 비용 차이는 호출당 사고 약 3,400토큰(하루 약 $0.10). AGENT_CLAUDE_EFFORT로 조정 가능.
-    // SDK 타입에 output_config가 없어 교집합 타입으로 넓힌다 (Manager 호출과 같은 방식).
+    // 호출 경로는 claudeCall이 고른다 (CLAUDE_BACKEND=claude_code면 구독 계정 CLI, 아니면 API).
     const effort = process.env.AGENT_CLAUDE_EFFORT || 'medium';
-    const response = await anthropic.messages.create({
-      model: modelAttempt.name,
-      max_tokens: 12000,
-      output_config: { effort },
-      messages: [{
-        role: 'user',
-        content: prompt
-      }]
-    } as Parameters<typeof anthropic.messages.create>[0] & { output_config: { effort: string } }) as Awaited<ReturnType<typeof anthropic.messages.create>> & { content: any[]; usage: any };
-    await (await import('./llmUsage')).recordAnthropicUsage('agent_claude', modelAttempt.name, response.usage);
-
-    // Sonnet 5는 content[]에 thinking 블록이 섞임 — content[0]이 아니라 text 타입 블록을 찾는다
-    const textBlock = response.content.find(c => c.type === 'text');
-    const responseText = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+    const { callClaude } = await import('./claudeCall');
+    const response = await callClaude({
+      role: 'agent_claude', model: modelAttempt.name, prompt, effort, maxTokens: 12000,
+    });
+    const responseText = response.text;
 
     if (!responseText) {
       throw new Error('API에서 응답을 받지 못했습니다');
@@ -65,7 +55,7 @@ export async function generateReportWithClaude(reportPayload: any): Promise<stri
 ## 📋 리포트 메타데이터
 
 **생성 일시**: ${currentDate}
-**사용 모델**: ${envModel} (Anthropic Claude)
+**사용 모델**: ${envModel} (Anthropic Claude${response.via === 'claude_code' ? ' · Claude Code' : ''})
 
 ---
 

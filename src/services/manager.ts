@@ -407,12 +407,9 @@ export async function checkManagerModelReady(): Promise<string | null> {
   const isClaudeModel = managerModel.includes('claude');
   try {
     if (isClaudeModel) {
-      const apiKey = process.env.CLAUDE_API_KEY;
-      if (!apiKey) return 'CLAUDE_API_KEY 미설정';
-      const Anthropic = (await import('@anthropic-ai/sdk')).default;
-      await new Anthropic({ apiKey }).messages.create({
-        model: managerModel, max_tokens: 1, messages: [{ role: 'user', content: 'ok' }]
-      });
+      // Claude Code 설정이면 CLI로 점검, 실패 시(허용되면) API 점검으로 넘어간다
+      const reason = await (await import('./claudeCall')).probeClaude(managerModel);
+      if (reason) return reason;
     } else {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) return 'OPENAI_API_KEY 미설정';
@@ -455,7 +452,8 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
     if (isClaudeModel) {
       apiKey = process.env.CLAUDE_API_KEY || '';
       clientType = 'anthropic';
-      if (!apiKey) {
+      // Claude Code(구독 계정)로 돌릴 때는 API 키가 없어도 된다 — 대체 경로가 없을 뿐
+      if (!apiKey && !(await import('./claudeCall')).claudeCodeEnabled()) {
         throw new Error('CLAUDE_API_KEY 환경변수가 설정되지 않았습니다');
       }
     } else {
@@ -634,71 +632,29 @@ ${previousReportsSummary}
     let content: string;
 
     if (clientType === 'anthropic') {
-      // Anthropic API 사용 (Claude 모델)
-      const anthropicClient = new Anthropic({ apiKey });
-
-      console.log('📡 Anthropic API 호출 중...');
+      // Claude 호출 — 경로는 claudeCall이 고른다 (CLAUDE_BACKEND=claude_code면 구독 계정 CLI, 아니면 API)
       // 분량: 프롬프트에서 3,000토큰 이내로 지시. 캡은 여유를 둔 안전망 —
       // 리포트 맨 끝의 결정 JSON이 잘리면 자동매매 입력이 사라지므로 타이트하게 조이지 않는다.
-      // Opus 5(claude-opus-5)는 사고가 기본 ON이고, 사고 깊이는 output_config.effort로 조절한다.
-      //  - effort: 'xhigh' — high(기본)와 max 사이. 결정권자용 사고 깊이를 한 단계 끌어올림.
-      //    리포트 양식(system 프롬프트)은 그대로 두고 사고량만 늘리는 손잡이.
-      //  - thinking:{type:'adaptive'}는 기본값과 동일(명시해도 무해). 단 {type:'disabled'}는
-      //    effort xhigh/max와 조합 시 400 — 이 호출은 사고를 끄지 않으므로 해당 없음.
-      //  - temperature/top_p는 넣지 않는다 — Opus 4.7+ / Fable 5 모두 400.
-      //  - ⚠️ max_tokens는 **사고 + 응답 텍스트 합산** 하드 캡이다 (별도 회계 아님).
+      //  - ⚠️ maxTokens는 **사고 + 응답 텍스트 합산** 하드 캡이다 (별도 회계 아님).
       //    16000으로 두었다가 2026-07-31 Opus 5가 사고에 대부분을 쓰고 리포트 끝의
-      //    결정 JSON이 문장 중간에서 잘렸다 → 그날 매매가 통째로 사라짐.
-      //    xhigh 사고에 여유를 주려면 64000. 단 ~16K 초과는 SDK HTTP 타임아웃 위험이
-      //    있어 반드시 스트리밍(.stream + finalMessage)으로 받는다.
-      // output_config는 GA 파라미터지만 설치된 SDK(0.62.0) 타입에는 아직 없다.
-      // 프로브로 확인함: 이 SDK도 미지정 필드를 와이어에 그대로 실어보내고 서버가 effort를 적용한다.
-      // (잘못된 effort 값을 넣으면 API가 400으로 거부 → 필드가 실제로 도달·검증됨을 확인)
-      // 알려진 필드는 타입 검증을 유지하고 output_config만 교집합으로 넓힌다.
-      // thinking.display:"summarized" — 사고 요약을 응답에 포함시킨다 (비용 동일, 표시만 켜는 것).
-      // 사고 요약은 리포트 부록 "Manager 사고 과정"으로 저장돼 결정의 감사 추적에 쓰인다.
-      const anthropicStream = anthropicClient.messages.stream({
-        model: managerModel,
-        max_tokens: 64000,
-        // 사고 깊이: high (2026-10-05 사용자 결정으로 xhigh에서 한 단계 내림 — 비용 절감).
-        // 실측(10/05, xhigh): 출력 13,106토큰 중 사고 약 5,770. MANAGER_EFFORT로 조정 가능
-        // (low < medium < high < xhigh < max). Opus 5.5는 지정하지 않으면 medium이 기본이라 명시한다.
-        output_config: { effort: process.env.MANAGER_EFFORT || 'high' },
-        thinking: { type: 'adaptive', display: 'summarized' },
-        system: processedPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: managerContext
-          }
-        ]
-      } as Anthropic.MessageCreateParamsNonStreaming & {
-        output_config: { effort: string };
-        thinking: { type: string; display: string };
+      //    결정 JSON이 문장 중간에서 잘렸다 → 그날 매매가 통째로 사라짐. 그래서 64000.
+      //  - 사고 깊이: high (2026-10-05 사용자 결정으로 xhigh에서 한 단계 내림 — 비용 절감).
+      //    실측(10/05, xhigh): 출력 13,106토큰 중 사고 약 5,770. MANAGER_EFFORT로 조정 가능
+      //    (low < medium < high < xhigh < max). Opus 5.5는 지정하지 않으면 medium이 기본이라 명시한다.
+      //  - 사고 요약은 리포트 부록 "Manager 사고 과정"으로 저장돼 결정의 감사 추적에 쓰인다.
+      console.log('📡 Claude 호출 중...');
+      const { callClaude } = await import('./claudeCall');
+      const claudeResponse = await callClaude({
+        role: 'manager', model: managerModel, system: processedPrompt, prompt: managerContext,
+        effort: process.env.MANAGER_EFFORT || 'high', maxTokens: 64000,
       });
-      // 거부 사유(stop_details)는 스트림의 message_delta에 실려 오는데, 설치된 SDK는
-      // finalMessage()로 합칠 때 이 필드를 옮기지 않는다. 이벤트에서 직접 받아 둔다.
-      // (2026-10-08: 이걸 못 읽어 로그에 "사유 불명"만 남았고, 비스트리밍으로 다시 불러 본
-      //  뒤에야 category=reasoning_extraction임을 알았다)
-      let streamStopDetails: { category?: string; explanation?: string } | undefined;
-      anthropicStream.on('streamEvent', (ev: any) => {
-        const details = ev?.type === 'message_delta' ? ev.delta?.stop_details : undefined;
-        if (details) streamStopDetails = details;
-      });
-      const anthropicResponse = await anthropicStream.finalMessage();
-      await (await import('./llmUsage')).recordAnthropicUsage('manager', managerModel, anthropicResponse.usage);
+      console.log('📊 Claude 응답:', { via: claudeResponse.via, stop_reason: claudeResponse.stopReason, text_length: claudeResponse.text.length });
 
-      console.log('📊 Anthropic 응답 구조 디버깅:', {
-        content_length: anthropicResponse.content?.length || 0,
-        block_types: anthropicResponse.content?.map((c: any) => c.type).join(','),
-        stop_reason: anthropicResponse.stop_reason
-      });
-
-      // 안전 분류기 거부 판정 — Opus 5/Fable 5는 거부 시에도 HTTP 200으로 오고
-      // content가 비거나(출력 전 차단) 잘린 채(스트림 중 차단) 돌아온다.
-      // 아래 'text 블록 없음'과 뭉뚱그리면 로그만 보고는 원인을 알 수 없으므로 먼저 구분한다.
-      if (anthropicResponse.stop_reason === 'refusal') {
-        const details = (anthropicResponse as any).stop_details ?? streamStopDetails;
+      // 안전 분류기 거부 판정 — Opus 5/Fable 5는 거부 시에도 정상 응답으로 오고
+      // 본문이 비거나(출력 전 차단) 잘린 채(스트림 중 차단) 돌아온다.
+      // 아래 '빈 응답'과 뭉뚱그리면 로그만 보고는 원인을 알 수 없으므로 먼저 구분한다.
+      if (claudeResponse.stopReason === 'refusal') {
+        const details = claudeResponse.stopDetails;
         const cat = details?.category ?? '사유 불명';
         if (details?.explanation) console.error(`🚫 거부 설명: ${String(details.explanation).slice(0, 300)}`);
         throw new Error(`Manager 모델 안전 분류기 거부 (category=${cat}) — 이번 사이클 결정 생성 실패`);
@@ -706,22 +662,18 @@ ${previousReportsSummary}
 
       // 출력 상한 도달 = 리포트 끝의 결정 JSON이 잘렸을 가능성이 매우 높다.
       // 조용히 통과시키면 "리포트는 있는데 매매만 사라지는" 무증상 실패가 된다 (2026-07-31 실사고).
-      if (anthropicResponse.stop_reason === 'max_tokens') {
+      if (claudeResponse.stopReason === 'max_tokens') {
         console.error(`❌ Manager 응답이 max_tokens에서 잘림 — 결정 JSON 유실 가능. (사고+본문 합산 상한, 모델 ${managerModel})`);
       }
 
-      const textContent = anthropicResponse.content.find(c => c.type === 'text');
-      if (!textContent || textContent.type !== 'text') {
-        throw new Error('Anthropic API로부터 빈 응답을 받았습니다');
+      if (!claudeResponse.text) {
+        throw new Error('Claude로부터 빈 응답을 받았습니다');
       }
-      content = textContent.text;
+      content = claudeResponse.text;
 
       // 사고 요약 추출 → 리포트 부록으로 첨부 (감사 추적용)
       // ``` 펜스는 이스케이프 — 사고 텍스트 속 json 펜스가 결정 파서에 오인되는 것을 차단.
-      const thinkingSummary = anthropicResponse.content
-        .filter((c: any) => c.type === 'thinking' && typeof c.thinking === 'string' && c.thinking.trim())
-        .map((c: any) => c.thinking.trim().replace(/```/g, "'''"))
-        .join('\n\n');
+      const thinkingSummary = claudeResponse.thinking.replace(/```/g, "'''");
       if (thinkingSummary) {
         content += `\n\n---\n\n## 🧩 Manager 사고 과정 (요약 — 감사 추적용)\n\n<details><summary>결정에 이르기까지의 사고 요약 펼치기</summary>\n\n${thinkingSummary}\n\n</details>\n`;
         console.log(`🧩 사고 요약 ${thinkingSummary.length}자 리포트에 첨부`);

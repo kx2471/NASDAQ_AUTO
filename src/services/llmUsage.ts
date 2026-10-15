@@ -19,6 +19,7 @@ export interface LlmUsageEntry {
   input: number;              // 입력(프롬프트) 토큰
   output: number;             // 출력 토큰 (추론 토큰 포함 — 과금 기준)
   reasoning?: number;         // 출력 중 추론 토큰 (OpenAI가 알려줄 때만)
+  via?: 'api' | 'claude_code'; // Claude 처리 경로 — claude_code는 구독 사용량이라 API 비용에 넣지 않는다
 }
 
 /**
@@ -38,11 +39,12 @@ export async function recordOpenAIUsage(role: LlmUsageEntry['role'], model: stri
 /**
  * Anthropic messages 응답의 usage를 기록한다.
  * 캐시 읽기/쓰기 토큰도 입력으로 합산한다 (과금 대상이므로 사용량에서 빠지면 안 된다).
+ * @param via 처리 경로 (Claude Code CLI면 구독 사용량 — 비용 계산에서 제외)
  */
-export async function recordAnthropicUsage(role: LlmUsageEntry['role'], model: string, usage: any): Promise<void> {
+export async function recordAnthropicUsage(role: LlmUsageEntry['role'], model: string, usage: any, via?: LlmUsageEntry['via']): Promise<void> {
   if (!usage) return;
   await append({
-    at: new Date().toISOString(), role, model,
+    at: new Date().toISOString(), role, model, ...(via ? { via } : {}),
     input: (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0),
     output: usage.output_tokens ?? 0,
   });
@@ -81,6 +83,7 @@ export async function summarizeUsage(days = 14): Promise<Record<string, unknown>
   const recent = list.filter(e => new Date(e.at).getTime() >= since);
   const kstDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
   const costOf = (e: LlmUsageEntry) => {
+    if (e.via === 'claude_code') return 0;  // 구독 사용량 — API 청구액이 아니다
     const p = priceOf(e.model);
     return p ? (e.input * p[0] + e.output * p[1]) / 1e6 : null;
   };
@@ -98,7 +101,7 @@ export async function summarizeUsage(days = 14): Promise<Record<string, unknown>
     if (c === null) r.priced = false; else r.cost += c;
     byRole.set(e.role, r);
   }
-  const unpricedModels = [...new Set(recent.filter(e => !priceOf(e.model)).map(e => e.model))];
+  const unpricedModels = [...new Set(recent.filter(e => e.via !== 'claude_code' && !priceOf(e.model)).map(e => e.model))];
   return {
     days,
     firstRecordAt: list.length ? list[0].at : null,

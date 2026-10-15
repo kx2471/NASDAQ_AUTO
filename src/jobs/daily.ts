@@ -477,7 +477,7 @@ async function processUnifiedReport(sectors: any, screeningResults: any): Promis
 
     // Claude 통합 리포트 생성
     let claudeReport = '';
-    if (process.env.CLAUDE_API_KEY) {
+    if (process.env.CLAUDE_API_KEY || (await import('../services/claudeCall')).claudeCodeEnabled()) {
       console.log('🤖 Claude 통합 리포트 생성 중...');
       try {
         // TODO: daily.ts는 Manager Agent로 별도 처리 필요
