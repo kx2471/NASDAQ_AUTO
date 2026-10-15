@@ -91,7 +91,10 @@ async function callViaClaudeCode(opts: ClaudeCallOptions): Promise<ClaudeCallRes
     '--tools', '', '--setting-sources', '', '--strict-mcp-config',
     '--no-session-persistence', '--output-format', 'stream-json', '--verbose',
   ];
-  if (opts.system) args.push('--system-prompt', opts.system);
+  // 시스템 프롬프트를 주지 않으면 CLI가 Claude Code 기본 에이전트 지시를 넣는다 (API 경로엔 없는 입력).
+  // API와 최대한 같게 하려고 항상 명시하고, 없으면 중립 문장 1줄을 쓴다 (빈 문자열은 기본값으로 대체됨).
+  // 주의: 지정해도 CLI는 맨 앞에 "Claude Agent SDK" 정체성 1줄을 붙인다 — 끌 수 없다.
+  args.push('--system-prompt', opts.system?.trim() || '사용자 메시지의 지시와 출력 형식을 그대로 따르라.');
 
   const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(opts.maxTokens) };
   delete env.ANTHROPIC_API_KEY;
