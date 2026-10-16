@@ -2228,5 +2228,45 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 상 5/5, RSI 66.4→62.5로 컷 하회, EMA20 이격 +4.1%, mom20 27.2%·변동성 2.0% 확인 데이터로 규칙1~ (6xaJyRyVHGLpOzkM_YMRy9bo_4M9P4nPlDlx2Igy5klgtZ4Qdmp_jBLIcfUdGy-S) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 227
+  },
+  {
+    "traded_at": "2026-10-15T13:30:17.758Z",
+    "symbol": "KEYS",
+    "side": "SELL",
+    "qty": 0.163269,
+    "price": 338.5,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 현재가 347.00이 손절선 348.97을 이탈해 규칙6 기계 청산, 전량 매도, 규칙5로 5거래일·347 이하 회귀 전 재진입 금지. (YSN50xrlQEtI2s6toSKBXankEbjwaO1jLJszjMNIttyhuJMAlrvx4XC-86p--H3c) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 228
+  },
+  {
+    "traded_at": "2026-10-15T13:55:09.032Z",
+    "symbol": "CDNS",
+    "side": "SELL",
+    "qty": 0.204609,
+    "price": 316.32,
+    "fee": 0,
+    "note": "손절: 현재가 $316.32 ≤ SL $316.63 (6xaJyRyVHGLpOzkM_YMRy3wbccfcnW4AD_j3ubT4GGdDSCvbHq8VhXxFV817MaxZ) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 229
+  },
+  {
+    "traded_at": "2026-10-15T15:07:02.438Z",
+    "symbol": "GWRE",
+    "side": "BUY",
+    "qty": 0.33965468440418906,
+    "price": 176.65,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상 5/5, RSI 64.0, EMA20 이격 +9.4%, mom20 +21.9%·거래대금 1.78억 확인 데이터로 규칙1~3 충족, 경계 (rqUkS-XTq5TmqA03f8uZUDeEk9cpFf_yvTl9MZ_THNu7FEi9ycTQ5oW4Mon2Wskb) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 230
+  },
+  {
+    "traded_at": "2026-10-15T15:07:04.226Z",
+    "symbol": "PBF",
+    "side": "BUY",
+    "qty": 0.6906077348066298,
+    "price": 86.88,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상 5/5, RSI 59.9, EMA20 이격 +5.8%, mom20 +12.6%·거래대금 2.66억 확인 데이터, 소프트웨어와 저상관 정 (tdkLjjJ149h80g1p8yhX1qQfPcbtUEJOOJivPV-Tzh_kuhY13DSXRDNFoTGYUhBG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 231
   }
 ]
