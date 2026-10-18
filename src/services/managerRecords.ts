@@ -608,9 +608,13 @@ export async function readPlaybook(): Promise<string> {
  * @returns 새 규칙서 본문(헤더 포함), 블록 없으면 null(기존 규칙서 유지)
  */
 export async function replacePlaybookFromReview(reviewId: string, reviewContent: string): Promise<string | null> {
-  const m = reviewContent.match(/\[PLAYBOOK\]\s*([\s\S]*?)\[\/PLAYBOOK\]/);
-  if (!m) return null;
-  let body = m[1].trim();
+  // 닫는 마커 직전의 '마지막' 여는 마커부터 잘라낸다. 본문 설명에 "[PLAYBOOK]에 있다" 같은
+  // 마커 언급이 있으면 첫 일치부터 잡혀 요약문이 규칙서 앞에 섞인다 (2026-10-18 WR 사고).
+  const end = reviewContent.lastIndexOf('[/PLAYBOOK]');
+  if (end < 0) return null;
+  const start = reviewContent.lastIndexOf('[PLAYBOOK]', end);
+  if (start < 0) return null;
+  let body = reviewContent.slice(start + '[PLAYBOOK]'.length, end).trim();
   if (!body) return null;
   if (body.length > PLAYBOOK_MAX_CHARS) {
     console.warn(`⚠️ 규칙서 상한 초과(${body.length}>${PLAYBOOK_MAX_CHARS}자) — 잘라서 저장`);
@@ -641,7 +645,9 @@ export async function replacePlaybookFromReview(reviewId: string, reviewContent:
  * @returns append한 교훈 문자열 (없으면 null)
  */
 export async function appendJournalFromReport(reportId: string, reportContent: string): Promise<string | null> {
-  const m = reportContent.match(/\[JOURNAL\]\s*(.+)/);
+  // 줄 맨 앞의 마지막 마커만 쓴다 — 본문에서 "[JOURNAL]에 남긴다"처럼 마커를 언급해도 오인하지 않게
+  const all = [...reportContent.matchAll(/^\[JOURNAL\][ \t]*(.+)$/gm)];
+  const m = all[all.length - 1];
   if (!m) return null;
   const lesson = m[1].trim();
   if (!lesson) return null;
