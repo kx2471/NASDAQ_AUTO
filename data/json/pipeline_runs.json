@@ -365,5 +365,15 @@
     "reason": null,
     "reused_agents": false,
     "id": 25
+  },
+  {
+    "started_at": "2026-10-19T12:50:48.452Z",
+    "finished_at": "2026-10-19T13:31:07.243Z",
+    "report_id": "20261019",
+    "kind": "pre-open",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 26
   }
 ]
