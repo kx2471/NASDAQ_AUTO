@@ -2268,5 +2268,55 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 상 5/5, RSI 59.9, EMA20 이격 +5.8%, mom20 +12.6%·거래대금 2.66억 확인 데이터, 소프트웨어와 저상관 정 (tdkLjjJ149h80g1p8yhX1qQfPcbtUEJOOJivPV-Tzh_kuhY13DSXRDNFoTGYUhBG) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 231
+  },
+  {
+    "traded_at": "2026-10-19T13:30:03.563Z",
+    "symbol": "GWRE",
+    "side": "SELL",
+    "qty": 0.338804,
+    "price": 168.78,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 보유 3일·평단 176.92 대비 -5.15%(167.80)로 조기경보 168.07 이탈, 규칙11 기계 청산 전량, 규칙5로 5거래일·원장 청 (rqUkS-XTq5TmqA03f8uZUCgCYDlMi6KLt6JTe8x1TZFerc0G8Zj8HNCGGLSWYqDk) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 232
+  },
+  {
+    "traded_at": "2026-10-19T13:30:05.479Z",
+    "symbol": "ISRG",
+    "side": "SELL",
+    "qty": 0.022509,
+    "price": 428.2725,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 비중 43.4%(122.47/282.22)로 규칙12 40% 초과, 초과분 0.022509주(약 9.58달러)만 축소하는 규칙9 허용 청산, 잔 (UfJwPMqs_oG54-nxrHX9hLNaSgIyF_2Zk1Jf5SUOqc_r9CPw5ngUFzkysIiDkfBy) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 233
+  },
+  {
+    "traded_at": "2026-10-19T15:07:03.633Z",
+    "symbol": "ISRG",
+    "side": "SELL",
+    "qty": 0.001796,
+    "price": 430.48,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 비중 40.27%(114.24/283.66)로 규칙12 40% 초과, 초과분 0.001796주(약 0.77달러)만 축소하는 규칙9 허용 청산,  (UfJwPMqs_oG54-nxrHX9hLNaSgIyF_2Zk1Jf5SUOqc8Tffw3U6AX-jXDu8o7Bztk) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 234
+  },
+  {
+    "traded_at": "2026-10-19T17:17:59.331Z",
+    "symbol": "PBF",
+    "side": "SELL",
+    "qty": 0.689236,
+    "price": 82.485,
+    "fee": 0,
+    "note": "Manager 결정 매도 — 보유 4일·원장 평단 86.97 대비 -5.10%(82.53)로 조기경보 82.62 이탈, 규칙11 기계 청산 전량, 규칙5로 5거래일 경과·원 (tdkLjjJ149h80g1p8yhX1tV_OHuc0nznCyI2wJMe0hsYKNTHl_SDMiLLL76_Xob6) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 235
+  },
+  {
+    "traded_at": "2026-10-19T17:18:16.149Z",
+    "symbol": "SHOP",
+    "side": "BUY",
+    "qty": 0.3969412176755589,
+    "price": 171.31,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상·RSI 61.95·EMA20 이격 +5.69%·촉매 Zacks #1 이익추정치 상향(10/19), IT 섹터로 ISRG·TRI와 상이, (iP16YMMylthJH0k6-Pcj1iEhP3_coueOn-xYMADdJKVp3ScI0dkOpoDnPSjpbdVn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 236
   }
 ]
