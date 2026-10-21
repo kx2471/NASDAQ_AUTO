@@ -2318,5 +2318,15 @@
     "fee": 0,
     "note": "Manager 결정 매수 — 양측 상·RSI 61.95·EMA20 이격 +5.69%·촉매 Zacks #1 이익추정치 상향(10/19), IT 섹터로 ISRG·TRI와 상이, (iP16YMMylthJH0k6-Pcj1iEhP3_coueOn-xYMADdJKVp3ScI0dkOpoDnPSjpbdVn) [추정가 기록 — 실체결은 토스 주문내역 참조]",
     "id": 236
+  },
+  {
+    "traded_at": "2026-10-20T15:07:01.669Z",
+    "symbol": "SNAP",
+    "side": "BUY",
+    "qty": 8.863109048723897,
+    "price": 6.465,
+    "fee": 0,
+    "note": "Manager 결정 매수 — 양측 상(5/5)·RSI 61.9·EMA20 이격 +7.76%(6.455/5.99)·촉매 행동주의 투자자 Specs 사업 50억달러 평가 보도( (ghC1Doy0uGkLx5F1PaqEKkxz5deuIwu8PQqBZZq5TIm29xhi8TULZuZ2YS2Yv71x) [추정가 기록 — 실체결은 토스 주문내역 참조]",
+    "id": 237
   }
 ]

@@ -1021,5 +1021,59 @@
     "input": 59067,
     "output": 23008,
     "id": 86
+  },
+  {
+    "at": "2026-10-20T15:02:50.023Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 11866,
+    "output": 1206,
+    "reasoning": 422,
+    "id": 87
+  },
+  {
+    "at": "2026-10-20T15:03:30.852Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "via": "claude_code",
+    "input": 17882,
+    "output": 5078,
+    "id": 88
+  },
+  {
+    "at": "2026-10-20T15:07:01.199Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "via": "claude_code",
+    "input": 59006,
+    "output": 24706,
+    "id": 89
+  },
+  {
+    "at": "2026-10-21T12:52:46.048Z",
+    "role": "agent_gpt",
+    "model": "gpt-6-sol",
+    "input": 12242,
+    "output": 923,
+    "reasoning": 220,
+    "id": 90
+  },
+  {
+    "at": "2026-10-21T12:53:47.000Z",
+    "role": "agent_claude",
+    "model": "claude-sonnet-5-5",
+    "via": "claude_code",
+    "input": 18349,
+    "output": 7649,
+    "id": 91
+  },
+  {
+    "at": "2026-10-21T12:57:13.443Z",
+    "role": "manager",
+    "model": "claude-opus-5-5",
+    "via": "claude_code",
+    "input": 60382,
+    "output": 23367,
+    "id": 92
   }
 ]

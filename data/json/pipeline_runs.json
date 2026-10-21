@@ -395,5 +395,25 @@
     "reason": null,
     "reused_agents": false,
     "id": 28
+  },
+  {
+    "started_at": "2026-10-20T12:50:49.675Z",
+    "finished_at": "2026-10-20T13:30:20.522Z",
+    "report_id": "20261020",
+    "kind": "pre-open",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 29
+  },
+  {
+    "started_at": "2026-10-20T15:00:50.210Z",
+    "finished_at": "2026-10-20T15:08:03.400Z",
+    "report_id": "20261021-i0000",
+    "kind": "intraday",
+    "ok": true,
+    "reason": null,
+    "reused_agents": false,
+    "id": 30
   }
 ]
