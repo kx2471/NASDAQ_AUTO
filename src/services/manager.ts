@@ -214,6 +214,7 @@ async function getCurrentPortfolioData(): Promise<any> {
         take_profit_1: plan.take_profit_1 ?? null,
         take_profit_2: plan.take_profit_2 ?? null,
         tp1_done: plan.tp1_done ?? false,
+        expiry_trail: plan.expiry_trail ?? false, // 만료선 통과 → 감시기 트레일링 보호로 보유 중 (규칙10, 정리 대상 아님)
         time_horizon: plan.time_horizon || null,
         rationale: plan.rationale || null,   // 최초 매수 근거
         source_report_id: plan.source_report_id || null

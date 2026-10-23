@@ -519,6 +519,27 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
     watcherRunning = false;
   }
 
+  // 조건부 진입 대기 처리 — 전일 종가 이하로 내려오면 매수, 마감 1시간 전이면 만료.
+  // SL/TP 감시와 분리된 try: 여기서 실패해도 감시 생존 신호(lastWatchOkAt)는 영향받지 않는다.
+  try {
+    const { processPendingEntries } = await import('../services/executor');
+    const { getOpenPositions, reconcileWithToss, applyDecisionToPositions } = await import('../storage/positions');
+    const openSymbols = (await getOpenPositions()).map(p => p.symbol);
+    const filled = await processPendingEntries(session, now, openSymbols, getRedeployMaxPositions());
+    if (filled.length > 0) {
+      // 체결된 신규 종목에 결정의 SL/TP 계획을 붙인다. 체결 반영이 늦으면
+      // 다음 틱의 syncPendingFills가 FILLED 결과를 보고 재적용한다.
+      const decisions = await db.read<any>('decisions');
+      await reconcileWithToss();
+      for (const reportId of new Set(filled.map(e => e.report_id))) {
+        const d = [...decisions].reverse().find((x: any) => x.report_id === reportId);
+        if (d) await applyDecisionToPositions(d);
+      }
+    }
+  } catch (error: any) {
+    console.warn('⚠️ 조건부 진입 처리 실패 (다음 틱 재시도):', error.message);
+  }
+
   // 장중 현금 재배치 (10분 간격 검사)
   // 조건: 현금 ≥30% + 마감 1시간+ 전 + 마지막 Manager 결정 후 2시간 초과.
   // 매매 직후 현금이 다시 30%를 넘어도 쿨다운이 지나면 재시도된다.
@@ -543,6 +564,11 @@ async function runIntradayWatch(session: { start: number; end: number }, now: nu
       noActionCount: redeployNoActionCount
     });
     if (!cheap) return;
+
+    // 조건부 진입이 대기 중이면 그 매수가 이미 현금·슬롯을 쓰기로 결정된 상태다.
+    // 재배치가 같은 현금으로 새 매수를 결정하면 두 매수가 겹친다 — 대기가 끝날 때까지 미룬다.
+    const { hasActivePendingEntries } = await import('../services/entryTrigger');
+    if (await hasActivePendingEntries(session.start, now)) return;
 
     // 보유 종목 수는 로컬 파일 조회 — 비싼 잔고 API 전에 상한 도달 여부를 먼저 거른다
     const { getOpenPositions } = await import('../storage/positions');

@@ -439,6 +439,8 @@ export async function buildDecisionOutcomes(): Promise<string> {
     const decidedMs = new Date(d.decided_at).getTime();
     const lines = (d.execution_outcomes || []).map(o => {
       if (o.status === 'REJECTED') return `  ❌ ${o.action} ${o.symbol} 거부: ${o.reason || '사유 불명'}`;
+      if (o.status === 'EXPIRED') return `  ⌛ BUY ${o.symbol} 조건부 진입 만료(미매수): ${o.reason || ''}`;
+      if (o.status === 'PENDING') return `  ⏳ BUY ${o.symbol} 조건부 진입 대기 중: ${o.reason || ''}`;
       if (o.status !== 'FILLED') return `  ⏸️ ${o.symbol} HOLD (미집행)`;
       // 체결됨 → 이 결정 이후 같은 종목이 청산됐는지 확인
       const closedAfter = trips.filter(t => t.symbol === o.symbol && new Date(t.sellDate).getTime() >= decidedMs - 3600_000);

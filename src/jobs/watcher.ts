@@ -127,7 +127,8 @@ export async function syncPendingFills(): Promise<void> {
 export function effectiveStopLoss(position: Position): number | undefined {
   const stored = position.stop_loss;
   if (process.env.TRAIL_AFTER_TP1 === 'false') return stored;
-  if (!position.tp1_done || !(position.avg_cost > 0)) return stored;
+  // 보호 대상: TP1 이후 잔량, 또는 만료선(+2%)을 통과해 계속 보유 중인 포지션 (규칙서 10번)
+  if (!(position.tp1_done || position.expiry_trail) || !(position.avg_cost > 0)) return stored;
 
   // 고점 대비 −5% (2026-09-29 −7%에서 조정). 실측 7건에서 TP1 이후 추가 상승은 보통 +2~3%p라,
   // −7%는 고점에서 내려올 때 아무것도 붙잡지 못하고 평단+2% 바닥선까지 미끄러졌다
@@ -136,8 +137,9 @@ export function effectiveStopLoss(position: Position): number | undefined {
   const dropPct = parseFloat(process.env.TRAIL_PEAK_DROP_PCT || '') || 5;
   const floorGainPct = parseFloat(process.env.TRAIL_FLOOR_GAIN_PCT || '') || 2;
 
-  // 고점 기록이 없으면 TP1 가격을 하한 추정치로 쓴다 — TP1이 체결됐다면 가격은 최소 그만큼 갔다
-  const peak = Math.max(position.peak_price ?? 0, position.take_profit_1 ?? 0);
+  // 고점 기록이 없으면 TP1 가격을 하한 추정치로 쓴다 — TP1이 체결됐다면 가격은 최소 그만큼 갔다.
+  // 만료 트레일링은 TP1에 닿지 않은 상태라 TP1을 고점으로 쓰면 현재가 위에 보호선이 생겨 즉시 매도된다.
+  const peak = Math.max(position.peak_price ?? 0, position.tp1_done ? (position.take_profit_1 ?? 0) : 0);
   const trail = peak > 0 ? peak * (1 - dropPct / 100) : 0;
   const breakeven = position.avg_cost * (1 + floorGainPct / 100);
   const floor = Math.round(Math.max(trail, breakeven) * 100) / 100;
@@ -256,6 +258,47 @@ export function judgePreCutoffExit(position: Position, price: number, bufferPct:
 }
 
 /**
+ * 만료일 통과 판정 (순수 함수) — 규칙서 10번
+ *
+ * 만료일 = 진입일 다음 거래일부터 센 N번째 거래일(기본 10). 그날 종가가 평단 +2% 이상이면
+ * 정리하지 않고 트레일링 보호(max(고점 −5%, 평단 +2%))로 계속 보유한다.
+ * TP2 2건 중 CRWD(+15.3%)는 진입 11거래일째, 즉 만료 다음 날 도달했다 — 이익 중인 포지션을
+ * 만료로 자르면 이런 꼬리를 잃는다. 10거래일 만료가 통과 시 처리를 정하지 않아 Manager가
+ * 2회 연속 회고로 넘긴 공백을 메운다 (2026-10-24 사용자 승인).
+ * 미달(+2% 미만) 정리는 지금처럼 Manager가 집행한다 — 여기서는 '통과'만 판정한다.
+ *
+ * @param candles 일봉 (날짜·종가)
+ * @param openedAt 진입 시각 ISO
+ * @param sessionStart 진행 중 세션 시작 epoch ms (오늘 봉 제외 기준)
+ * @param avgCost 평단
+ * @returns 통과면 { expiryClose, peakClose }, 미도래·미달이면 null
+ */
+export function judgeExpiryPassed(
+  candles: Array<{ date: string; close: number }>,
+  openedAt: string,
+  sessionStart: number,
+  avgCost: number
+): { expiryClose: number; peakClose: number } | null {
+  const days = parseInt(process.env.EXPIRY_TRADING_DAYS || '', 10) || 10;
+  const floorGainPct = parseFloat(process.env.TRAIL_FLOOR_GAIN_PCT || '') || 2;
+  if (!(avgCost > 0) || !openedAt) return null;
+  const usDay = (v: string | number) => new Date(v).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const entryDay = usDay(openedAt);
+  const today = usDay(sessionStart);
+  const after = candles
+    .filter(c => { const d = usDay(c.date); return d > entryDay && d < today && c.close > 0; })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  if (after.length < days) return null;              // 만료일 종가가 아직 없음
+  const expiryClose = after[days - 1].close;
+  if (expiryClose < avgCost * (1 + floorGainPct / 100)) return null; // 미달 → Manager가 정리
+  return { expiryClose, peakClose: Math.max(...after.map(c => c.close)) };
+}
+
+/** 만료 통과 판정을 이번 세션에 이미 한 종목 (세션당 1회만 일봉 조회) */
+const expiryChecked = new Set<string>();
+let expiryCheckedSession = 0;
+
+/**
  * 전체 OPEN 포지션 1회 점검 — 조건 도달 시 매도 주문
  * - 정규장이 아니면 아무것도 하지 않는다
  */
@@ -278,6 +321,10 @@ export async function checkPositionsOnce(): Promise<void> {
     fractionalWarnedSession = session.start;
     fractionalWarned.clear();
     preCutoffExited.clear();
+  }
+  if (expiryCheckedSession !== session.start) {
+    expiryCheckedSession = session.start;
+    expiryChecked.clear();
   }
 
   // 체결 정착 재확인 — 직전 매도의 reconcile이 너무 일렀을 수 있으므로 유예 후 1회 더 맞춘다.
@@ -311,6 +358,27 @@ export async function checkPositionsOnce(): Promise<void> {
     const price = prices[position.symbol];
     if (!price) continue;
 
+    // 만료 통과 판정 (세션당 1회) — 통과하면 트레일링 보호로 전환하고 진입 후 종가 고점을 채운다
+    // (10거래일은 최소 13일 이상 걸리므로 그 전에는 일봉을 조회하지 않는다)
+    const heldMs = now - new Date(position.opened_at).getTime();
+    if (!position.tp1_done && !position.expiry_trail && heldMs >= 13 * 86400_000 && !expiryChecked.has(position.symbol)) {
+      expiryChecked.add(position.symbol);
+      try {
+        const candles = await getCandles(position.symbol, '1d', 40);
+        const passed = judgeExpiryPassed(candles, position.opened_at, session.start, position.avg_cost);
+        if (passed) {
+          position.expiry_trail = true;
+          position.peak_price = Math.max(position.peak_price ?? 0, passed.peakClose);
+          position.peak_backfilled = true;
+          await updatePosition(position.symbol, { expiry_trail: true, peak_price: position.peak_price, peak_backfilled: true });
+          console.log(`🛡️ ${position.symbol} 만료선 통과 (만료일 종가 $${passed.expiryClose} ≥ 평단+2%) — 트레일링 보호로 계속 보유, 보호선 $${effectiveStopLoss(position)}`);
+        }
+      } catch (e: any) {
+        expiryChecked.delete(position.symbol); // 다음 틱 재시도
+        console.warn(`⚠️ ${position.symbol} 만료 통과 판정 실패 (다음 틱 재시도):`, e.message);
+      }
+    }
+
     // 고점 보충 (포지션당 1회) — 감시기는 트레일링을 넣은 2026-09-27부터 고점을 기록해서,
     // 그 전에 찍은 고점이 빠져 있었다 (OKTA: 9/24 종가 $206.64 → 기록 $199.06).
     // 진입 이후 일봉 '종가' 최고치로 채운다. 장중 고가 대신 종가를 쓰는 이유: 순간 체결
@@ -336,9 +404,9 @@ export async function checkPositionsOnce(): Promise<void> {
       }
     }
 
-    // TP1 이후 고점 갱신 — 트레일링 보호선(effectiveStopLoss)의 기준.
+    // TP1 이후(또는 만료 트레일링 중) 고점 갱신 — 트레일링 보호선(effectiveStopLoss)의 기준.
     // 올라갈 때만 기록하므로 파일 쓰기는 신고가일 때만 일어난다.
-    if (position.tp1_done && price > (position.peak_price ?? 0)) {
+    if ((position.tp1_done || position.expiry_trail) && price > (position.peak_price ?? 0)) {
       const before = effectiveStopLoss(position);
       position.peak_price = price;
       await updatePosition(position.symbol, { peak_price: price });

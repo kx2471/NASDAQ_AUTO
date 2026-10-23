@@ -1,6 +1,10 @@
 import { ManagerDecision, DecisionItem, ExecutionOutcome } from './decision';
 import { executeBuy, executeSell, TradeResult, getMaxOrderUsd, getRemainingDailyBuyUsd } from './trading';
-import { isUsRegularSessionOpen, getSellableQuantity, getPrices } from './toss';
+import { isUsRegularSessionOpen, getSellableQuantity, getPrices, getActiveRegularSession } from './toss';
+import {
+  PendingEntry, isEntryTriggerEnabled, getPreviousClose, resolveTrigger, shouldFireEntry,
+  addPendingEntry, getPendingEntries, removePendingEntry, updatePendingOutcome
+} from './entryTrigger';
 
 /**
  * Manager 결정 집행기 (Phase 3)
@@ -17,6 +21,7 @@ export interface ExecutionSummary {
   executed: TradeResult[];   // 주문 성공 (dry-run 포함)
   failed: TradeResult[];     // 가드레일 거부/오류
   skipped: string[];         // HOLD 등 집행 대상 아님
+  pending: PendingEntry[];   // 조건부 진입 대기 (현재가 > 전일 종가)
 }
 
 /**
@@ -39,7 +44,7 @@ export async function waitForRegularSession(maxWaitMinutes: number = 90): Promis
  * BUY 결정 1건 집행
  * - amount(금액 주문, 소수점 매수) 우선, 없으면 qty 사용
  */
-async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
+export async function executeBuyDecision(item: DecisionItem): Promise<TradeResult> {
   // 금액(amount) 주문은 토스 스펙상 MARKET 전용 — LLM이 LIMIT+amount 조합을 내면
   // 주문을 거부(기회 상실)하는 대신 금액 의도를 우선해 MARKET으로 보정한다
   // 소수점 수량 매수는 토스 미지원(매도 전용) — 거부하지 말고 금액 주문으로 환산한다.
@@ -202,7 +207,7 @@ async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
  * @returns 집행 요약
  */
 export async function executeDecision(decision: ManagerDecision): Promise<ExecutionSummary> {
-  const summary: ExecutionSummary = { executed: [], failed: [], skipped: [] };
+  const summary: ExecutionSummary = { executed: [], failed: [], skipped: [], pending: [] };
 
   const sells = decision.actions.filter(a => a.action === 'SELL');
   const buys = decision.actions.filter(a => a.action === 'BUY');
@@ -253,13 +258,118 @@ export async function executeDecision(decision: ManagerDecision): Promise<Execut
     await new Promise(r => setTimeout(r, 15 * 1000));
   }
 
-  // 3) 매수
+  // 3) 매수 — 조건부 진입: 현재가가 전일 종가 이하일 때만 즉시, 아니면 대기 목록으로
+  const session = buys.length > 0 && isEntryTriggerEnabled() ? await getActiveRegularSession() : null;
   for (const item of buys) {
+    if (session) {
+      try {
+        const prevClose = await getPreviousClose(item.symbol, session.start);
+        const price = (await getPrices([item.symbol]))[item.symbol];
+        if (prevClose && price) {
+          const trigger = resolveTrigger(item, prevClose);
+          if (!shouldFireEntry(price, trigger.price)) {
+            const entry: PendingEntry = {
+              report_id: decision.report_id,
+              item,
+              trigger_price: trigger.price,
+              trigger_basis: trigger.basis,
+              session_start: session.start,
+              expires_at: session.end - 60 * 60 * 1000, // 소수점 주문 마감 = 장 마감 1시간 전
+              created_at: new Date().toISOString()
+            };
+            await addPendingEntry(entry);
+            summary.pending.push(entry);
+            console.log(`⏳ BUY ${item.symbol} 조건부 대기: 현재가 $${price} > 기준 $${trigger.price} (${trigger.basis === 'prev_close' ? '전일 종가' : '지정가'}) — 마감 1시간 전까지 감시`);
+            continue;
+          }
+          console.log(`🎯 BUY ${item.symbol} 진입 조건 충족: 현재가 $${price} ≤ 기준 $${trigger.price} — 즉시 매수`);
+        } else {
+          // 기준가를 못 구하면 조건을 판정할 수 없다 — 매수를 통째로 잃는 대신 예전 방식(즉시)으로 집행
+          console.warn(`⚠️ BUY ${item.symbol} 전일 종가/현재가 조회 실패 — 조건 없이 즉시 집행`);
+        }
+      } catch (e: any) {
+        console.warn(`⚠️ BUY ${item.symbol} 진입 조건 판정 오류 — 조건 없이 즉시 집행:`, e.message);
+      }
+    }
     await runOne(item);
   }
 
-  console.log(`🎯 결정 집행 완료: 성공 ${summary.executed.length} / 거부·실패 ${summary.failed.length} / 건너뜀 ${summary.skipped.length}`);
+  console.log(`🎯 결정 집행 완료: 성공 ${summary.executed.length} / 거부·실패 ${summary.failed.length} / 대기 ${summary.pending.length} / 건너뜀 ${summary.skipped.length}`);
   return summary;
+}
+
+/**
+ * 조건부 진입 대기 목록 1회 처리 (감시기가 정규장 중 매분 호출)
+ *
+ * - 세션이 바뀌었거나 소수점 마감을 지난 대기 → 만료(EXPIRED)로 결과 기록
+ * - 이미 보유 중이거나 동시보유 상한이면 → 만료 (규칙서 12번: 최대 3종)
+ * - 현재가 ≤ 기준가 → 결정 금액 그대로 매수 (가드레일은 executeBuyDecision → executeOrder가 그대로 적용)
+ * @param session 진행 중인 정규장 세션
+ * @param now 기준 시각
+ * @param openSymbols 현재 보유 종목 심볼 목록
+ * @param maxPositions 동시보유 상한
+ * @returns 실주문 체결이 있었던 대기 목록 (호출자가 포지션 동기화에 사용)
+ */
+export async function processPendingEntries(
+  session: { start: number; end: number },
+  now: number,
+  openSymbols: string[],
+  maxPositions: number
+): Promise<PendingEntry[]> {
+  const all = await getPendingEntries();
+  if (all.length === 0) return [];
+
+  const filled: PendingEntry[] = [];
+  const expire = async (e: PendingEntry, reason: string) => {
+    await removePendingEntry(e.report_id, e.item.symbol);
+    await updatePendingOutcome(e.report_id, { symbol: e.item.symbol, action: 'BUY', status: 'EXPIRED', reason }, false);
+    console.log(`⌛ BUY ${e.item.symbol} 조건부 진입 만료 — ${reason}`);
+  };
+
+  const live: PendingEntry[] = [];
+  for (const e of all) {
+    if (e.session_start !== session.start || now >= e.expires_at) {
+      await expire(e, `마감 1시간 전까지 현재가가 기준 $${e.trigger_price}(${e.trigger_basis === 'prev_close' ? '전일 종가' : '지정가'}) 이하로 오지 않아 미체결`);
+    } else if (openSymbols.includes(e.item.symbol)) {
+      await expire(e, '이미 보유 중인 종목');
+    } else {
+      live.push(e);
+    }
+  }
+  if (live.length === 0) return [];
+
+  const prices = await getPrices(live.map(e => e.item.symbol));
+  let held = openSymbols.length;
+  for (const e of live) {
+    const price = prices[e.item.symbol];
+    if (!price || !shouldFireEntry(price, e.trigger_price)) continue;
+    if (held >= maxPositions) {
+      await expire(e, `동시보유 상한 ${maxPositions}종 도달`);
+      continue;
+    }
+
+    console.log(`🎯 BUY ${e.item.symbol} 조건 도달: 현재가 $${price} ≤ 기준 $${e.trigger_price} — 매수 집행`);
+    // 목록에서 먼저 빼서 다음 틱의 이중 매수를 막는다 (주문 결과와 무관하게 이 대기는 소진)
+    await removePendingEntry(e.report_id, e.item.symbol);
+    let result: TradeResult;
+    try {
+      result = await executeBuyDecision(e.item);
+    } catch (err: any) {
+      result = { success: false, dryRun: false, symbol: e.item.symbol, side: 'BUY', error: err.message };
+    }
+    if (result.success) {
+      console.log(`✅ BUY ${e.item.symbol} ${result.dryRun ? '[DRY-RUN]' : `주문번호 ${result.orderId}`} (조건부 진입)`);
+      await updatePendingOutcome(e.report_id, {
+        symbol: e.item.symbol, action: 'BUY', status: 'FILLED',
+        filled_qty: result.qty, filled_price: result.price ?? result.estimatedNotional
+      }, !result.dryRun);
+      if (!result.dryRun) { filled.push(e); held++; }
+    } else {
+      console.warn(`⚠️ BUY ${e.item.symbol} 조건부 진입 거부: ${result.error}`);
+      await updatePendingOutcome(e.report_id, { symbol: e.item.symbol, action: 'BUY', status: 'REJECTED', reason: result.error }, false);
+    }
+  }
+  return filled;
 }
 
 /**
@@ -283,6 +393,12 @@ export function buildExecutionOutcomes(
   }
   for (const r of summary.failed) {
     outcomes.push({ symbol: r.symbol, action: r.side as any, status: 'REJECTED', reason: r.error });
+  }
+  for (const e of summary.pending) {
+    outcomes.push({
+      symbol: e.item.symbol, action: 'BUY', status: 'PENDING',
+      reason: `조건부 진입 대기: 기준 $${e.trigger_price}(${e.trigger_basis === 'prev_close' ? '전일 종가' : '지정가'}) 이하 도달 시 매수, 마감 1시간 전 만료`
+    });
   }
   // HOLD 등 집행 대상 아님 (summary.skipped는 "SYMBOL (HOLD)" 문자열)
   for (const s of summary.skipped) {

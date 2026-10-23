@@ -88,7 +88,8 @@ export async function runWeeklyReview(): Promise<string | null> {
     }
 
     console.log(`📆 주간 전략 회고 시작... (${model})`);
-    const [ledger, trajectory, outcomes, journal, playbook, rationales, windowFacts] = await Promise.all([
+    const { buildEntryQuality } = await import('./entryQuality');
+    const [ledger, trajectory, outcomes, journal, playbook, rationales, windowFacts, entryQuality] = await Promise.all([
       buildRealizedLedger().catch(() => '조회 실패'),
       buildPerformanceTrajectory().catch(() => '조회 실패'),
       buildDecisionOutcomes().catch(() => '조회 실패'),
@@ -96,6 +97,7 @@ export async function runWeeklyReview(): Promise<string | null> {
       readPlaybook().catch(() => '조회 실패'),
       buildDecisionRationales(8).catch(() => '조회 실패'),
       buildTradingWindowFacts().catch(() => '조회 실패'),
+      buildEntryQuality().catch(() => '조회 실패'),
     ]);
 
     const userContext = [
@@ -105,6 +107,7 @@ export async function runWeeklyReview(): Promise<string | null> {
       // 규칙 준수 감사용 증거 — 근거 원문과 확정 사실이 있어야 자기 정당화를 검증할 수 있다
       '\n## 📝 이번 주 결정 로그 (근거 원문 — 규칙 준수 감사의 1차 증거)', rationales,
       '\n## 📅 매매 창 확정 사실 (시스템 계산값 — 감사 시 이 숫자를 기준으로 판정하라)', windowFacts,
+      '\n## 🎯 진입 품질 (최근 8주 — 추격폭·진입 직후 실패·MAE/MFE·셋업별. 진입 규칙을 고칠 때 이 숫자를 근거로 써라)', entryQuality,
       '\n## 🧠 누적 의사결정 저널 (검증 대상)', journal,
       '\n## 🎯 현재 매매 규칙서 (이걸 재작성하라 — 없으면 새로 세워라)', playbook,
     ].join('\n');

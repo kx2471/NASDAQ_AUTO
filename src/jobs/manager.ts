@@ -129,9 +129,11 @@ export async function runManager(reportIdSuffix: string = ''): Promise<void> {
                 } catch (e) {
                   console.warn('⚠️ 집행 후 정착 재확인 실패 (다음 사이클 시작 시 재동기화됨):', (e as Error).message);
                 }
-              } else if (summary.failed.length > 0) {
+              } else if (summary.failed.length > 0 || summary.pending.length > 0) {
+                // 조건부 대기(PENDING)도 기록해야 감시기가 체결 시 FILLED/만료 시 EXPIRED로 바꿀 자리가 생기고,
+                // 체결 동기화(syncPendingFills)가 미체결 대기 종목을 매분 재조회하지 않는다.
                 await saveExecutionOutcomes(reportId, outcomes);
-                console.warn(`⚠️ 체결 0건 — 거부·실패 ${summary.failed.length}건을 결과로 기록 (다음 사이클 Manager 입력)`);
+                console.warn(`⚠️ 체결 0건 — 거부·실패 ${summary.failed.length}건 · 조건부 대기 ${summary.pending.length}건을 결과로 기록`);
               }
             } else {
               console.warn('⚠️ 정규장이 90분 내에 열리지 않아 결정 집행을 건너뜁니다 (휴장일 가능성).');

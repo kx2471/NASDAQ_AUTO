@@ -36,7 +36,8 @@ export interface DecisionItem {
 export interface ExecutionOutcome {
   symbol: string;
   action: DecisionAction;
-  status: 'FILLED' | 'REJECTED' | 'SKIPPED';  // 체결(주문접수) / 거부 / 건너뜀(HOLD)
+  // 체결(주문접수) / 거부 / 건너뜀(HOLD) / 조건부 진입 대기(전일 종가 이하 대기) / 대기 만료(조건 미도달)
+  status: 'FILLED' | 'REJECTED' | 'SKIPPED' | 'PENDING' | 'EXPIRED';
   reason?: string;         // 거부 사유 등
   filled_qty?: number;     // 접수 수량 (클램프·보정 후 실제)
   filled_price?: number;   // 추정 체결가 (감사 기록 기준)
