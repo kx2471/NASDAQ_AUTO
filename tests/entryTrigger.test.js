@@ -7,7 +7,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { previousCloseBefore, resolveTrigger, shouldFireEntry } = require('../dist/services/entryTrigger');
+const { previousCloseBefore, lastConfirmedClose, resolveTrigger, shouldFireEntry } = require('../dist/services/entryTrigger');
 const { judgeExpiryPassed, effectiveStopLoss } = require('../dist/jobs/watcher');
 
 // 미국 정규장 09:30 ET = 13:30Z (서머타임)
@@ -32,6 +32,20 @@ describe('전일 종가 (previousCloseBefore)', () => {
   });
   test('봉이 없으면 undefined', () => {
     assert.equal(previousCloseBefore([], session('2026-10-23')), undefined);
+  });
+});
+
+describe('마지막 확정 종가 (lastConfirmedClose)', () => {
+  test('장전(KST 21:55 = ET 08:55) 기준이면 직전 거래일 종가와 미국 날짜를 준다', () => {
+    const candles = [
+      { date: '2026-10-22T22:30:00+09:00', close: 440 },
+      { date: '2026-10-23T22:30:00+09:00', close: 448.1 }
+    ];
+    const preOpen = new Date('2026-10-26T21:55:00+09:00').getTime(); // 월요일 장전
+    assert.deepEqual(lastConfirmedClose(candles, preOpen), { date: '2026-10-23', close: 448.1 });
+  });
+  test('봉이 없으면 undefined', () => {
+    assert.equal(lastConfirmedClose([], Date.now()), undefined);
   });
 });
 

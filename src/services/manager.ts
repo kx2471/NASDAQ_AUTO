@@ -198,7 +198,11 @@ async function getCurrentPortfolioData(): Promise<any> {
     // opened_at으로 보유 일수를 계산해 "며칠째 보유 중인지"까지 전달한다.
     const planBySymbol = new Map(positions.map((p: any) => [p.symbol, p]));
     const now = Date.now();
-    const enriched = holdings.map(h => {
+    // 마지막 확정 정규장 종가 — 장전 현재가는 프리마켓 가격이라 만료(종가) 판정에 쓸 수 없다.
+    // 조회 실패는 null로 두고 진행한다 (판단 보조 정보라 파이프라인을 막지 않는다).
+    const { getLastConfirmedClose } = await import('./entryTrigger');
+    const lastCloses = await Promise.all(holdings.map(h => getLastConfirmedClose(h.symbol, now)));
+    const enriched = holdings.map((h, i) => {
       const plan: any = planBySymbol.get(h.symbol) || {};
       const heldDays = plan.opened_at
         ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000))
@@ -208,6 +212,7 @@ async function getCurrentPortfolioData(): Promise<any> {
         shares: h.shares,
         avg_cost: h.avg_cost,
         currency: h.currency,
+        last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료·종가 판정 기준
         opened_at: plan.opened_at || null,
         held_days: heldDays,             // 보유 일수 (없으면 null)
         stop_loss: plan.stop_loss ?? null,

@@ -57,11 +57,26 @@ export function previousCloseBefore(
   candles: Array<{ date: string; close: number }>,
   sessionStart: number
 ): number | undefined {
-  const today = usDay(sessionStart);
+  return lastConfirmedClose(candles, sessionStart)?.close;
+}
+
+/**
+ * 기준 시각의 미국 날짜 이전 마지막 확정 종가와 그 날짜 (순수 함수)
+ * - 만료 판정처럼 "어느 날 종가인지"까지 필요한 곳에서 쓴다.
+ * @param candles 일봉 (순서 무관)
+ * @param at 기준 시각 epoch ms (이 미국 날짜의 봉은 진행 중으로 보고 제외)
+ * @returns { date: 미국 날짜 YYYY-MM-DD, close } 또는 undefined
+ */
+export function lastConfirmedClose(
+  candles: Array<{ date: string; close: number }>,
+  at: number
+): { date: string; close: number } | undefined {
+  const today = usDay(at);
   const prior = candles
     .filter(c => usDay(c.date) < today && c.close > 0)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  return prior.length ? prior[prior.length - 1].close : undefined;
+  const last = prior[prior.length - 1];
+  return last ? { date: usDay(last.date), close: last.close } : undefined;
 }
 
 /**
@@ -97,6 +112,21 @@ export function shouldFireEntry(price: number, trigger: number): boolean {
 export async function getPreviousClose(symbol: string, sessionStart: number): Promise<number | undefined> {
   const candles = await getCandles(symbol, '1d', 5);
   return previousCloseBefore(candles, sessionStart);
+}
+
+/**
+ * 보유 종목의 마지막 확정 정규장 종가 조회 (Manager 입력용)
+ * @param symbol 종목
+ * @param at 기준 시각 epoch ms (기본 지금)
+ * @returns { date, close } 또는 undefined (조회 실패 포함)
+ */
+export async function getLastConfirmedClose(symbol: string, at: number = Date.now()): Promise<{ date: string; close: number } | undefined> {
+  try {
+    const candles = await getCandles(symbol, '1d', 5);
+    return lastConfirmedClose(candles, at);
+  } catch {
+    return undefined;
+  }
 }
 
 /** 대기 목록 전체 조회 */
