@@ -202,6 +202,9 @@ async function getCurrentPortfolioData(): Promise<any> {
     // 조회 실패는 null로 두고 진행한다 (판단 보조 정보라 파이프라인을 막지 않는다).
     const { getLastConfirmedClose } = await import('./entryTrigger');
     const lastCloses = await Promise.all(holdings.map(h => getLastConfirmedClose(h.symbol, now)));
+    // 감시기가 실제로 쓰는 보호스톱 — 저장된 stop_loss는 트레일링 하한일 뿐이라, 이것 없이는
+    // Manager가 낡은 스톱·고점으로 거리를 계산한다 (10/27 ISRG: 실제 $435.58 vs 보고 $429.68)
+    const { effectiveStopLoss } = await import('../jobs/watcher');
     const enriched = holdings.map((h, i) => {
       const plan: any = planBySymbol.get(h.symbol) || {};
       const heldDays = plan.opened_at
@@ -218,6 +221,8 @@ async function getCurrentPortfolioData(): Promise<any> {
         stop_loss: plan.stop_loss ?? null,
         take_profit_1: plan.take_profit_1 ?? null,
         take_profit_2: plan.take_profit_2 ?? null,
+        peak_price: plan.peak_price ?? null,   // 감시기 기록 고점 (트레일링 기준, 장중 시세로 갱신)
+        effective_stop_loss: plan.symbol ? (effectiveStopLoss(plan) ?? null) : null, // 감시기가 실제로 집행하는 손절선
         tp1_done: plan.tp1_done ?? false,
         expiry_trail: plan.expiry_trail ?? false, // 만료선 통과 → 감시기 트레일링 보호로 보유 중 (규칙10, 정리 대상 아님)
         time_horizon: plan.time_horizon || null,
