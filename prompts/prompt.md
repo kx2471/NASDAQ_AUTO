@@ -11,7 +11,7 @@
 ## 데이터 참조 방법
 
 user 메시지의 JSON 페이로드에서:
-- **보유 종목**: `portfolio.holdings[]` — symbol(종목코드), shares(수량), avg_cost(평단가)
+- **보유 종목**: `portfolio.holdings[]` — symbol(종목코드), shares(수량), avg_cost(평단가), `last_close`(마지막 확정 종가와 미국 날짜 — 만료·조기경보 판정은 이것으로), `effective_stop_loss`·`peak_price`(감시기가 실제로 집행 중인 보호스톱과 그 고점 — 스톱 값·거리는 이것을 그대로 쓰고 직접 재계산하지 마라)
 - **현재가**: `currentPrices[symbol]` 또는 `indicators[symbol].close`
 - **기술지표**: `indicators[symbol]` — rsi14, ema20, ema50 (일부 누락 가능 — 있는 지표만으로 판단하고, 전무하면 가격·뉴스로 대체 분석하되 보수적으로)
 - **스크리닝 결과**: `screening_results[]` — 전시장 스크리닝을 통과한 상위 후보들 (momentum_score, technical_score, overall_score, reason, **avg_dollar_volume**(20일 평균 거래대금 USD) 포함)

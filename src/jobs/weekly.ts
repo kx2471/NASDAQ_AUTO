@@ -259,18 +259,27 @@ async function prepareWeeklyReportPayload(params: {
   const positions = await getOpenPositions().catch(() => []);
   const planBySymbol = new Map(positions.map((p: any) => [p.symbol, p]));
   const now = Date.now();
+  // Manager 입력과 같은 보조 필드 — 2026-10-28 두 에이전트가 감시기가 이미 올린 ISRG 보호스톱($435.58)을
+  // 모르고 옛 값 $429.68을 반복해 Manager가 매번 정정해야 했다.
+  const { getLastConfirmedClose } = await import('../services/entryTrigger');
+  const { effectiveStopLoss } = await import('./watcher');
+  const lastCloses = await Promise.all(holdings.map(h => getLastConfirmedClose(h.symbol, now)));
   const portfolio = {
     cash_usd: cashBalance,
-    holdings: holdings.map(h => {
+    holdings: holdings.map((h, i) => {
       const plan: any = planBySymbol.get(h.symbol) || {};
       return {
         ...h,
+        last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료·조기경보 판정 기준
         opened_at: plan.opened_at || null,
         held_days: plan.opened_at ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000)) : null,
         stop_loss: plan.stop_loss ?? null,
+        peak_price: plan.peak_price ?? null, // 감시기 기록 고점
+        effective_stop_loss: plan.symbol ? (effectiveStopLoss(plan) ?? null) : null, // 감시기가 실제로 집행하는 손절선
         take_profit_1: plan.take_profit_1 ?? null,
         take_profit_2: plan.take_profit_2 ?? null,
         tp1_done: plan.tp1_done ?? false,
+        expiry_trail: plan.expiry_trail ?? false,
         time_horizon: plan.time_horizon || null,
       };
     })
