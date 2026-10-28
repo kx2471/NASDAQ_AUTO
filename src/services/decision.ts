@@ -40,7 +40,8 @@ export interface ExecutionOutcome {
   status: 'FILLED' | 'REJECTED' | 'SKIPPED' | 'PENDING' | 'EXPIRED';
   reason?: string;         // 거부 사유 등
   filled_qty?: number;     // 접수 수량 (클램프·보정 후 실제)
-  filled_price?: number;   // 추정 체결가 (감사 기록 기준)
+  filled_price?: number;   // 추정 체결가 (감사 기록 기준, 주당 가격 — 금액 주문이면 없음)
+  filled_notional?: number; // 추정 주문 금액 (USD)
 }
 
 /** Manager 한 사이클의 전체 결정 */

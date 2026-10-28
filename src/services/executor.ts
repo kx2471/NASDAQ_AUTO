@@ -361,7 +361,7 @@ export async function processPendingEntries(
       console.log(`✅ BUY ${e.item.symbol} ${result.dryRun ? '[DRY-RUN]' : `주문번호 ${result.orderId}`} (조건부 진입)`);
       await updatePendingOutcome(e.report_id, {
         symbol: e.item.symbol, action: 'BUY', status: 'FILLED',
-        filled_qty: result.qty, filled_price: result.price ?? result.estimatedNotional
+        filled_qty: result.qty, filled_price: result.price, filled_notional: result.estimatedNotional
       }, !result.dryRun);
       if (!result.dryRun) { filled.push(e); held++; }
     } else {
@@ -388,7 +388,7 @@ export function buildExecutionOutcomes(
   for (const r of summary.executed) {
     outcomes.push({
       symbol: r.symbol, action: r.side as any, status: 'FILLED',
-      filled_qty: r.qty, filled_price: r.price ?? r.estimatedNotional
+      filled_qty: r.qty, filled_price: r.price, filled_notional: r.estimatedNotional
     });
   }
   for (const r of summary.failed) {
