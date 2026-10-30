@@ -270,7 +270,7 @@ async function prepareWeeklyReportPayload(params: {
       const plan: any = planBySymbol.get(h.symbol) || {};
       return {
         ...h,
-        last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료·조기경보 판정 기준
+        last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료 판정 기준 (조기경보는 판정 시점 현재가, 규칙서 11)
         opened_at: plan.opened_at || null,
         held_days: plan.opened_at ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000)) : null,
         stop_loss: plan.stop_loss ?? null,
