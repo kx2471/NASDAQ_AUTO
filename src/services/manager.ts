@@ -556,8 +556,26 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       }
     })();
 
+    // 에이전트가 BUY로 올린 후보의 전일 확정 종가.
+    // 조건부 진입은 전일 종가를 기준가로 쓰는데 Manager 입력엔 보유 종목 가격만 있어,
+    // 2026-11-03 EL 결정이 "전일 종가 미제공으로 지정가 기준 임시값"으로 SL·TP를 잡았다.
+    // 메모의 "- **SYM ...** BUY" 줄에서 심볼을 뽑아 최대 6개만 조회한다 (토스 429 회피).
+    const candidateCloses = await (async () => {
+      try {
+        const memos = `${payload.agent_reports?.agent_gpt || ''}\n${payload.agent_reports?.agent_claude || ''}`;
+        const symbols = [...new Set([...memos.matchAll(/\*\*([A-Z][A-Z.]{0,5})\b[^*\n]*\*\*\s*BUY/g)].map(m => m[1]))].slice(0, 6);
+        if (symbols.length === 0) return '(BUY 후보 없음)';
+        const { getLastConfirmedClose } = await import('./entryTrigger');
+        const closes = await Promise.all(symbols.map(s => getLastConfirmedClose(s)));
+        return symbols.map((s, i) => closes[i] ? `${s}=${closes[i]!.close}(${closes[i]!.date})` : `${s}=조회 실패`).join(', ');
+      } catch {
+        return '(조회 실패)';
+      }
+    })();
+
     const processedPrompt = prompt
       .replace(/{screen_setups}/g, screenSetups)
+      .replace(/{candidate_closes}/g, candidateCloses)
       .replace(/{gpt_strategy}/g, gptData.strategy)
       .replace(/{claude_strategy}/g, claudeData.strategy)
       .replace(/{gpt_recommendations}/g, gptData.recommendations)
