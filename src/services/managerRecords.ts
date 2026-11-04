@@ -568,7 +568,7 @@ export async function buildTradingWindowFacts(): Promise<string> {
     `오늘: ${kstDate(now)}(${kstWd(now)}, KST 기준) · 이번 주 시작: ${monday}(Mon)`,
     dailyLine,
     restrictedLine,
-    `**이번 주 매수 집행 ${weekBuys.length}건** — 규칙3(주간 상한) 판정은 이 숫자를 그대로 쓸 것:`,
+    `**이번 주 매수 집행 ${weekBuys.length}건** — 주간 매수 건수가 필요한 판단에는 이 숫자를 그대로 쓸 것 (11/01 규칙서 3은 주간 상한이 아니라 배분 규칙):`,
     list,
     `주문·체결 타이밍(확정 사실, 추론하지 말 것):`,
     `  - 이 시스템은 **정규장 개장 시각에 주문을 전송**하고 주문은 **같은 세션에 즉시 체결**된다.`,

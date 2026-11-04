@@ -102,6 +102,7 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     // 통합 기술지표 계산
     console.log('📊 주간 기술지표 계산 중...');
     const indicatorsData = await calculateIndicators(pricesData);
+    attachLastClose(indicatorsData, pricesData, Date.now());
     
     // 통합 뉴스 수집 (주간이므로 더 많은 뉴스)
     console.log('📰 주간 뉴스 수집 중...');
@@ -377,6 +378,25 @@ async function prepareWeeklyReportPayload(params: {
     tradingSession: params.tradingSession,
     report_type: 'weekly' // 주간 리포트 표시
   };
+}
+
+/**
+ * 각 종목 지표에 last_close(마지막 확정 정규장 종가와 미국 날짜)를 붙인다 — 추가 토스 호출 없음
+ * - 계기: 2026-11-04 Agent_Claude가 indicators.close(진행 중 봉의 현재가 $65.00)를 '종가'로 적어
+ *   확정 종가 $63.83 기준 EMA20 이탈을 가렸다 (4사이클 반복). 진입 기준가는 전일 확정 종가다.
+ * - PriceData.date는 YYYY-MM-DD(미국 거래일)라 Date로 파싱하면 UTC 자정→뉴욕 전날로 밀린다. 문자열로 비교한다.
+ * @param indicators calculateIndicators 결과 (제자리 수정)
+ * @param pricesData 날짜 오름차순 일봉
+ * @param at 기준 시각 epoch ms — 이 미국 날짜의 봉은 진행 중으로 보고 제외
+ */
+export function attachLastClose(indicators: Record<string, any>, pricesData: Record<string, Array<{ date: string; close: number }>>, at: number): void {
+  const today = new Date(at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  for (const [symbol, prices] of Object.entries(pricesData)) {
+    if (!indicators[symbol] || !Array.isArray(prices)) continue;
+    const prior = prices.filter(p => p.date.slice(0, 10) < today && p.close > 0);
+    const last = prior[prior.length - 1];
+    indicators[symbol].last_close = last ? { date: last.date.slice(0, 10), close: last.close } : null;
+  }
 }
 
 /**
