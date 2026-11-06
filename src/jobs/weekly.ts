@@ -262,7 +262,7 @@ async function prepareWeeklyReportPayload(params: {
   const now = Date.now();
   // Manager 입력과 같은 보조 필드 — 2026-10-28 두 에이전트가 감시기가 이미 올린 ISRG 보호스톱($435.58)을
   // 모르고 옛 값 $429.68을 반복해 Manager가 매번 정정해야 했다.
-  const { getLastConfirmedClose } = await import('../services/entryTrigger');
+  const { getLastConfirmedClose, heldSessions } = await import('../services/entryTrigger');
   const { effectiveStopLoss } = await import('./watcher');
   const lastCloses = await Promise.all(holdings.map(h => getLastConfirmedClose(h.symbol, now)));
   const portfolio = {
@@ -274,6 +274,7 @@ async function prepareWeeklyReportPayload(params: {
         last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료 판정 기준 (조기경보는 판정 시점 현재가, 규칙서 11)
         opened_at: plan.opened_at || null,
         held_days: plan.opened_at ? Math.max(0, Math.floor((now - new Date(plan.opened_at).getTime()) / 86400000)) : null,
+        held_sessions: heldSessions(plan.opened_at, now), // 체결 후 경과 미국 세션 수 — 규칙서 11 '보유 3일'은 이것 ≥ 3
         stop_loss: plan.stop_loss ?? null,
         peak_price: plan.peak_price ?? null, // 감시기 기록 고점
         effective_stop_loss: plan.symbol ? (effectiveStopLoss(plan) ?? null) : null, // 감시기가 실제로 집행하는 손절선

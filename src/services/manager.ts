@@ -205,6 +205,7 @@ async function getCurrentPortfolioData(): Promise<any> {
     // 감시기가 실제로 쓰는 보호스톱 — 저장된 stop_loss는 트레일링 하한일 뿐이라, 이것 없이는
     // Manager가 낡은 스톱·고점으로 거리를 계산한다 (10/27 ISRG: 실제 $435.58 vs 보고 $429.68)
     const { effectiveStopLoss } = await import('../jobs/watcher');
+    const { heldSessions } = await import('./entryTrigger');
     const enriched = holdings.map((h, i) => {
       const plan: any = planBySymbol.get(h.symbol) || {};
       const heldDays = plan.opened_at
@@ -218,6 +219,7 @@ async function getCurrentPortfolioData(): Promise<any> {
         last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료·종가 판정 기준
         opened_at: plan.opened_at || null,
         held_days: heldDays,             // 보유 일수 (없으면 null)
+        held_sessions: heldSessions(plan.opened_at, now), // 체결 후 경과 미국 세션 수 — 규칙서 11 '보유 3일'은 이것 ≥ 3
         stop_loss: plan.stop_loss ?? null,
         take_profit_1: plan.take_profit_1 ?? null,
         take_profit_2: plan.take_profit_2 ?? null,

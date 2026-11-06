@@ -47,6 +47,31 @@ function usDay(ms: number | string): string {
 }
 
 /**
+ * 체결 이후 경과한 미국 거래 세션 수 (순수 함수, 체결 세션은 0)
+ * - 규칙서 11 '보유 3일 이후'는 세션 기준이다(11/03 체결 → 11/06 세션부터). 24시간 단위
+ *   held_days(11/06 장전 2일)와 어긋나 2026-11-06 GPT가 LDOS를 "보유 2일로 조기경보 대상 아님"이라 적었다.
+ * - 평일만 센다(미국 공휴일은 무시 — 공휴일이 끼면 1 크게 나온다).
+ * @param openedAt 체결 시각 (ISO 또는 epoch ms)
+ * @param at 기준 시각 epoch ms
+ * @returns 경과 세션 수, 입력이 없으면 null
+ */
+export function heldSessions(openedAt: string | number | null | undefined, at: number): number | null {
+  if (!openedAt) return null;
+  const from = usDay(openedAt);
+  const to = usDay(at);
+  let n = 0;
+  const d = new Date(`${from}T12:00:00Z`);
+  for (let i = 0; i < 400; i++) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const ds = d.toISOString().slice(0, 10);
+    if (ds > to) break;
+    const wd = d.getUTCDay();
+    if (wd !== 0 && wd !== 6) n++;
+  }
+  return n;
+}
+
+/**
  * 일봉 목록에서 '이번 세션 이전 마지막 종가'를 고른다 (순수 함수)
  * - 장중에는 오늘 봉(진행 중)이 섞여 오므로 미국 날짜로 오늘 봉을 제외한다.
  * @param candles 일봉 (순서 무관)
