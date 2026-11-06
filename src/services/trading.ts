@@ -162,6 +162,11 @@ function fail(order: TradeOrder, error: string): TradeResult {
  */
 export async function executeOrder(order: TradeOrder): Promise<TradeResult> {
   try {
+    // 0. 사용자 수동 보유 종목은 어떤 경로로도 주문하지 않는다 (MANUAL_SYMBOLS, 2026-11-07 SOXL)
+    const { isManualSymbol } = await import('./manualHoldings');
+    if (isManualSymbol(order.symbol)) {
+      return fail(order, `${order.symbol.toUpperCase()}은(는) 사용자 수동 보유 종목입니다 (MANUAL_SYMBOLS) — 자동매매 주문 금지.`);
+    }
     if (!isTossEnabled()) {
       return fail(order, '토스 API가 설정되지 않았습니다 (.env TOSS_API_KEY/TOSS_SECRET_KEY).');
     }

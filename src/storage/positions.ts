@@ -139,7 +139,10 @@ async function deriveOpenedAt(symbol: string): Promise<string | null> {
  * @returns 동기화된 전체 포지션
  */
 export async function reconcileWithToss(): Promise<Position[]> {
-  const holdings: Holding[] = await getHoldings(); // 토스 실계좌 전용 (폴백 없음, 실패 시 throw)
+  const { splitHoldings } = await import('../services/manualHoldings');
+  // 토스 실계좌 전용 (폴백 없음, 실패 시 throw). 사용자 수동 보유(MANUAL_SYMBOLS)는 포지션으로 만들지 않는다 —
+  // 감시기가 손절·익절을 걸 수 없게 (2026-11-07 SOXL)
+  const holdings: Holding[] = splitHoldings(await getHoldings()).managed;
   // 파일 락: 토스 조회(네트워크)는 락 밖에서, positions 읽기-병합-쓰기만 임계 구역으로
   return db.withLock(POSITIONS_FILE, async () => {
   const existing = await getPositions();

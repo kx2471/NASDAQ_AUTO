@@ -204,9 +204,11 @@ async function getCashRatio(): Promise<number> {
   const { getBuyingPower, getHoldings, getPrices, getOpenOrders, getExchangeRate } =
     await import('../services/toss');
 
-  const [cash, holdings, openOrders] = await Promise.all([
+  const [cash, allHoldings, openOrders] = await Promise.all([
     getBuyingPower('USD'), getHoldings(), getOpenOrders().catch(() => [])
   ]);
+  const { splitHoldings } = await import('../services/manualHoldings');
+  const holdings = splitHoldings(allHoldings).managed; // 사용자 수동 보유는 자동매매 자산이 아니다
 
   let holdingsUsd = 0;
   if (holdings.length > 0) {

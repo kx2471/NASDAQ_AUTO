@@ -187,12 +187,15 @@ async function loadAgentReports(): Promise<{
 async function getCurrentPortfolioData(): Promise<any> {
   try {
     const { getOpenPositions } = await import('../storage/positions');
-    const [holdings, cashBalance, exchangeRate, positions] = await Promise.all([
+    const [allHoldings, cashBalance, exchangeRate, positions] = await Promise.all([
       getHoldings(),
       getCashBalance(),
       getCachedExchangeRate(),
       getOpenPositions().catch(() => [])  // 계획 정보 (진입시각·SL/TP·근거)
     ]);
+    // 사용자 수동 보유(MANUAL_SYMBOLS)는 판단 대상에서 뺀다 — 슬롯·비중·규칙12 축소 오판 방지 (2026-11-07 SOXL)
+    const { splitHoldings, manualHoldingsNote } = await import('./manualHoldings');
+    const { managed: holdings, manual } = splitHoldings(allHoldings);
 
     // 토스 보유(진실)에 앱 계획(의도)을 병합 — Manager가 보유 맥락으로 판단하도록.
     // opened_at으로 보유 일수를 계산해 "며칠째 보유 중인지"까지 전달한다.
@@ -236,7 +239,8 @@ async function getCurrentPortfolioData(): Promise<any> {
     return {
       holdings: enriched,
       cash_usd: cashBalance,
-      exchange_rate: exchangeRate
+      exchange_rate: exchangeRate,
+      manual_holdings_note: manualHoldingsNote(manual)
     };
   } catch (error) {
     console.error('❌ 포트폴리오 데이터 수집 실패:', error);
@@ -249,11 +253,13 @@ async function getCurrentPortfolioData(): Promise<any> {
  */
 async function getCurrentPerformanceData(): Promise<any> {
   try {
-    const [holdings, cashBalance, exchangeRate] = await Promise.all([
+    const [allHoldings, cashBalance, exchangeRate] = await Promise.all([
       getHoldings(),
       getCashBalance(),
       getCachedExchangeRate()
     ]);
+    const { splitHoldings } = await import('./manualHoldings');
+    const holdings = splitHoldings(allHoldings).managed; // 사용자 수동 보유 제외 (자동매매 성과·비중만)
 
     // 보유 종목의 실시간 가격 수집
     const { fetchDailyPrices } = await import('./market');
@@ -582,7 +588,7 @@ async function generateManagerReportDirectly(prompt: string, payload: any): Prom
       .replace(/{claude_strategy}/g, claudeData.strategy)
       .replace(/{gpt_recommendations}/g, gptData.recommendations)
       .replace(/{claude_recommendations}/g, claudeData.recommendations)
-      .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []))
+      .replace(/{portfolio}/g, JSON.stringify(payload.portfolio?.holdings || []) + (payload.portfolio?.manual_holdings_note ? `\n⚠️ ${payload.portfolio.manual_holdings_note}` : ''))
       .replace(/{currentPrices}/g, JSON.stringify(currentPrices))
       .replace(/{exchange_rate}/g, exchangeRateValue);
 

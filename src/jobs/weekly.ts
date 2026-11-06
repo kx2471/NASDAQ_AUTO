@@ -89,7 +89,8 @@ export async function processWeeklyAgentReports(sectors: any, screeningResults: 
     // 보유 종목도 지표·뉴스 대상에 넣는다. 스크리닝에서 빠진 보유 종목은 지표 없이
     // 에이전트에 넘어가 "지표 데이터가 없어 가격만으로 판단"하게 됐다 (2026-10-12 ISRG).
     // 보유 조회는 토스 실시간 — 실패하면 폴백 없이 사이클이 실패한다(원칙 1).
-    const holdingsForReport = await getHoldings();
+    const { splitHoldings } = await import('../services/manualHoldings');
+    const holdingsForReport = splitHoldings(await getHoldings()).managed; // 사용자 수동 보유 제외
     const holdingSymbols = holdingsForReport.map(h => h.symbol);
     // 보유 종목을 앞에 둔다 — 뉴스는 종목 순서대로 돌아가며 섞이고 에이전트는 앞 20건만 받는다.
     const symbolsArray = Array.from(new Set<string>([...holdingSymbols, ...allSymbols]));
@@ -247,11 +248,14 @@ async function prepareWeeklyReportPayload(params: {
   const { allSectors, symbols, indicatorsData, newsData, screeningResults = [] } = params;
   
   // 실제 포트폴리오 데이터 및 실시간 환율 조회
-  const [holdings, cashBalance, exchangeRate] = await Promise.all([
+  const [allHoldings, cashBalance, exchangeRate] = await Promise.all([
     getHoldings(),
     getCashBalance(),
     getCachedExchangeRate()
   ]);
+  // 사용자 수동 보유(MANUAL_SYMBOLS)는 에이전트 판단 대상에서 뺀다 (2026-11-07 SOXL)
+  const { splitHoldings, manualHoldingsNote } = await import('../services/manualHoldings');
+  const { managed: holdings, manual } = splitHoldings(allHoldings);
 
   // 토스 보유(진실)에 앱 계획(진입시각·SL/TP)을 붙인다 — Manager 입력과 같은 방식.
   // 계기: 2026-10-15 GPT가 "보유 3거래일 경과 여부가 없어 조기경보 확인 불가"라고 썼다.
@@ -267,6 +271,7 @@ async function prepareWeeklyReportPayload(params: {
   const lastCloses = await Promise.all(holdings.map(h => getLastConfirmedClose(h.symbol, now)));
   const portfolio = {
     cash_usd: cashBalance,
+    manual_holdings_note: manualHoldingsNote(manual),
     holdings: holdings.map((h, i) => {
       const plan: any = planBySymbol.get(h.symbol) || {};
       return {
