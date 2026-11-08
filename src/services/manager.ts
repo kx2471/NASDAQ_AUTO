@@ -222,7 +222,7 @@ async function getCurrentPortfolioData(): Promise<any> {
         last_close: lastCloses[i] ?? null, // { date(미국), close } 마지막 확정 정규장 종가 — 만료·종가 판정 기준
         opened_at: plan.opened_at || null,
         held_days: heldDays,             // 보유 일수 (없으면 null)
-        held_sessions: heldSessions(plan.opened_at, now), // 체결 후 경과 미국 세션 수 — 규칙서 11 '보유 3일'은 이것 ≥ 3
+        held_sessions: heldSessions(plan.opened_at, now), // 체결 후 경과 미국 세션 수 — 규칙서 조기경보 '보유 3일'은 이것 ≥ 3
         stop_loss: plan.stop_loss ?? null,
         take_profit_1: plan.take_profit_1 ?? null,
         take_profit_2: plan.take_profit_2 ?? null,
