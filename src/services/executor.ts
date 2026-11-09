@@ -165,9 +165,9 @@ export async function executeBuyDecision(item: DecisionItem): Promise<TradeResul
 
 /**
  * SELL 결정 1건 집행
- * - qty 미지정 시 매도 가능 수량 전량
+ * - qty 우선, 없고 amount(USD)가 있으면 기준가로 수량 환산, 둘 다 없을 때만 전량
  */
-async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
+export async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
   const sellable = await getSellableQuantity(item.symbol);
   if (sellable <= 0) {
     return {
@@ -176,9 +176,25 @@ async function executeSellDecision(item: DecisionItem): Promise<TradeResult> {
     };
   }
 
+  // 금액 지정 부분 매도(규칙 '초과분 축소' 등) — amount를 무시하면 전량 매도가 된다
+  // (2026-11-09 사고: EL amount 2.94 축소 의도가 qty 미지정 → 전량 $58.5 매도).
+  // 환산 실패 시 전량으로 폴백하지 않고 거부한다 — 부분 의도를 전량으로 키우는 쪽이 더 위험.
+  let fromAmount: number | undefined;
+  if (item.qty === undefined && item.amount !== undefined) {
+    const ref = item.limit_price ?? (await getPrices([item.symbol]))[item.symbol];
+    if (!ref || ref <= 0 || !(item.amount > 0)) {
+      return {
+        success: false, dryRun: false, symbol: item.symbol, side: 'SELL',
+        error: `금액 매도 $${item.amount}를 수량으로 환산할 기준가를 얻지 못해 거부합니다 (전량 매도로 대체하지 않음).`
+      };
+    }
+    fromAmount = Math.floor((item.amount / ref) * 1e6) / 1e6;
+    console.log(`💱 ${item.symbol}: 금액 매도 $${item.amount} → ${fromAmount}주 (기준가 $${ref})`);
+  }
+
   // Manager가 수량을 지정했으면 매도가능수량으로 클램프 — LLM이 보유량을
-  // 과대 추정해도 매도 의도 자체(청산)는 살린다. 미지정이면 전량.
-  let qty = item.qty ?? sellable;
+  // 과대 추정해도 매도 의도 자체(청산)는 살린다. 수량·금액 모두 미지정이면 전량.
+  let qty = item.qty ?? fromAmount ?? sellable;
   if (qty > sellable) {
     console.warn(`⚠️ ${item.symbol}: 결정 수량 ${qty} > 매도가능 ${sellable} — 가능 수량으로 조정`);
     qty = sellable;
