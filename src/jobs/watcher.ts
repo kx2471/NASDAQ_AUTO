@@ -4,6 +4,7 @@ import { getOpenPositions, updatePosition, reconcileWithToss, applyDecisionToPos
 import { getPrices, getActiveRegularSession, getSellableQuantity, getCandles } from '../services/toss';
 import { executeSell } from '../services/trading';
 import { ManagerDecision } from '../services/decision';
+import { heldSessions } from '../services/entryTrigger';
 
 /**
  * SL/TP 실시간 감시자 (정규장 전용)
@@ -124,7 +125,38 @@ export async function syncPendingFills(): Promise<void> {
  * @param position TP1 여부·평단·고점·저장된 SL
  * @returns 실제 적용할 손절가 (보호 대상이 아니면 저장된 SL 그대로)
  */
-export function effectiveStopLoss(position: Position): number | undefined {
+export function effectiveStopLoss(position: Position, at: number = Date.now()): number | undefined {
+  const base = trailingStopLoss(position);
+  const ew = earlyWarningLine(position, at);
+  if (ew === undefined) return base;
+  return base !== undefined && base >= ew ? base : ew;
+}
+
+/**
+ * 조기경보선 — 보유 3세션 이후 평단 −5% (순수 함수).
+ *
+ * 규칙서 조기경보 규칙("보유 3일 이후 −5% 이하면 즉시 청산")은 Manager 결정 시점(하루 최대 3회)에만
+ * 판정돼, 결정 사이에 선을 뚫어도 다음 결정까지 방치됐다. 2026-11-13 LDOS는 장중 −5.20%까지 내려갔다가
+ * 결정 입력가가 선 위(+$0.08)라 미발동 → Manager가 SL을 경보선으로 올려 감시기에 넘겼지만,
+ * 11/14 CRL(경보선 −1.39%)에서는 같은 처리를 하지 않았다. 기계적 조건이라 감시기가 매분 직접 집행한다.
+ * 판정 시점의 장전가 판정은 Manager가 그대로 하고, 이건 정규장 중 추가 안전장치다.
+ *
+ * @param position 평단·진입 시각·TP1 여부
+ * @param at 판정 시각(ms)
+ * @returns 적용 중인 조기경보선 (미적용이면 undefined)
+ */
+export function earlyWarningLine(position: Position, at: number): number | undefined {
+  if (process.env.EARLY_WARNING_REALTIME === 'false') return undefined;
+  // TP1 이후 잔량은 트레일링 보호(평단+2% 이상)가 이미 더 높다
+  if (position.tp1_done || !(position.avg_cost > 0)) return undefined;
+  const held = heldSessions(position.opened_at, at);
+  if (held === null || held < 3) return undefined;
+  const pct = parseFloat(process.env.EARLY_WARNING_PCT || '') || 5;
+  return Math.round(position.avg_cost * (1 - pct / 100) * 100) / 100;
+}
+
+/** TP1 이후·만료선 통과 포지션의 트레일링 보호선 (조기경보 제외) */
+function trailingStopLoss(position: Position): number | undefined {
   const stored = position.stop_loss;
   if (process.env.TRAIL_AFTER_TP1 === 'false') return stored;
   // 보호 대상: TP1 이후 잔량, 또는 만료선(+2%)을 통과해 계속 보유 중인 포지션 (규칙서 10번)
@@ -177,14 +209,17 @@ export function judge(position: Position, price: number):
   // TP1 이후에는 트레일링 보호선이 저장된 SL보다 높으면 그걸 쓴다 (effectiveStopLoss)
   const sl = effectiveStopLoss(position);
   if (sl && price <= sl) {
-    const trailed = sl !== position.stop_loss;
+    const ew = earlyWarningLine(position, Date.now());
+    const kind = sl === position.stop_loss ? 'stored' : (ew !== undefined && sl === ew ? 'early' : 'trail');
     return {
       type: 'STOP_LOSS',
       qty: position.shares,
       // '손절'로 시작해야 원장이 청산 사유를 손절발동으로 분류한다 (managerRecords.classifyExit)
-      reason: trailed
-        ? `손절(트레일링): 현재가 $${price} ≤ 보호선 $${sl} — TP1 후 max(고점−7%, 평단+2%)`
-        : `손절: 현재가 $${price} ≤ SL $${sl}`
+      reason: kind === 'early'
+        ? `손절(조기경보): 현재가 $${price} ≤ 경보선 $${sl} — 보유 3세션 이후 평단 −5%`
+        : kind === 'trail'
+          ? `손절(트레일링): 현재가 $${price} ≤ 보호선 $${sl} — TP1 후 max(고점−5%, 평단+2%)`
+          : `손절: 현재가 $${price} ≤ SL $${sl}`
     };
   }
 
@@ -239,8 +274,9 @@ export function judge(position: Position, price: number):
 export function judgePreCutoffExit(position: Position, price: number, bufferPct: number):
   { type: 'STOP_LOSS'; qty: number; reason: string } | null {
 
-  // judge()와 같은 손절선을 봐야 한다 — TP1 이후엔 트레일링 보호선
-  const sl = effectiveStopLoss(position);
+  // TP1 이후엔 트레일링 보호선. 조기경보선은 제외한다 — 경보선 +2% 이내(평단 −3%대)를
+  // 선제 청산하면 규칙에 없는 −3% 손절이 된다. 밤사이 경보선 아래로 가면 다음 장전 Manager가 판정한다.
+  const sl = trailingStopLoss(position);
   if (!sl || sl <= 0) return null;
   if (Number.isInteger(position.shares)) return null;  // 정수 포지션은 마감까지 매도 가능 — 서두를 이유 없음
   if (price <= sl) return null;                        // 이미 손절선 아래 = judge()가 정규 손절로 처리
