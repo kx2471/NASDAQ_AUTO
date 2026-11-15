@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+> 🛑 **2026-11-15 프로젝트 중지됨** (사용자 지시). 서버 disable, `.env` 3중 잠금(`TOSS_DRY_RUN=true`·`ENABLE_SCHEDULER=false`·`AUTO_EXECUTE_DECISION=false`).
+> 재시작 전에 반드시 [docs/RESTART.md](docs/RESTART.md) → [docs/LESSONS.md](docs/LESSONS.md) → [docs/RULES_FINAL.md](docs/RULES_FINAL.md) 순서로 읽을 것. 잠금 해제는 사용자 지시로만.
+
 이 파일은 Claude Code (claude.ai/code)가 이 저장소의 코드로 작업할 때 지침을 제공합니다.
 
 ## 프로젝트 개요
